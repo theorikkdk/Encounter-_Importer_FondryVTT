@@ -3678,9 +3678,7 @@ Hooks.once("ready", () => {
         };
 
         if (countOnlySlotScaling) {
-          // Prevent per-shot damage scaling on upcast for count-only multi-shot spells.
-          baseUsage.scaling = false;
-          baseUsage.consume = foundry.utils.mergeObject(baseUsage.consume ?? {}, { scaling: false }, { inplace: false });
+          // Keep normal cast-level dialog on the base cast; only sanitize stored activity damage scaling.
           await enforceCountOnlyDamageScaling(item, [multiMeta?.baseActivityId, multiMeta?.extraActivityId]);
         }
 
