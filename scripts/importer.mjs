@@ -5591,14 +5591,13 @@ const addDelayedDamageActivity = () => {
 
     if (isMagicMissile && multi > 1) {
       // Activity A: per dart (recommended when splitting missiles)
-      const validDamageTypes = new Set(["acid","bludgeoning","cold","fire","force","lightning","necrotic","piercing","poison","psychic","radiant","slashing","thunder"]);
-      const mmRawType = String(dmg?.dtype ?? "").trim().toLowerCase();
-      const mmMappedType = mapDamageTypeFRToEN(mmRawType) ?? mmRawType;
+      // Build Magic Missile damage from canonical RAW values (not parser-dependent),
+      // so exported activity JSON always contains a complete base damage part.
       const mmBase = {
-        number: Number(dmg?.number ?? 1) || 1,
-        denom: Number(dmg?.denom ?? 4) || 4,
-        bonus: (dmg?.bonus == null || String(dmg.bonus).trim() === "") ? "1" : String(dmg.bonus),
-        dtype: validDamageTypes.has(mmMappedType) ? mmMappedType : "force"
+        number: 1,
+        denom: 4,
+        bonus: "+1",
+        dtype: "force"
       };
       act.name = isMidi ? "midi missile" : (wantsFR ? "Fléchette" : "Dart");
       act.target = act.target ?? { template: { count:"", contiguous:false, type:"", size:"", width:"", height:"", units:"ft" }, affects: { count:"", type:"", choice:false, special:"" }, prompt:true, override:false };
