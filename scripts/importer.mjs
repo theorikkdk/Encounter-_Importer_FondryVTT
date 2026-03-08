@@ -5438,6 +5438,12 @@ const addDelayedDamageActivity = () => {
         itemObj.flags ??= {};
         itemObj.flags["encounterplus-importer"] ??= {};
 
+        if (extraShotsPerLevel > 0) {
+          // Count-only upcast (e.g. Scorching Ray): slot level adds shots, not damage per shot.
+          disableActivityDamageScaling(act);
+          disableActivityDamageScaling(extra);
+        }
+
         if (isBeamScalingCantrip) {
           __beamExtraActivityId = String(extraId);
           itemObj.flags["encounterplus-importer"].beamCantrip = {
@@ -5460,7 +5466,8 @@ const addDelayedDamageActivity = () => {
           countMode: isBeamScalingCantrip ? "cantrip-thresholds" : "fixed",
           slotScaling: extraShotsPerLevel > 0 ? {
             baseLevel: slotScalingBaseLevel,
-            perLevel: extraShotsPerLevel
+            perLevel: extraShotsPerLevel,
+            countOnly: true
           } : null,
           promptLabel: wantsFR ? "rayon" : "shot"
         };
@@ -5591,7 +5598,8 @@ const addDelayedDamageActivity = () => {
         countMode: "fixed",
         slotScaling: {
           baseLevel: Number(sys.level ?? 1) || 1,
-          perLevel: 1
+          perLevel: 1,
+          countOnly: true
         },
         promptLabel: wantsFR ? "projectile" : "missile"
       };

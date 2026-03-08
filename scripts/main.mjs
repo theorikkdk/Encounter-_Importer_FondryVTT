@@ -3229,7 +3229,8 @@ function epiGetMultiAttackMeta(item) {
       thresholds: Array.isArray(meta0.thresholds) && meta0.thresholds.length ? meta0.thresholds.map(n => Number(n) || 0) : [1, 5, 11, 17],
       slotScaling: meta0?.slotScaling ? {
         baseLevel: Number(meta0?.slotScaling?.baseLevel ?? item?.system?.level ?? 0) || 0,
-        perLevel: Number(meta0?.slotScaling?.perLevel ?? 0) || 0
+        perLevel: Number(meta0?.slotScaling?.perLevel ?? 0) || 0,
+        countOnly: !!meta0?.slotScaling?.countOnly
       } : null,
       promptLabel: String(meta0.promptLabel ?? "rayon")
     };
@@ -3273,7 +3274,8 @@ function epiGetMultiAttackMeta(item) {
         thresholds: [],
         slotScaling: {
           baseLevel: Math.max(2, Number(item?.system?.level ?? 2) || 2),
-          perLevel: 1
+          perLevel: 1,
+          countOnly: true
         },
         promptLabel: "rayon"
       };
@@ -3290,7 +3292,8 @@ function epiGetMultiAttackMeta(item) {
         thresholds: [],
         slotScaling: {
           baseLevel: Math.max(1, Number(item?.system?.level ?? 1) || 1),
-          perLevel: 1
+          perLevel: 1,
+          countOnly: true
         },
         promptLabel: "projectile"
       };
@@ -3636,6 +3639,19 @@ Hooks.once("ready", () => {
           activityId: String(baseDoc?._id ?? baseDoc?.id ?? ""),
           activity: baseDoc ?? String(baseDoc?._id ?? baseDoc?.id ?? "")
         }, { inplace: false });
+
+        const countOnlySlotScaling = !!(
+          Number(multiMeta?.slotScaling?.perLevel ?? 0) > 0
+          && (
+            !!multiMeta?.slotScaling?.countOnly
+            || /rayon-ardent|scorching-ray|projectile-magique|magic-missile/i.test(String(multiMeta?.slug ?? ""))
+            || /rayon\s+ardent|scorching\s+ray|projectile\s+magique|magic\s+missile/i.test(String(item?.name ?? ""))
+          )
+        );
+        if (countOnlySlotScaling) {
+          // Prevent per-shot damage scaling on upcast for count-only multi-shot spells.
+          baseUsage.scaling = false;
+        }
 
         const snapshotSpellSlots = (actor) => {
           const out = {};
