@@ -3644,6 +3644,8 @@ Hooks.once("ready", () => {
               const key = `spell${lvl}`;
               out[key] = Number(actor?.system?.spells?.[key]?.value ?? 0) || 0;
             }
+            out.pactValue = Number(actor?.system?.spells?.pact?.value ?? 0) || 0;
+            out.pactLevel = Number(actor?.system?.spells?.pact?.level ?? 0) || 0;
           } catch (_e) {}
           return out;
         };
@@ -3657,11 +3659,57 @@ Hooks.once("ready", () => {
               // dnd5e tracks remaining slots in `.value`; spending a slot decreases it.
               if (a < b) return lvl;
             }
+            const pactBefore = Number(before?.pactValue ?? 0) || 0;
+            const pactAfter = Number(after?.pactValue ?? 0) || 0;
+            const pactLevel = Number(after?.pactLevel ?? before?.pactLevel ?? 0) || 0;
+            if (pactAfter < pactBefore && pactLevel > 0) return pactLevel;
           } catch (_e) {}
           return null;
         };
 
-        const detectSpentSlotLevel = async (actor, before, attempts = 6, waitMs = 120) => {
+        const inferCastLevelFromArgs = (arr = [], minLevel = 1) => {
+          const seen = new Set();
+          const toNum = (v) => {
+            const n = Number(v);
+            return Number.isFinite(n) ? n : null;
+          };
+          const walk = (obj, depth = 0) => {
+            if (!obj || depth > 4) return null;
+            if (typeof obj !== 'object') return null;
+            if (seen.has(obj)) return null;
+            seen.add(obj);
+
+            const direct = [
+              obj.castLevel, obj.spellLevel, obj.slotLevel, obj.level,
+              obj?.spell?.castLevel, obj?.spell?.level, obj?.spell?.slot,
+              obj?.castData?.castLevel, obj?.castData?.slotLevel,
+              obj?.workflow?.castData?.castLevel, obj?.workflow?.castData?.slotLevel,
+              obj?.workflowOptions?.castLevel, obj?.midiOptions?.workflowOptions?.castLevel
+            ];
+            for (const v of direct) {
+              const n = toNum(v);
+              if (n && n >= minLevel && n <= 9) return n;
+              const s = String(v ?? '').toLowerCase();
+              if (/^spell\d+$/.test(s)) {
+                const sn = Number(s.replace('spell', ''));
+                if (sn >= minLevel && sn <= 9) return sn;
+              }
+            }
+
+            for (const val of Object.values(obj)) {
+              const n = walk(val, depth + 1);
+              if (n) return n;
+            }
+            return null;
+          };
+          for (const a of arr) {
+            const n = walk(a, 0);
+            if (n) return n;
+          }
+          return null;
+        };
+
+        const detectSpentSlotLevel = async (actor, before, attempts = 10, waitMs = 150) => {
           let latest = snapshotSpellSlots(actor);
           let lvl = inferCastLevelFromSlotDelta(before, latest);
           if (lvl) return lvl;
@@ -3683,6 +3731,14 @@ Hooks.once("ready", () => {
         // poll briefly so upcast-dependent multi-shot counts (e.g. Magic Missile) are correct.
         const inferredSlotLevel = await detectSpentSlotLevel(item?.actor, beforeSlots);
         if (inferredSlotLevel) baseUsage.__epiDetectedSlotLevel = inferredSlotLevel;
+
+        // Fallback: some workflows never expose slot spend synchronously on actor data.
+        // Try to recover an explicit cast/slot level from wrapper args/result payloads.
+        if (!baseUsage.__epiDetectedSlotLevel) {
+          const minLevel = Math.max(1, Number(item?.system?.level ?? 1) || 1);
+          const fromArgs = inferCastLevelFromArgs([opts0, args[1], args[2], result], minLevel);
+          if (fromArgs) baseUsage.__epiDetectedSlotLevel = fromArgs;
+        }
 
         const multiCount = epiGetMultiAttackCount(item, baseUsage, multiMeta, result);
         for (let shotIndex = 2; shotIndex <= multiCount; shotIndex += 1) {
