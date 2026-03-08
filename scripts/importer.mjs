@@ -1889,9 +1889,20 @@ function disableActivityDamageScaling(activity) {
     for (const part of parts) {
       part.scaling = { mode: "", number: 0, formula: "" };
     }
-    if (activity?.consumption?.scaling) activity.consumption.scaling.allowed = false;
   } catch (e) {
     log("disableActivityDamageScaling failed", e);
+  }
+}
+
+function ensureActivitySlotLevelChoice(activity) {
+  try {
+    activity.consumption = activity.consumption ?? { targets: [], scaling: { allowed: true, max: "" }, spellSlot: true };
+    activity.consumption.spellSlot = true;
+    activity.consumption.scaling = activity.consumption.scaling ?? { allowed: true, max: "" };
+    activity.consumption.scaling.allowed = true;
+    if (activity.consumption.scaling.max == null) activity.consumption.scaling.max = "";
+  } catch (e) {
+    log("ensureActivitySlotLevelChoice failed", e);
   }
 }
 
@@ -5339,8 +5350,10 @@ const addDelayedDamageActivity = () => {
         custom: { enabled: false, formula: "" },
         scaling: { mode: "whole", number: 1, formula: "" }
       }];
-      if ((isBeamScalingCantrip && scaling?.kind === "cantrip") || isCountOnlyMultiShotSpell) disableActivityDamageScaling(act);
-      else applyScalingToActivityDamage(act, scaling);
+      if ((isBeamScalingCantrip && scaling?.kind === "cantrip") || isCountOnlyMultiShotSpell) {
+        disableActivityDamageScaling(act);
+        if (isCountOnlyMultiShotSpell && Number(multiShotCountScaling?.perLevel ?? 0) > 0) ensureActivitySlotLevelChoice(act);
+      } else applyScalingToActivityDamage(act, scaling);
       act.description.chatFlavor = `JS ${saveAb.toUpperCase()} · ${dmg.number}d${dmg.denom} ${dmg.dtype}${halfOnSave ? " (moitié si réussite)" : ""}`;
     } else {
       act.description.chatFlavor = `JS ${saveAb.toUpperCase()}`;
@@ -5418,8 +5431,10 @@ const addDelayedDamageActivity = () => {
         custom: { enabled: false, formula: "" },
         scaling: { mode: "whole", number: 1, formula: "" }
       }];
-      if ((isBeamScalingCantrip && scaling?.kind === "cantrip") || isCountOnlyMultiShotSpell) disableActivityDamageScaling(act);
-      else applyScalingToActivityDamage(act, scaling);
+      if ((isBeamScalingCantrip && scaling?.kind === "cantrip") || isCountOnlyMultiShotSpell) {
+        disableActivityDamageScaling(act);
+        if (isCountOnlyMultiShotSpell && Number(multiShotCountScaling?.perLevel ?? 0) > 0) ensureActivitySlotLevelChoice(act);
+      } else applyScalingToActivityDamage(act, scaling);
       act.description.chatFlavor = `${atk.actionType.toUpperCase()} · ${dmg.number}d${dmg.denom} ${dmg.dtype}`;
     } else {
       act.description.chatFlavor = `${atk.actionType.toUpperCase()}`;
@@ -5591,6 +5606,7 @@ const addDelayedDamageActivity = () => {
         scaling: { mode: "whole", number: 0, formula: "" }
       }];
       act.description.chatFlavor = `1d${dmg.denom}${dmg.bonus ? (String(dmg.bonus).startsWith("@") ? `+${dmg.bonus}` : `+${dmg.bonus}`) : ""} ${dmg.dtype}`;
+      ensureActivitySlotLevelChoice(act);
 
       // Activity B: extra dart for sequential resolution / retargeting
       const extraId = deriveSiblingId(baseId, ["x","X","1","2","3","4","5","6","7","8","9","a","b","c","d","e","f"]);
