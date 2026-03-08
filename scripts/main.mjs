@@ -3364,6 +3364,7 @@ function epiGetCastLevelFromUsage(item, usage = {}, result = null) {
   const raw = Number(
     usage?.spellLevel ??
     usage?.castLevel ??
+    usage?.__epiDetectedSlotLevel ??
     usage?.level ??
     usage?.slotLevel ??
     usage?.spell?.level ??
@@ -3633,8 +3634,37 @@ Hooks.once("ready", () => {
           activityId: String(baseDoc?._id ?? baseDoc?.id ?? ""),
           activity: baseDoc ?? String(baseDoc?._id ?? baseDoc?.id ?? "")
         }, { inplace: false });
+
+        const snapshotSpellSlots = (actor) => {
+          const out = {};
+          try {
+            for (let lvl = 1; lvl <= 9; lvl += 1) {
+              const key = `spell${lvl}`;
+              out[key] = Number(actor?.system?.spells?.[key]?.value ?? 0) || 0;
+            }
+          } catch (_e) {}
+          return out;
+        };
+
+        const inferCastLevelFromSlotDelta = (before, after) => {
+          try {
+            for (let lvl = 9; lvl >= 1; lvl -= 1) {
+              const key = `spell${lvl}`;
+              const b = Number(before?.[key] ?? 0) || 0;
+              const a = Number(after?.[key] ?? 0) || 0;
+              // dnd5e tracks remaining slots in `.value`; spending a slot decreases it.
+              if (a < b) return lvl;
+            }
+          } catch (_e) {}
+          return null;
+        };
+
+        const beforeSlots = snapshotSpellSlots(item?.actor);
         const baseArgs = [baseUsage, ...args.slice(1)];
         const result = await wrapped(...baseArgs);
+        const afterSlots = snapshotSpellSlots(item?.actor);
+        const inferredSlotLevel = inferCastLevelFromSlotDelta(beforeSlots, afterSlots);
+        if (inferredSlotLevel) baseUsage.__epiDetectedSlotLevel = inferredSlotLevel;
 
         const multiCount = epiGetMultiAttackCount(item, baseUsage, multiMeta, result);
         for (let shotIndex = 2; shotIndex <= multiCount; shotIndex += 1) {
