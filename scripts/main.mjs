@@ -3372,9 +3372,11 @@ function epiGetCastLevelFromUsage(item, usage = {}, result = null) {
     parseSlot(usage?.spell?.slot) ??
     usage?.midiOptions?.workflowOptions?.castLevel ??
     result?.castData?.castLevel ??
+    result?.castData?.slotLevel ??
     result?.castData?.baseLevel ??
     result?.castLevel ??
     result?.workflow?.castData?.castLevel ??
+    result?.workflow?.castData?.slotLevel ??
     result?.workflow?.castData?.baseLevel ??
     result?.workflow?.workflowOptions?.castLevel ??
     result?.workflow?.options?.castLevel ??
@@ -3659,11 +3661,27 @@ Hooks.once("ready", () => {
           return null;
         };
 
+        const detectSpentSlotLevel = async (actor, before, attempts = 6, waitMs = 120) => {
+          let latest = snapshotSpellSlots(actor);
+          let lvl = inferCastLevelFromSlotDelta(before, latest);
+          if (lvl) return lvl;
+
+          for (let i = 0; i < attempts; i += 1) {
+            try { await new Promise(resolve => setTimeout(resolve, waitMs)); } catch (_e) {}
+            latest = snapshotSpellSlots(actor);
+            lvl = inferCastLevelFromSlotDelta(before, latest);
+            if (lvl) return lvl;
+          }
+          return null;
+        };
+
         const beforeSlots = snapshotSpellSlots(item?.actor);
         const baseArgs = [baseUsage, ...args.slice(1)];
         const result = await wrapped(...baseArgs);
-        const afterSlots = snapshotSpellSlots(item?.actor);
-        const inferredSlotLevel = inferCastLevelFromSlotDelta(beforeSlots, afterSlots);
+
+        // Slot consumption can be applied asynchronously by dnd5e/Midi;
+        // poll briefly so upcast-dependent multi-shot counts (e.g. Magic Missile) are correct.
+        const inferredSlotLevel = await detectSpentSlotLevel(item?.actor, beforeSlots);
         if (inferredSlotLevel) baseUsage.__epiDetectedSlotLevel = inferredSlotLevel;
 
         const multiCount = epiGetMultiAttackCount(item, baseUsage, multiMeta, result);
