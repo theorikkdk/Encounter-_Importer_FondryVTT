@@ -1852,12 +1852,44 @@ function parseScalingFR(text, spellLevel) {
   return null;
 }
 
+function parseMultiShotCountScaling(text, spellLevel, opts = {}) {
+  const t = String(text ?? "");
+  const baseSpellLevel = Number(spellLevel ?? 0) || 0;
+  const slug = String(opts?.slug ?? "").toLowerCase();
+  const name = String(opts?.name ?? "").toLowerCase();
+
+  const words = new Map([
+    ["un", 1], ["une", 1], ["one", 1], ["deux", 2], ["two", 2], ["trois", 3], ["three", 3],
+    ["quatre", 4], ["four", 4], ["cinq", 5], ["five", 5], ["six", 6],
+    ["sept", 7], ["seven", 7], ["huit", 8], ["eight", 8], ["neuf", 9], ["nine", 9], ["dix", 10], ["ten", 10],
+    ["onze", 11], ["douze", 12]
+  ]);
+  const toQty = (raw) => {
+    const v = String(raw ?? "").trim().toLowerCase();
+    if (!v) return 0;
+    if (/^\d+$/.test(v)) return Number(v) || 0;
+    return Number(words.get(v) ?? 0) || 0;
+  };
+
+  const fr = t.match(/(un|une|deux|trois|quatre|cinq|six|sept|huit|neuf|dix|onze|douze|\d+)\s+(?:rayon|faisceau|projectile|dard|trait|fl[ée]chette|carreau)\s+de\s+plus\s+par\s+niveau\s+(?:d['’]emplacement\s+de\s+sort\s+)?(?:au[- ]del[aà]\s+du|au-delà\s+du|sup[eé]rieur\s+[àa])\s+(\d+)(?:er|e|ème|eme)?/i);
+  if (fr) return { perLevel: toQty(fr[1]), baseLevel: Number(fr[2] ?? baseSpellLevel) || baseSpellLevel, countOnly: true };
+
+  const en = t.match(/(one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+(?:additional\s+)?(?:ray|rays|beam|beams|projectile|projectiles|dart|darts|bolt|bolts|missile|missiles)\s+for\s+each\s+slot\s+level\s+above\s+(\d+)(?:st|nd|rd|th)?/i);
+  if (en) return { perLevel: toQty(en[1]), baseLevel: Number(en[2] ?? baseSpellLevel) || baseSpellLevel, countOnly: true };
+
+  if (/rayon-ardent|scorching-ray|projectile-magique|magic-missile/.test(slug) || /rayon\s+ardent|scorching\s+ray|projectile\s+magique|magic\s+missile/.test(name)) {
+    return { perLevel: 1, baseLevel: baseSpellLevel, countOnly: true };
+  }
+  return null;
+}
+
 function disableActivityDamageScaling(activity) {
   try {
     const parts = Array.isArray(activity?.damage?.parts) ? activity.damage.parts : [];
     for (const part of parts) {
-      part.scaling = { mode: "", number: null, formula: "" };
+      part.scaling = { mode: "whole", number: 0, formula: "" };
     }
+    if (activity?.consumption?.scaling) activity.consumption.scaling.allowed = false;
   } catch (e) {
     log("disableActivityDamageScaling failed", e);
   }
@@ -4175,6 +4207,11 @@ function applySpellActivities(itemObj, sp, durationObj, measurement) {
 
 const multiShotTargets = parseMultiShotTargetsFR(descText);
 const unlimitedTargets = parseUnlimitedTargetsFR(descText);
+const multiShotCountScaling = parseMultiShotCountScaling(descText, Number(sys.level ?? 0), {
+  slug: __epiSpellSlug,
+  name: itemObj?.name ?? sp?.name ?? ""
+});
+const isCountOnlyMultiShotSpell = !!(Number(multiShotTargets ?? 0) > 1 && !!multiShotCountScaling?.countOnly);
 
 // Multi-shot spells (e.g. Projectiles magiques / Rayon ardent): prefer a target count equal to the number of darts/rays.
 if ((!maxTargets || Number(maxTargets) <= 1) && multiShotTargets && Number(multiShotTargets) > 1) {
@@ -5298,7 +5335,7 @@ const addDelayedDamageActivity = () => {
         custom: { enabled: false, formula: "" },
         scaling: { mode: "whole", number: 1, formula: "" }
       }];
-      if (isBeamScalingCantrip && scaling?.kind === "cantrip") disableActivityDamageScaling(act);
+      if ((isBeamScalingCantrip && scaling?.kind === "cantrip") || isCountOnlyMultiShotSpell) disableActivityDamageScaling(act);
       else applyScalingToActivityDamage(act, scaling);
       act.description.chatFlavor = `JS ${saveAb.toUpperCase()} · ${dmg.number}d${dmg.denom} ${dmg.dtype}${halfOnSave ? " (moitié si réussite)" : ""}`;
     } else {
@@ -5377,7 +5414,7 @@ const addDelayedDamageActivity = () => {
         custom: { enabled: false, formula: "" },
         scaling: { mode: "whole", number: 1, formula: "" }
       }];
-      if (isBeamScalingCantrip && scaling?.kind === "cantrip") disableActivityDamageScaling(act);
+      if ((isBeamScalingCantrip && scaling?.kind === "cantrip") || isCountOnlyMultiShotSpell) disableActivityDamageScaling(act);
       else applyScalingToActivityDamage(act, scaling);
       act.description.chatFlavor = `${atk.actionType.toUpperCase()} · ${dmg.number}d${dmg.denom} ${dmg.dtype}`;
     } else {
@@ -5391,17 +5428,8 @@ const addDelayedDamageActivity = () => {
       const multi = (multiShotTargets && Number(multiShotTargets) > 1) ? Number(multiShotTargets) : 1;
       const perShotCue = /pour\s+chaque\s+(?:rayon|faisceau|projectile|dard|trait|fl[ée]chette|carreau)|pour\s+chacun(?:e)?\s+des?\s+(?:rayons?|faisceaux?|projectiles?|dards?|traits?|fl[ée]chettes?|carreaux?)/i.test(descText);
       const beamsByLevelCue = /(deux|2)\s+rayons?\s+au\s+niveau\s+5|(trois|3)\s+rayons?\s+au\s+niveau\s+11|(quatre|4)\s+rayons?\s+au\s+niveau\s+17/i.test(descText);
-      const extraShotsBySlotMatch = descText.match(/(un|une|deux|trois|quatre|cinq|six|sept|huit|neuf|dix|onze|douze|\d+)\s+(?:rayon|faisceau|projectile|dard|trait|fl[ée]chette|carreau)\s+de\s+plus\s+par\s+niveau\s+(?:d['’]emplacement\s+de\s+sort\s+)?(?:au[- ]del[aà]\s+du|au-delà\s+du|sup[eé]rieur\s+[àa])\s+(\d+)(?:er|e|ème|eme)?/i);
-      const qtyWords = new Map([
-        ["un", 1], ["une", 1], ["deux", 2], ["trois", 3], ["quatre", 4], ["cinq", 5], ["six", 6],
-        ["sept", 7], ["huit", 8], ["neuf", 9], ["dix", 10], ["onze", 11], ["douze", 12]
-      ]);
-      const extraShotsPerLevel = extraShotsBySlotMatch
-        ? (/^\d+$/.test(String(extraShotsBySlotMatch[1] ?? "").trim())
-            ? Number(extraShotsBySlotMatch[1])
-            : (qtyWords.get(String(extraShotsBySlotMatch[1] ?? "").trim().toLowerCase()) ?? 0))
-        : 0;
-      const slotScalingBaseLevel = extraShotsBySlotMatch ? (Number(extraShotsBySlotMatch[2] ?? (sys.level ?? 0)) || Number(sys.level ?? 0) || 0) : 0;
+      const extraShotsPerLevel = Number(multiShotCountScaling?.perLevel ?? 0) || 0;
+      const slotScalingBaseLevel = Number(multiShotCountScaling?.baseLevel ?? (sys.level ?? 0)) || Number(sys.level ?? 0) || 0;
       if (perShotCue && (multi > 1 || beamsByLevelCue)) {
         const extraId = deriveSiblingId(baseId, ["x","X","1","2","3","4","5","6","7","8","9","a","b","c","d","e","f"]);
         const extra = makeActivity(extraId);
@@ -5505,7 +5533,14 @@ const addDelayedDamageActivity = () => {
 
     try { maybeAddRepeatChoiceActivities(act); } catch (e) { /* ignore */ }
 
-    sys.actionType = atk.actionType;
+    if (isCountOnlyMultiShotSpell) {
+      sys.actionType = "";
+      sys.formula = "";
+      sys.scaling = { mode: "none", formula: "" };
+      sys.damage = { parts: [], versatile: "" };
+    } else {
+      sys.actionType = atk.actionType;
+    }
     return;
   }
 

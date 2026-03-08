@@ -3648,6 +3648,8 @@ Hooks.once("ready", () => {
             || /rayon\s+ardent|scorching\s+ray|projectile\s+magique|magic\s+missile/i.test(String(item?.name ?? ""))
           )
         );
+        const isMultiShotDebugSpell = /rayon-ardent|scorching-ray|projectile-magique|magic-missile/i.test(String(multiMeta?.slug ?? ""))
+          || /rayon\s+ardent|scorching\s+ray|projectile\s+magique|magic\s+missile/i.test(String(item?.name ?? ""));
         const enforceCountOnlyDamageScaling = async (itemDoc, activityIds = []) => {
           try {
             if (!itemDoc?.update) return;
@@ -3680,6 +3682,26 @@ Hooks.once("ready", () => {
           baseUsage.scaling = false;
           baseUsage.consume = foundry.utils.mergeObject(baseUsage.consume ?? {}, { scaling: false }, { inplace: false });
           await enforceCountOnlyDamageScaling(item, [multiMeta?.baseActivityId, multiMeta?.extraActivityId]);
+        }
+
+        if (isMultiShotDebugSpell) {
+          try {
+            const basePart = baseDoc?.damage?.parts?.[0] ?? null;
+            const extraPart = extraDoc?.damage?.parts?.[0] ?? null;
+            console.log('[EPI multi-shot debug] pre-cast', {
+              item: item?.name,
+              slug: multiMeta?.slug,
+              countOnlySlotScaling,
+              baseUsageScaling: baseUsage?.scaling,
+              baseUsageConsumeScaling: baseUsage?.consume?.scaling,
+              itemActionType: item?.system?.actionType,
+              itemScaling: item?.system?.scaling,
+              basePart,
+              extraPart,
+              baseConsumption: baseDoc?.consumption,
+              extraConsumption: extraDoc?.consumption
+            });
+          } catch (_e) {}
         }
 
         const snapshotSpellSlots = (actor) => {
@@ -3821,6 +3843,17 @@ Hooks.once("ready", () => {
         const beforeSlots = snapshotSpellSlots(item?.actor);
         const baseArgs = [baseUsage, ...args.slice(1)];
         const result = await wrapped(...baseArgs);
+        if (isMultiShotDebugSpell) {
+          try {
+            console.log('[EPI multi-shot debug] post-base-cast', {
+              item: item?.name,
+              slug: multiMeta?.slug,
+              resultCastData: result?.castData ?? result?.workflow?.castData ?? null,
+              resultDamageTotal: result?.damageTotal ?? result?.workflow?.damageTotal ?? null,
+              resultDamageRoll: String(result?.damageRoll ?? result?.workflow?.damageRoll ?? '')
+            });
+          } catch (_e) {}
+        }
 
         // Slot consumption can be applied asynchronously by dnd5e/Midi;
         // poll briefly so upcast-dependent multi-shot counts (e.g. Magic Missile) are correct.
