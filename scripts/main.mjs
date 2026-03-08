@@ -3723,6 +3723,56 @@ Hooks.once("ready", () => {
           return null;
         };
 
+        const promptCastLevelFallback = async (itemDoc, meta) => {
+          try {
+            const base = Math.max(1, Number(itemDoc?.system?.level ?? 1) || 1);
+            const maxLvl = 9;
+            const opts = [];
+            for (let lvl = base; lvl <= maxLvl; lvl += 1) {
+              opts.push(`<option value="${lvl}">${lvl}</option>`);
+            }
+            const content = `
+              <form>
+                <div class="form-group">
+                  <label>Niveau d'emplacement utilisé</label>
+                  <select id="epi-cast-level">${opts.join("")}</select>
+                </div>
+              </form>`;
+
+            const DialogV2 = foundry?.applications?.api?.DialogV2 ?? globalThis?.foundry?.applications?.api?.DialogV2;
+            if (DialogV2?.wait) {
+              const val = await DialogV2.wait({
+                window: { title: String(itemDoc?.name ?? 'Sort') },
+                content,
+                buttons: [
+                  { action: 'ok', label: 'Valider', default: true, callback: (event, button, html) => Number(html?.querySelector?.('#epi-cast-level')?.value ?? base) || base },
+                  { action: 'cancel', label: 'Annuler', callback: () => null }
+                ],
+                modal: true
+              });
+              if (Number.isFinite(Number(val)) && Number(val) >= base) return Number(val);
+              return null;
+            }
+
+            if (globalThis?.Dialog) {
+              const val = await new Promise(resolve => {
+                new globalThis.Dialog({
+                  title: String(itemDoc?.name ?? 'Sort'),
+                  content,
+                  buttons: {
+                    ok: { label: 'Valider', callback: (html) => resolve(Number(html.find?.('#epi-cast-level')?.val?.() ?? base) || base) },
+                    cancel: { label: 'Annuler', callback: () => resolve(null) }
+                  },
+                  default: 'ok',
+                  close: () => resolve(null)
+                }).render(true);
+              });
+              if (Number.isFinite(Number(val)) && Number(val) >= base) return Number(val);
+            }
+          } catch (_e) {}
+          return null;
+        };
+
         const beforeSlots = snapshotSpellSlots(item?.actor);
         const baseArgs = [baseUsage, ...args.slice(1)];
         const result = await wrapped(...baseArgs);
@@ -3738,6 +3788,12 @@ Hooks.once("ready", () => {
           const minLevel = Math.max(1, Number(item?.system?.level ?? 1) || 1);
           const fromArgs = inferCastLevelFromArgs([opts0, args[1], args[2], result], minLevel);
           if (fromArgs) baseUsage.__epiDetectedSlotLevel = fromArgs;
+        }
+
+        // Last-resort fallback: ask the user for the cast slot level when automatic detection failed.
+        if (!baseUsage.__epiDetectedSlotLevel && (Number(multiMeta?.slotScaling?.perLevel ?? 0) > 0)) {
+          const manual = await promptCastLevelFallback(item, multiMeta);
+          if (manual) baseUsage.__epiDetectedSlotLevel = manual;
         }
 
         const multiCount = epiGetMultiAttackCount(item, baseUsage, multiMeta, result);
