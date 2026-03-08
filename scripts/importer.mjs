@@ -5591,11 +5591,14 @@ const addDelayedDamageActivity = () => {
 
     if (isMagicMissile && multi > 1) {
       // Activity A: per dart (recommended when splitting missiles)
+      const validDamageTypes = new Set(["acid","bludgeoning","cold","fire","force","lightning","necrotic","piercing","poison","psychic","radiant","slashing","thunder"]);
+      const mmRawType = String(dmg?.dtype ?? "").trim().toLowerCase();
+      const mmMappedType = mapDamageTypeFRToEN(mmRawType) ?? mmRawType;
       const mmBase = {
         number: Number(dmg?.number ?? 1) || 1,
         denom: Number(dmg?.denom ?? 4) || 4,
         bonus: (dmg?.bonus == null || String(dmg.bonus).trim() === "") ? "1" : String(dmg.bonus),
-        dtype: String(dmg?.dtype ?? "force") || "force"
+        dtype: validDamageTypes.has(mmMappedType) ? mmMappedType : "force"
       };
       act.name = isMidi ? "midi missile" : (wantsFR ? "Fléchette" : "Dart");
       act.target = act.target ?? { template: { count:"", contiguous:false, type:"", size:"", width:"", height:"", units:"ft" }, affects: { count:"", type:"", choice:false, special:"" }, prompt:true, override:false };
@@ -5738,6 +5741,15 @@ const addDelayedDamageActivity = () => {
       a2.flags = a2.flags ?? {};
       a2.flags["encounterplus-importer"] = { ...(a2.flags["encounterplus-importer"] ?? {}), generated: true, kind: "multi-attack-focus" };
       a2.description.chatFlavor = `${number}d${denom}${bonus ? (String(bonus).startsWith("@") ? `+${bonus}` : `+${bonus}`) : ""} ${mmBase.dtype}`;
+      try {
+        log("[EPI multi-shot debug] magic missile imported damage", {
+          spell: String(itemObj?.name ?? sp?.name ?? ""),
+          rawDamage: dmg,
+          basePart: act?.damage?.parts?.[0] ?? null,
+          extraPart: extra?.damage?.parts?.[0] ?? null,
+          focusPart: a2?.damage?.parts?.[0] ?? null
+        });
+      } catch (_e) {}
       try { addDelayedDamageActivity(); } catch (e) { /* ignore */ }
 
       sys.actionType = "";
