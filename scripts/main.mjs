@@ -3351,20 +3351,44 @@ function epiGetBeamCantripCount(actor, meta = {}) {
 
 function epiGetCastLevelFromUsage(item, usage = {}, result = null) {
   const baseLevel = Number(item?.system?.level ?? 0) || 0;
+
+  const parseSlot = (slotLike) => {
+    const s = String(slotLike ?? "").toLowerCase().trim();
+    if (!s) return undefined;
+    if (/^spell\d+$/.test(s)) return Number(s.replace("spell", ""));
+    // Some systems/workflows may expose plain numeric slot strings.
+    if (/^\d+$/.test(s)) return Number(s);
+    return undefined;
+  };
+
   const raw = Number(
     usage?.spellLevel ??
     usage?.castLevel ??
+    usage?.level ??
+    usage?.slotLevel ??
     usage?.spell?.level ??
     usage?.spell?.castLevel ??
-    ((typeof usage?.spell?.slot === "string" && /^spell\d+$/.test(usage?.spell?.slot)) ? Number(String(usage.spell.slot).replace("spell", "")) : undefined) ??
+    parseSlot(usage?.spell?.slot) ??
+    usage?.midiOptions?.workflowOptions?.castLevel ??
     result?.castData?.castLevel ??
+    result?.castData?.baseLevel ??
+    result?.castLevel ??
+    result?.workflow?.castData?.castLevel ??
+    result?.workflow?.castData?.baseLevel ??
+    result?.workflow?.workflowOptions?.castLevel ??
+    result?.workflow?.options?.castLevel ??
+    result?.workflow?.options?.spellLevel ??
+    result?.workflow?.spellLevel ??
+    result?.workflow?.itemLevel ??
     result?.workflowOptions?.castLevel ??
     result?.options?.castLevel ??
     result?.options?.spellLevel ??
+    parseSlot(result?.options?.spell?.slot) ??
     result?.spellLevel ??
     result?.itemLevel ??
     baseLevel
   ) || baseLevel;
+
   return Math.max(baseLevel, raw);
 }
 
