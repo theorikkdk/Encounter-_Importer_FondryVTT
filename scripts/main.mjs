@@ -3666,8 +3666,8 @@ Hooks.once("ready", () => {
                 const num = Number(sc?.number ?? 0) || 0;
                 const formula = String(sc?.formula ?? "");
                 if (mode || num || formula) {
-                  update[`system.activities.${aId}.damage.parts.${i}.scaling.mode`] = "";
-                  update[`system.activities.${aId}.damage.parts.${i}.scaling.number`] = null;
+                  update[`system.activities.${aId}.damage.parts.${i}.scaling.mode`] = "whole";
+                  update[`system.activities.${aId}.damage.parts.${i}.scaling.number`] = 0;
                   update[`system.activities.${aId}.damage.parts.${i}.scaling.formula`] = "";
                   changed = true;
                 }
