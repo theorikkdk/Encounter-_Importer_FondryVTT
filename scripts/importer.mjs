@@ -2100,13 +2100,38 @@ function parseMultiShotTargetsFR(text) {
   m = t.match(new RegExp(`(?:le\\s+sort\\s+)?cr[ée]e\\s+${qty}\\s+${noun}`, "i"));
   if (m) return toNum(m[1]);
 
+  // EN variant: "The spell creates three rays / darts / missiles ..."
+  m = t.match(new RegExp(`(?:the\\s+spell\\s+)?creates?\\s+${qty}\\s+${noun}`, "i"));
+  if (m) return toNum(m[1]);
+
   // "tire trois rayons" / "lance trois projectiles"
   m = t.match(new RegExp(`(?:tire|lance|projette)\\s+${qty}\\s+${noun}`, "i"));
+  if (m) return toNum(m[1]);
+
+  // EN variant: "fire/shoot/cast three rays/missiles"
+  m = t.match(new RegExp(`(?:fire|fires|shoot|shoots|cast|casts|launch|launches)\\s+${qty}\\s+${noun}`, "i"));
   if (m) return toNum(m[1]);
 
   // "chacun des X rayons" (sometimes phrased like this)
   m = t.match(new RegExp(`chacun[e]?\\s+des?\\s+${qty}\\s+${noun}`, "i"));
   if (m) return toNum(m[1]);
+
+  // "jusqu'à trois rayons" / "up to three rays"
+  m = t.match(new RegExp(`(?:jusqu['’]?\\s*[àa]|up\\s+to)\\s+${qty}\\s+${noun}`, "i"));
+  if (m) return toNum(m[1]);
+
+  // "un rayon/fléchette de plus par niveau ..." => infer base count from common baseline spells.
+  const hasPerSlotExtra = /(?:rayon|faisceau|projectile|dard|trait|missile|fl[ée]chette|carreau)\\s+de\\s+plus\\s+par\\s+niveau/i.test(t)
+    || /one\\s+(?:ray|beam|dart|missile)\\s+more\\s+per\\s+slot/i.test(t);
+  if (hasPerSlotExtra) {
+    if (/rayon\\s+ardent|scorching\\s+ray/i.test(t)) return 3;
+    if (/projectile\\s+magique|magic\\s+missile/i.test(t)) return 3;
+  }
+
+  // "deux rayons au niveau 5 ..." (beam-scaling cantrips like Eldritch Blast)
+  const hasCantripBeamScale = /(deux|2)\\s+rayons?\\s+au\\s+niveau\\s+5|(trois|3)\\s+rayons?\\s+au\\s+niveau\\s+11|(quatre|4)\\s+rayons?\\s+au\\s+niveau\\s+17/i.test(t)
+    || /two\\s+beams?\\s+at\\s+5th\\s+level|three\\s+beams?\\s+at\\s+11th\\s+level|four\\s+beams?\\s+at\\s+17th\\s+level/i.test(t);
+  if (hasCantripBeamScale) return 1;
 
   return null;
 }

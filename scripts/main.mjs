@@ -3250,6 +3250,53 @@ function epiGetMultiAttackMeta(item) {
     };
   }
 
+  // Legacy fallback: older imports may have created the extra activity but missed multiAttackChain flags.
+  // Infer a conservative fixed chain for known multi-hit spells.
+  try {
+    const name = String(item?.name ?? "").toLowerCase();
+    const acts = epiListActivities(item);
+    const extra = acts.find(a => {
+      const f = a?.flags?.[MODULE_ID] ?? a?.flags?.["encounterplus-importer"] ?? {};
+      return f?.kind === "multi-attack-extra";
+    }) ?? null;
+    const base = acts.find(a => String(a?._id ?? a?.id ?? "") !== String(extra?._id ?? extra?.id ?? "")) ?? acts[0] ?? null;
+    if (!base || !extra) return null;
+
+    if (/rayon\s+ardent|scorching\s+ray/i.test(name)) {
+      return {
+        enabled: true,
+        slug: "rayon-ardent",
+        baseActivityId: String(base?._id ?? base?.id ?? ""),
+        extraActivityId: String(extra?._id ?? extra?.id ?? ""),
+        fixedCount: 3,
+        countMode: "fixed",
+        thresholds: [],
+        slotScaling: {
+          baseLevel: Math.max(2, Number(item?.system?.level ?? 2) || 2),
+          perLevel: 1
+        },
+        promptLabel: "rayon"
+      };
+    }
+
+    if (/projectile\s+magique|magic\s+missile/i.test(name)) {
+      return {
+        enabled: true,
+        slug: "projectile-magique",
+        baseActivityId: String(base?._id ?? base?.id ?? ""),
+        extraActivityId: String(extra?._id ?? extra?.id ?? ""),
+        fixedCount: 3,
+        countMode: "fixed",
+        thresholds: [],
+        slotScaling: {
+          baseLevel: Math.max(1, Number(item?.system?.level ?? 1) || 1),
+          perLevel: 1
+        },
+        promptLabel: "projectile"
+      };
+    }
+  } catch (_e) { /* ignore */ }
+
   return null;
 }
 
