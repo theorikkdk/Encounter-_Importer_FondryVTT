@@ -1887,7 +1887,7 @@ function disableActivityDamageScaling(activity) {
   try {
     const parts = Array.isArray(activity?.damage?.parts) ? activity.damage.parts : [];
     for (const part of parts) {
-      part.scaling = { mode: "whole", number: 0, formula: "" };
+      part.scaling = { mode: "", number: 0, formula: "" };
     }
     if (activity?.consumption?.scaling) activity.consumption.scaling.allowed = false;
   } catch (e) {
@@ -4211,7 +4211,11 @@ const multiShotCountScaling = parseMultiShotCountScaling(descText, Number(sys.le
   slug: __epiSpellSlug,
   name: itemObj?.name ?? sp?.name ?? ""
 });
-const isCountOnlyMultiShotSpell = !!(Number(multiShotTargets ?? 0) > 1 && !!multiShotCountScaling?.countOnly);
+const isKnownCountOnlyMultiShot = !!(
+  /rayon-ardent|scorching-ray|projectile-magique|magic-missile/.test(String(__epiSpellSlug ?? ""))
+  || /rayon\s+ardent|scorching\s+ray|projectile\s+magique|magic\s+missile/.test(String(itemObj?.name ?? sp?.name ?? "").toLowerCase())
+);
+const isCountOnlyMultiShotSpell = !!(isKnownCountOnlyMultiShot || (Number(multiShotTargets ?? 0) > 1 && !!multiShotCountScaling?.countOnly));
 
 // Multi-shot spells (e.g. Projectiles magiques / Rayon ardent): prefer a target count equal to the number of darts/rays.
 if ((!maxTargets || Number(maxTargets) <= 1) && multiShotTargets && Number(multiShotTargets) > 1) {
@@ -5444,7 +5448,7 @@ const addDelayedDamageActivity = () => {
         // Copy attack + damage definition from the base activity (1 ray / 1 projectile)
         extra.attack = foundry?.utils?.deepClone ? foundry.utils.deepClone(act.attack) : JSON.parse(JSON.stringify(act.attack ?? {}));
         extra.damage = foundry?.utils?.deepClone ? foundry.utils.deepClone(act.damage) : JSON.parse(JSON.stringify(act.damage ?? {}));
-        if (isBeamScalingCantrip) disableActivityDamageScaling(extra);
+        if (isBeamScalingCantrip || isCountOnlyMultiShotSpell) disableActivityDamageScaling(extra);
         extra.description = extra.description ?? { chatFlavor: "" };
         extra.description.chatFlavor = (wantsFR ? "Rayon / projectile supplémentaire" : "Extra ray/shot");
 
@@ -5466,7 +5470,7 @@ const addDelayedDamageActivity = () => {
         itemObj.flags ??= {};
         itemObj.flags["encounterplus-importer"] ??= {};
 
-        if (extraShotsPerLevel > 0) {
+        if (extraShotsPerLevel > 0 || isCountOnlyMultiShotSpell) {
           // Count-only upcast (e.g. Scorching Ray): slot level adds shots, not damage per shot.
           disableActivityDamageScaling(act);
           disableActivityDamageScaling(extra);
