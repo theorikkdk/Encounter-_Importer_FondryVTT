@@ -3648,9 +3648,38 @@ Hooks.once("ready", () => {
             || /rayon\s+ardent|scorching\s+ray|projectile\s+magique|magic\s+missile/i.test(String(item?.name ?? ""))
           )
         );
+        const enforceCountOnlyDamageScaling = async (itemDoc, activityIds = []) => {
+          try {
+            if (!itemDoc?.update) return;
+            const update = {};
+            let changed = false;
+            for (const aIdRaw of activityIds) {
+              const aId = String(aIdRaw ?? "");
+              if (!aId) continue;
+              const act = itemDoc?.system?.activities?.get?.(aId) ?? itemDoc?.system?.activities?.[aId] ?? null;
+              const parts = Array.isArray(act?.damage?.parts) ? act.damage.parts : [];
+              for (let i = 0; i < parts.length; i += 1) {
+                const sc = parts[i]?.scaling ?? null;
+                const mode = String(sc?.mode ?? "");
+                const num = Number(sc?.number ?? 0) || 0;
+                const formula = String(sc?.formula ?? "");
+                if (mode || num || formula) {
+                  update[`system.activities.${aId}.damage.parts.${i}.scaling.mode`] = "";
+                  update[`system.activities.${aId}.damage.parts.${i}.scaling.number`] = null;
+                  update[`system.activities.${aId}.damage.parts.${i}.scaling.formula`] = "";
+                  changed = true;
+                }
+              }
+            }
+            if (changed) await itemDoc.update(update);
+          } catch (_e) { /* ignore */ }
+        };
+
         if (countOnlySlotScaling) {
           // Prevent per-shot damage scaling on upcast for count-only multi-shot spells.
           baseUsage.scaling = false;
+          baseUsage.consume = foundry.utils.mergeObject(baseUsage.consume ?? {}, { scaling: false }, { inplace: false });
+          await enforceCountOnlyDamageScaling(item, [multiMeta?.baseActivityId, multiMeta?.extraActivityId]);
         }
 
         const snapshotSpellSlots = (actor) => {
