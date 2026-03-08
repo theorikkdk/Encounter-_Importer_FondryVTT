@@ -1,0 +1,41 @@
+{
+  "EPI.Menu.Name": "Encounter+ Importer",
+  "EPI.Menu.Label": "Ouvrir l'importeur",
+  "EPI.Menu.Hint": "Importer un export Encounter+ (JSON/XML) vers Foundry.",
+  "EPI.App.Title": "Encounter+ Importer",
+  "EPI.Help": "Pointe vers le dossier extrait de ton export Encounter+ (celui qui contient module.xml/pages.json, etc.).",
+  "EPI.SourcePath": "Chemin source (Data)",
+  "EPI.Prefix": "Préfixe (dossiers)",
+  "EPI.Destination": "Destination",
+  "EPI.DestWorld": "Importer dans le Monde (recommandé)",
+  "EPI.DestCompendiumSoon": "Compendiums (bientôt)",
+  "EPI.Test": "Tester",
+  "EPI.Import": "Importer",
+  "EPI.AutoDetect": "Détecter",
+  "EPI.FixJournalImages": "Réparer images des journaux",
+  "EPI.FixLinks": "Réparer liens Encounter+",
+  "EPI.Advanced": "Options",
+  "EPI.FixAll": "Réparer (images + liens)",
+  "EPI.Note": "Après import, regarde les dossiers créés dans Acteurs/Objets/Journaux/Scènes. Ouvre F12 → Console si des éléments échouent.",
+  "EPI.Settings.SourcePath.Name": "Chemin du dossier Encounter+",
+  "EPI.Settings.SourcePath.Hint": "Chemin (dans Data) vers le dossier extrait contenant pages.json, maps.json, monsters.json, items.json, etc. Exemple : encounter-source/la-mine-oubliee-de-phancreux",
+  "EPI.Settings.Prefix.Name": "Préfixe des dossiers importés",
+  "EPI.Settings.Prefix.Hint": "Nom utilisé pour créer les dossiers (Journaux, Scènes, Monstres, Objets, Tables).",
+  "EPI.Settings.Destination.Name": "Destination d’import",
+  "EPI.Settings.Destination.Hint": "Pour l’instant : import dans les répertoires du monde (World).",
+  "EPI": {
+    "Settings": {
+      "UseMetric": {
+        "Name": "Utiliser le système métrique (m / km)",
+        "Hint": "Si l’export Encounter+ est déjà métrique, il restera en mètres. Coche seulement si tu importes un export en pieds et que tu veux convertir en mètres."
+      }
+    },
+    "Units": {
+      "M": "Mètres",
+      "KM": "Kilomètres"
+    }
+  },
+  "EPI.FixDistances": "Réparer (distances)",
+  "EPI.Settings.AutoMidiApplyEffects.Name": "Midi-QOL : appliquer automatiquement les effets",
+  "EPI.Settings.AutoMidiApplyEffects.Hint": "Active automatiquement l'option Midi-QOL qui applique les effets d'objet aux cibles (sur toucher / échec au JS). Désactive si tu préfères garder le bouton manuel."
+}

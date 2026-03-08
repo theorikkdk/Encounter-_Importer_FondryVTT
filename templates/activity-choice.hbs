@@ -1,0 +1,15 @@
+<section class="epi-activity-choice">
+  <div class="epi-activity-choice__buttons">
+    {{#each actions}}
+    <button type="button" class="epi-activity-choice__btn" data-epi-choice="{{this.id}}">
+      <i class="{{this.icon}}"></i>
+      <span>{{this.label}}</span>
+    </button>
+    {{/each}}
+  </div>
+
+  <div class="epi-activity-choice__hint">
+    <kbd>{{hint.kbd}}</kbd> + <i class="fa-solid fa-mouse-pointer"></i>
+    <span>{{hint.text}}</span>
+  </div>
+</section>

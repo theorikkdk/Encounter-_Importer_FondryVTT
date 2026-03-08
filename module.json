@@ -1,0 +1,44 @@
+{
+  "id": "encounterplus-importer",
+  "title": "Encounter+ Importer (hotfix271be targeted lights+aqua)",
+  "description": "Base 271be + correctifs ciblés: nettoyage renforcé des lumières liées aux gabarits et suppression du double jet de Sphère aqueuse.",
+  "version": "0.9.7.8-hotfix271be-targeted-lights-aqueous-v13",
+  "authors": [
+    {
+      "name": "ChatGPT"
+    }
+  ],
+  "compatibility": {
+    "minimum": "12",
+    "verified": "13"
+  },
+  "relationships": {
+    "systems": [
+      {
+        "id": "dnd5e",
+        "type": "system"
+      }
+    ]
+  },
+  "esmodules": [
+    "scripts/main.mjs",
+    "scripts/hooks-lastcharge.mjs"
+  ],
+  "styles": [
+    "styles/importer.css"
+  ],
+  "languages": [
+    {
+      "lang": "en",
+      "name": "English",
+      "path": "lang/en.json"
+    },
+    {
+      "lang": "fr",
+      "name": "Français",
+      "path": "lang/fr.json"
+    }
+  ],
+  "download": "sandbox:/mnt/data/encounterplus-importer-v0.9.7.8-hotfix271be-v13-dnd5e.zip",
+  "manifest": ""
+}

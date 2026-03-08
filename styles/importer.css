@@ -1,0 +1,123 @@
+.epi { display: flex; flex-direction: column; gap: 10px; }
+.epi-row { display: flex; align-items: center; gap: 8px; }
+.epi-row label { width: 180px; opacity: 0.9; }
+.epi-grow { flex: 1; }
+.epi-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 10px; }
+.epi-primary { font-weight: 700; }
+.epi-help, .epi-note { opacity: 0.85; margin: 0; }
+
+.epi-advanced { padding: 6px 8px; border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; }
+.epi-advanced > summary { cursor: pointer; opacity: 0.9; }
+
+/* TokenHUD helper button (FVTT v13) */
+.token-hud .control-icon.epi-web-escape {
+  margin-left: 4px;
+}
+
+/* ------------------------------------------------------------
+   Storm Sphere: activity-choice dialog styling (match dnd5e multi-activity look)
+------------------------------------------------------------ */
+.app.window-app.dialog.epi-activity-choice .window-content {
+  position: relative;
+  padding: 10px;
+  padding-bottom: 34px;
+}
+
+.app.window-app.dialog.epi-activity-choice .dialog-content {
+  margin: 0;
+}
+
+.app.window-app.dialog.epi-activity-choice .dialog-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.app.window-app.dialog.epi-activity-choice .dialog-buttons button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  font-size: 1.05em;
+}
+
+.epi-activity-choice__hint {
+  position: absolute;
+  left: 10px;
+  bottom: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  opacity: 0.85;
+  font-size: 0.85em;
+  pointer-events: none;
+}
+
+.epi-activity-choice__hint kbd {
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid rgba(255,255,255,0.18);
+  background: rgba(0,0,0,0.25);
+}
+
+
+/* ------------------------------------------------------------
+   Storm Sphere activity chooser (match Barrière de lames UI)
+------------------------------------------------------------ */
+.app.window-app.epi-activity-choice-app {
+  --epi-choice-bg: rgba(22, 22, 26, 0.98);
+  --epi-choice-border: rgba(255, 255, 255, 0.08);
+  --epi-choice-btn: rgba(70, 70, 78, 0.55);
+  --epi-choice-btn-hover: rgba(95, 95, 105, 0.65);
+}
+
+.app.window-app.epi-activity-choice-app .window-header {
+  background: rgba(0, 0, 0, 0.45);
+  border-bottom: 1px solid var(--epi-choice-border);
+}
+
+.app.window-app.epi-activity-choice-app .window-content {
+  background: var(--epi-choice-bg);
+  padding: 10px;
+}
+
+.app.window-app.epi-activity-choice-app .epi-activity-choice__buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.app.window-app.epi-activity-choice-app .epi-activity-choice__btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  font-size: 1.05em;
+  border-radius: 10px;
+  border: 1px solid var(--epi-choice-border);
+  background: var(--epi-choice-btn);
+}
+
+.app.window-app.epi-activity-choice-app .epi-activity-choice__btn:hover {
+  background: var(--epi-choice-btn-hover);
+}
+
+.app.window-app.epi-activity-choice-app .epi-activity-choice__hint {
+  margin-top: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  opacity: 0.85;
+  font-size: 0.85em;
+}
+
+.app.window-app.epi-activity-choice-app .epi-activity-choice__hint kbd {
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--epi-choice-border);
+  background: rgba(0, 0, 0, 0.25);
+}

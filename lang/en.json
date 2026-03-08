@@ -1,0 +1,41 @@
+{
+  "EPI.Menu.Name": "Encounter+ Importer",
+  "EPI.Menu.Label": "Open Importer",
+  "EPI.Menu.Hint": "Import an Encounter+ export (JSON/XML) into Foundry.",
+  "EPI.App.Title": "Encounter+ Importer",
+  "EPI.Help": "Point to the extracted Encounter+ export folder (module.xml/pages.json, etc.).",
+  "EPI.SourcePath": "Source path (Data)",
+  "EPI.Prefix": "Prefix (folders)",
+  "EPI.Destination": "Destination",
+  "EPI.DestWorld": "Import into World (recommended)",
+  "EPI.DestCompendiumSoon": "Compendiums (soon)",
+  "EPI.Test": "Test",
+  "EPI.Import": "Import",
+  "EPI.AutoDetect": "Auto-detect",
+  "EPI.FixJournalImages": "Fix journal images",
+  "EPI.FixLinks": "Fix Encounter+ links",
+  "EPI.Advanced": "Options",
+  "EPI.FixAll": "Fix (images + links)",
+  "EPI.Note": "After import, check the created folders in Actors/Items/Journals/Scenes. Open F12 → Console if some entries fail.",
+  "EPI.Settings.SourcePath.Name": "Encounter+ source folder",
+  "EPI.Settings.SourcePath.Hint": "Data path to the extracted folder containing pages.json, maps.json, monsters.json, items.json, etc. Example: encounter-source/lost-mine-of-phandelver",
+  "EPI.Settings.Prefix.Name": "Imported folder prefix",
+  "EPI.Settings.Prefix.Hint": "Name used to create folders (Journals, Scenes, Actors, Items, Tables).",
+  "EPI.Settings.Destination.Name": "Import destination",
+  "EPI.Settings.Destination.Hint": "For now: import into World directories.",
+  "EPI": {
+    "Settings": {
+      "UseMetric": {
+        "Name": "Use metric system (m / km)",
+        "Hint": "If the Encounter+ export is already metric, it will stay in meters. Enable only if you import feet-based exports and want to convert to meters."
+      }
+    },
+    "Units": {
+      "M": "Meters",
+      "KM": "Kilometers"
+    }
+  },
+  "EPI.FixDistances": "Repair (distances)",
+  "EPI.Settings.AutoMidiApplyEffects.Name": "Midi-QOL: auto-apply item effects",
+  "EPI.Settings.AutoMidiApplyEffects.Hint": "Automatically enables the Midi-QOL setting that applies item effects to targets (on hit / failed save). Disable if you prefer the manual chat button."
+}
