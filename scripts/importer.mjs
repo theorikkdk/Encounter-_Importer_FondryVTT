@@ -5591,6 +5591,12 @@ const addDelayedDamageActivity = () => {
 
     if (isMagicMissile && multi > 1) {
       // Activity A: per dart (recommended when splitting missiles)
+      const mmBase = {
+        number: Number(dmg?.number ?? 1) || 1,
+        denom: Number(dmg?.denom ?? 4) || 4,
+        bonus: (dmg?.bonus == null || String(dmg.bonus).trim() === "") ? "1" : String(dmg.bonus),
+        dtype: String(dmg?.dtype ?? "force") || "force"
+      };
       act.name = isMidi ? "midi missile" : (wantsFR ? "Fléchette" : "Dart");
       act.target = act.target ?? { template: { count:"", contiguous:false, type:"", size:"", width:"", height:"", units:"ft" }, affects: { count:"", type:"", choice:false, special:"" }, prompt:true, override:false };
       act.target.template = { count: "", contiguous: false, type: "", size: "", width: "", height: "", units: "ft" };
@@ -5598,14 +5604,14 @@ const addDelayedDamageActivity = () => {
       act.target.prompt = true;
       act.target.override = true;
       act.damage.parts = [{
-        number: dmg.number,
-        denomination: dmg.denom,
-        bonus: String(dmg.bonus ?? ""),
-        types: [dmg.dtype],
+        number: mmBase.number,
+        denomination: mmBase.denom,
+        bonus: String(mmBase.bonus ?? ""),
+        types: [mmBase.dtype],
         custom: { enabled: false, formula: "" },
         scaling: { mode: "whole", number: 0, formula: "" }
       }];
-      act.description.chatFlavor = `1d${dmg.denom}${dmg.bonus ? (String(dmg.bonus).startsWith("@") ? `+${dmg.bonus}` : `+${dmg.bonus}`) : ""} ${dmg.dtype}`;
+      act.description.chatFlavor = `1d${mmBase.denom}${mmBase.bonus ? (String(mmBase.bonus).startsWith("@") ? `+${mmBase.bonus}` : `+${mmBase.bonus}`) : ""} ${mmBase.dtype}`;
       ensureActivitySlotLevelChoice(act);
 
       // Activity B: extra dart for sequential resolution / retargeting
@@ -5626,10 +5632,10 @@ const addDelayedDamageActivity = () => {
       extra.damage = extra.damage ?? { onSave: "none", critical: { bonus: "" }, includeBase: true, parts: [] };
       extra.damage.onSave = "none";
       extra.damage.parts = [{
-        number: dmg.number,
-        denomination: dmg.denom,
-        bonus: String(dmg.bonus ?? ""),
-        types: [dmg.dtype],
+        number: mmBase.number,
+        denomination: mmBase.denom,
+        bonus: String(mmBase.bonus ?? ""),
+        types: [mmBase.dtype],
         custom: { enabled: false, formula: "" },
         scaling: { mode: "whole", number: 0, formula: "" }
       }];
@@ -5694,9 +5700,9 @@ const addDelayedDamageActivity = () => {
       a2.damage.onSave = "none";
 
       // Aggregate base darts (level 1 = 3 darts)
-      let number = Number(dmg.number ?? 1) * multi;
-      let denom = dmg.denom;
-      let bonus = dmg.bonus ?? "";
+      let number = Number(mmBase.number ?? 1) * multi;
+      let denom = mmBase.denom;
+      let bonus = mmBase.bonus ?? "";
       if (bonus && /^-?\d+$/.test(String(bonus))) bonus = String(Number(bonus) * multi);
       // If bonus is @mod, keep it as-is (can't multiply safely).
 
@@ -5704,7 +5710,7 @@ const addDelayedDamageActivity = () => {
         number,
         denomination: denom,
         bonus: String(bonus ?? ""),
-        types: [dmg.dtype],
+        types: [mmBase.dtype],
         custom: { enabled: false, formula: "" },
         scaling: { mode: "whole", number: 1, formula: "" }
       }];
@@ -5731,7 +5737,7 @@ const addDelayedDamageActivity = () => {
 
       a2.flags = a2.flags ?? {};
       a2.flags["encounterplus-importer"] = { ...(a2.flags["encounterplus-importer"] ?? {}), generated: true, kind: "multi-attack-focus" };
-      a2.description.chatFlavor = `${number}d${denom}${bonus ? (String(bonus).startsWith("@") ? `+${bonus}` : `+${bonus}`) : ""} ${dmg.dtype}`;
+      a2.description.chatFlavor = `${number}d${denom}${bonus ? (String(bonus).startsWith("@") ? `+${bonus}` : `+${bonus}`) : ""} ${mmBase.dtype}`;
       try { addDelayedDamageActivity(); } catch (e) { /* ignore */ }
 
       sys.actionType = "";
