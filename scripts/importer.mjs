@@ -6396,21 +6396,25 @@ if (!USE_WEB_REGIONS && (spellNameLC.includes("toile d'araignée") || spellNameL
     spellKey: matchedAuraKey
   };
 
-  // Aura Effects / Active Auras runtime schema (used to mark an effect as an already-converted aura).
-  // Keep this tightly scoped to the initial validated phase-1 pair.
-  const supportsNativeAuraEffects = (matchedAuraKey === "passage-sans-trace" || matchedAuraKey === "aura-de-vie");
-  const activeAurasFlags = supportsNativeAuraEffects ? {
-    isAura: true,
-    aura: "All",
-    radius: String(aura.radius),
-    alignment: "",
-    type: "",
-    ignoreSelf: false,
-    hidden: false,
-    displayTemp: true,
-    hostile: false,
-    onlyOnce: false,
-    height: false
+  // Real Aura Effects schema (phase-1 initial pair only): effect.type + effect.system + flags.auraeffects.
+  const isAuraEffectsNativeSpell = (matchedAuraKey === "passage-sans-trace" || matchedAuraKey === "aura-de-vie");
+  const auraEffectsSystem = isAuraEffectsNativeSpell ? {
+    showRadius: true,
+    applyToSelf: true,
+    bestFormula: false,
+    canStack: false,
+    collisionTypes: [],
+    color: "#000000",
+    combatOnly: false,
+    disableOnHidden: false,
+    distanceFormula: String(aura.radius),
+    disposition: String(aura.disposition ?? "all"),
+    evaluatePreApply: false,
+    opacity: 0.15,
+    overrideName: "",
+    script: "",
+    stashedChanges: [],
+    stashedStatuses: []
   } : null;
 
   // Change inoffensif => rend l'effet visible + stocke la config pour nos usages
@@ -6419,37 +6423,23 @@ if (!USE_WEB_REGIONS && (spellNameLC.includes("toile d'araignée") || spellNameL
     name: `Aura — ${itemObj.name}`,
     icon: itemObj.img,
     img: itemObj.img,
+    ...(isAuraEffectsNativeSpell ? { type: "auraeffects.aura" } : {}),
+    ...(auraEffectsSystem ? { system: auraEffectsSystem } : {}),
     origin: null,
     changes: [
-      { key: "flags.encounterplus-importer.aura", mode: 5, value: JSON.stringify(aura), priority: 20 },
-      ...(supportsNativeAuraEffects ? [
-        { key: "flags.ActiveAuras.isAura", mode: 5, value: true, priority: 20 },
-        { key: "flags.ActiveAuras.aura", mode: 5, value: "All", priority: 20 },
-        { key: "flags.ActiveAuras.radius", mode: 5, value: String(aura.radius), priority: 20 },
-        { key: "flags.ActiveAuras.ignoreSelf", mode: 5, value: false, priority: 20 },
-        { key: "flags.ActiveAuras.hostile", mode: 5, value: false, priority: 20 },
-        { key: "flags.ActiveAuras.onlyOnce", mode: 5, value: false, priority: 20 },
-        { key: "flags.ActiveAuras.height", mode: 5, value: false, priority: 20 }
-      ] : [])
+      { key: "flags.encounterplus-importer.aura", mode: 5, value: JSON.stringify(aura), priority: 20 }
     ],
     disabled: false,
     duration: seconds ? { seconds } : {},
     transfer: false,
     flags: {
       "encounterplus-importer": {
-        aura,
-        auraEffectsBridge: {
-          module: "aura-effects",
-          version: 1,
-          strategy: "phase1-spell-aura",
-          enabled: true,
-          spellKey: matchedAuraKey
-        }
+        aura
       },
-      ...(activeAurasFlags ? { ActiveAuras: activeAurasFlags } : {}),
+      ...(isAuraEffectsNativeSpell ? { auraeffects: { originalType: "base" } } : {}),
       // Compat for Aura Effects module namespace.
       "aura-effects": {
-        isAura: supportsNativeAuraEffects,
+        isAura: isAuraEffectsNativeSpell,
         radius: aura.radius,
         shape: aura.shape,
         units: aura.units,
