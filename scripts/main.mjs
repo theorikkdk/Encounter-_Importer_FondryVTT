@@ -2304,6 +2304,27 @@ Hooks.on("preCreateActiveEffect", (effect, data) => {
   }
 });
 
+// Lot-1 targeted hook: Protection contre le poison should immediately neutralize poisoned condition.
+Hooks.on("createActiveEffect", async (effect) => {
+  try {
+    if (!game.user?.isGM) return;
+    const actor = effect?.parent;
+    if (!actor) return;
+    const slug = String(effect?.flags?.[MODULE_ID]?.slug ?? effect?.flags?.["encounterplus-importer"]?.slug ?? "").toLowerCase();
+    if (slug !== "protection-contre-le-poison") return;
+
+    const poisoned = Array.from(actor.effects ?? []).filter((e) => {
+      const s = e?.statuses;
+      return s?.has?.("poisoned") || (Array.isArray(s) && s.includes("poisoned"));
+    });
+    if (!poisoned.length) return;
+    await actor.deleteEmbeddedDocuments("ActiveEffect", poisoned.map(e => e.id).filter(Boolean));
+    console.debug(`[${MODULE_ID}] Protection contre le poison: removed poisoned condition from`, actor?.name);
+  } catch (e) {
+    console.warn(`[${MODULE_ID}] Protection contre le poison condition cleanup failed`, e);
+  }
+});
+
 Hooks.on("midi-qol.preAttackRoll", (workflow) => {
   try {
     if (!game.user?.isGM || !workflow) return;

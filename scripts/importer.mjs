@@ -2160,8 +2160,10 @@ function parseSimpleBuffChangesFR(descText = "", spellSlug = "") {
   }
 
   // Faveur divine: offensive rider, never immediate damage at cast.
-  // For this pragmatic pass we only mark a clean prep flag for later hit-rider automation.
+  // Use a lightweight, native dnd5e damage bonus on weapon attacks (+1d4 radiant).
   if (slug === "faveur-divine") {
+    changes.push({ key: "system.bonuses.mwak.damage", mode: 2, value: "+1d4[radiant]", priority: 20 });
+    changes.push({ key: "system.bonuses.rwak.damage", mode: 2, value: "+1d4[radiant]", priority: 20 });
     changes.push({ key: "flags.encounterplus-importer.simpleRider.divineFavor", mode: 5, value: true, priority: 20 });
   }
 
