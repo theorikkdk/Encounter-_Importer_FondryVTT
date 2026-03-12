@@ -6398,6 +6398,18 @@ if (!USE_WEB_REGIONS && (spellNameLC.includes("toile d'araignée") || spellNameL
 
   // Real Aura Effects schema (phase-1 initial pair only): effect.type + effect.system + flags.auraeffects.
   const isAuraEffectsNativeSpell = (matchedAuraKey === "passage-sans-trace" || matchedAuraKey === "aura-de-vie");
+  const resolveAuraEffectsDisposition = (raw) => {
+    // Aura Effects expects a numeric disposition choice (Token disposition enum-like values).
+    // Keep a stable default (friendly = 1) for phase-1 support when source data is ambiguous.
+    const s = String(raw ?? "").toLowerCase().trim();
+    if (s === "friendly" || s === "ally" || s === "allies" || s === "non-hostile" || s === "nonhostile" || s === "all") return 1;
+    if (s === "neutral") return 0;
+    if (s === "hostile" || s === "enemy" || s === "enemies") return -1;
+    const n = Number(raw);
+    if (Number.isFinite(n) && (n === -1 || n === 0 || n === 1)) return n;
+    return 1;
+  };
+
   const auraEffectsSystem = isAuraEffectsNativeSpell ? {
     showRadius: true,
     applyToSelf: true,
@@ -6408,7 +6420,7 @@ if (!USE_WEB_REGIONS && (spellNameLC.includes("toile d'araignée") || spellNameL
     combatOnly: false,
     disableOnHidden: false,
     distanceFormula: String(aura.radius),
-    disposition: String(aura.disposition ?? "all"),
+    disposition: resolveAuraEffectsDisposition(aura.disposition),
     evaluatePreApply: false,
     opacity: 0.15,
     overrideName: "",
