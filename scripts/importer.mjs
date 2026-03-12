@@ -172,16 +172,22 @@ function normalizeAuraNameKey(s) {
     .trim();
 }
 
-const PHASE1_AURA_KEYS = new Set([
+const AURA_SPELL_KEYS = new Set([
   "passage-sans-trace",
   "aura-de-vie",
   "aura-de-purete",
   "aura-du-croise",
   "cercle-de-pouvoir",
-  "aura-sacree"
+  "aura-sacree",
+  "esprits-gardiens",
+  "linceul-spirituel",
+  "aura-de-vitalite",
+  "coquille-antivie",
+  "champ-antimagie",
+  "sacre-de-la-glace"
 ]);
 
-const PHASE1_AURA_NAME_ALIASES = {
+const AURA_SPELL_NAME_ALIASES = {
   // FR
   "passage sans trace": "passage-sans-trace",
   "aura de vie": "aura-de-vie",
@@ -197,14 +203,27 @@ const PHASE1_AURA_NAME_ALIASES = {
   "crusader s mantle": "aura-du-croise",
   "crusaders mantle": "aura-du-croise",
   "circle of power": "cercle-de-pouvoir",
-  "holy aura": "aura-sacree"
+  "holy aura": "aura-sacree",
+  // Additional phases
+  "esprits gardiens": "esprits-gardiens",
+  "spirit guardians": "esprits-gardiens",
+  "linceul spirituel": "linceul-spirituel",
+  "spirit shroud": "linceul-spirituel",
+  "aura de vitalite": "aura-de-vitalite",
+  "aura of vitality": "aura-de-vitalite",
+  "coquille antivie": "coquille-antivie",
+  "antilife shell": "coquille-antivie",
+  "champ antimagie": "champ-antimagie",
+  "antimagic field": "champ-antimagie",
+  "sacre de la glace": "sacre-de-la-glace",
+  "armor of agathys": "sacre-de-la-glace"
 };
 
 function resolvePhase1AuraKey(spellSlug, spellName) {
   const slug = String(spellSlug ?? "").toLowerCase().trim();
-  if (PHASE1_AURA_KEYS.has(slug)) return { key: slug, via: "slug" };
+  if (AURA_SPELL_KEYS.has(slug)) return { key: slug, via: "slug" };
   const nk = normalizeAuraNameKey(spellName ?? "");
-  const byName = PHASE1_AURA_NAME_ALIASES[nk] ?? null;
+  const byName = AURA_SPELL_NAME_ALIASES[nk] ?? null;
   if (byName) return { key: byName, via: "name" };
   return { key: null, via: "none" };
 }
@@ -6447,6 +6466,56 @@ if (!USE_WEB_REGIONS && (spellNameLC.includes("toile d'araignée") || spellNameL
         "attackDisadvantageOnAttackers",
         "blindOnMeleeHitVsFiendUndead"
       ]
+    },
+    spiritGuardiansRuntimePack: {
+      changes: [],
+      statuses: [],
+      runtime: [],
+      deferred: [
+        "startTurnDamageAndSpeedPenalty: dégâts/réduction de vitesse dépendants de l'alignement et du choix du lanceur"
+      ]
+    },
+    spiritShroudRuntimePack: {
+      changes: [],
+      statuses: [],
+      runtime: [],
+      deferred: [
+        "onHitExtraDamageAndHealPrevention: dégâts supplémentaires et anti-soin sur cibles touchées"
+      ]
+    },
+    auraOfVitalityRuntimePack: {
+      changes: [],
+      statuses: [],
+      runtime: [],
+      deferred: [
+        "bonusActionHealingPulse: soin ciblé répété en action bonus"
+      ]
+    },
+    antimagicFieldRuntimePack: {
+      changes: [],
+      statuses: [],
+      runtime: [],
+      deferred: [
+        "magicSuppressionBubble: suppression d'effets/sorts/objets magiques dans la zone"
+      ]
+    },
+    antilifeShellRuntimePack: {
+      changes: [],
+      statuses: [],
+      runtime: [],
+      deferred: [
+        "livingCreatureBarrier: empêche les créatures vivantes d'entrer dans la zone"
+      ]
+    },
+    armorOfAgathysRuntimePack: {
+      changes: [
+        { key: "system.attributes.hp.temp", mode: 5, value: "@item.level * 5", priority: 20 }
+      ],
+      statuses: [],
+      runtime: [],
+      deferred: [
+        "retaliatoryColdDamageOnMeleeHit: dégâts de froid en représailles tant que PV temporaires actifs"
+      ]
     }
   };
   const buildAuraEffectSpec = (keys = []) => {
@@ -6470,6 +6539,7 @@ if (!USE_WEB_REGIONS && (spellNameLC.includes("toile d'araignée") || spellNameL
     // targeting: allies | all | enemies
     "passage-sans-trace": {
       key: "passage-sans-trace",
+      support: "A",
       defaultRadiusMetric: 9,
       defaultRadiusImperial: 30,
       targeting: "allies",
@@ -6477,28 +6547,79 @@ if (!USE_WEB_REGIONS && (spellNameLC.includes("toile d'araignée") || spellNameL
     },
     "aura-de-vie": {
       key: "aura-de-vie",
+      support: "A",
       targeting: "allies",
       effects: buildAuraEffectSpec(["necroticResistance", "auraLifeProtectionFlag", "auraLifeRuntimePack"])
     },
     "aura-de-purete": {
       key: "aura-de-purete",
+      support: "B",
       targeting: "allies",
       effects: buildAuraEffectSpec(["poisonResistance", "purityProtectionPack"])
     },
     "aura-du-croise": {
       key: "aura-du-croise",
+      support: "C",
       targeting: "allies",
       effects: buildAuraEffectSpec(["crusadersMantleRuntimePack"])
     },
     "cercle-de-pouvoir": {
       key: "cercle-de-pouvoir",
+      support: "B",
       targeting: "allies",
       effects: buildAuraEffectSpec(["circleOfPowerProtectionPack"])
     },
     "aura-sacree": {
       key: "aura-sacree",
+      support: "B",
       targeting: "allies",
       effects: buildAuraEffectSpec(["holyAuraRuntimePack"])
+    },
+    "esprits-gardiens": {
+      key: "esprits-gardiens",
+      support: "C",
+      defaultRadiusMetric: 4.5,
+      defaultRadiusImperial: 15,
+      targeting: "enemies",
+      effects: buildAuraEffectSpec(["spiritGuardiansRuntimePack"])
+    },
+    "linceul-spirituel": {
+      key: "linceul-spirituel",
+      support: "C",
+      defaultRadiusMetric: 3,
+      defaultRadiusImperial: 10,
+      targeting: "enemies",
+      effects: buildAuraEffectSpec(["spiritShroudRuntimePack"])
+    },
+    "aura-de-vitalite": {
+      key: "aura-de-vitalite",
+      support: "C",
+      defaultRadiusMetric: 9,
+      defaultRadiusImperial: 30,
+      targeting: "allies",
+      effects: buildAuraEffectSpec(["auraOfVitalityRuntimePack"])
+    },
+    "coquille-antivie": {
+      key: "coquille-antivie",
+      support: "C",
+      defaultRadiusMetric: 3,
+      defaultRadiusImperial: 10,
+      targeting: "all",
+      effects: buildAuraEffectSpec(["antilifeShellRuntimePack"])
+    },
+    "champ-antimagie": {
+      key: "champ-antimagie",
+      support: "C",
+      defaultRadiusMetric: 3,
+      defaultRadiusImperial: 10,
+      targeting: "all",
+      effects: buildAuraEffectSpec(["antimagicFieldRuntimePack"])
+    },
+    "sacre-de-la-glace": {
+      key: "sacre-de-la-glace",
+      support: "B",
+      targeting: "enemies",
+      effects: buildAuraEffectSpec(["armorOfAgathysRuntimePack"])
     }
   };
   const auraMatch = resolvePhase1AuraKey(spellSlug, itemObj?.name ?? sp?.name ?? "");
@@ -6512,7 +6633,7 @@ if (!USE_WEB_REGIONS && (spellNameLC.includes("toile d'araignée") || spellNameL
       recognized: !!matchedAuraKey,
       key: matchedAuraKey,
       via: auraMatch.via,
-      reason: matchedAuraKey ? "phase1-match" : "no-phase1-match"
+      reason: matchedAuraKey ? "aura-match" : "no-aura-match"
     };
   } catch (_e) {}
   if (!matchedAuraKey) return;
@@ -6656,6 +6777,7 @@ if (!USE_WEB_REGIONS && (spellNameLC.includes("toile d'araignée") || spellNameL
       "encounterplus-importer": {
         aura,
         auraEffectPlan: {
+          support: String(auraDef?.support ?? "C"),
           automatedChanges: auraPayload.changes,
           automatedStatuses: auraPayload.statuses,
           runtime: auraPayload.runtime,
