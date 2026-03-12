@@ -6443,14 +6443,16 @@ if (!USE_WEB_REGIONS && (spellNameLC.includes("toile d'araignée") || spellNameL
   const auraPayload = auraPayloadBySpellKey[matchedAuraKey] ?? { changes: [], statuses: [] };
   const resolveAuraEffectsDisposition = (raw) => {
     // Aura Effects expects a numeric disposition choice (Token disposition enum-like values).
-    // Keep a stable default (friendly = 1) for phase-1 support when source data is ambiguous.
+    // For phase-1 aura propagation, prefer a permissive default (0 = Any/Neutral-like bucket),
+    // then let individual world token dispositions drive effective inclusion.
     const s = String(raw ?? "").toLowerCase().trim();
-    if (s === "friendly" || s === "ally" || s === "allies" || s === "non-hostile" || s === "nonhostile" || s === "all") return 1;
+    if (s === "friendly" || s === "ally" || s === "allies" || s === "non-hostile" || s === "nonhostile") return 1;
+    if (s === "all" || s === "any") return 0;
     if (s === "neutral") return 0;
     if (s === "hostile" || s === "enemy" || s === "enemies") return -1;
     const n = Number(raw);
     if (Number.isFinite(n) && (n === -1 || n === 0 || n === 1)) return n;
-    return 1;
+    return 0;
   };
 
   const auraEffectsSystem = isAuraEffectsNativeSpell ? {
@@ -6458,13 +6460,13 @@ if (!USE_WEB_REGIONS && (spellNameLC.includes("toile d'araignée") || spellNameL
     applyToSelf: true,
     bestFormula: false,
     canStack: false,
-    collisionTypes: [],
+    collisionTypes: ["move"],
     color: "#000000",
     combatOnly: false,
     disableOnHidden: false,
     distanceFormula: String(aura.radius),
     disposition: resolveAuraEffectsDisposition(aura.disposition),
-    evaluatePreApply: false,
+    evaluatePreApply: true,
     opacity: 0.15,
     overrideName: "",
     script: "",
