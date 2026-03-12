@@ -4434,6 +4434,19 @@ if (unlimitedTargets && (!maxTargets || Number(maxTargets) <= 1) && (!multiShotT
   };
 
   const baseId = firstActivityId(itemObj);
+  const fold = (s) => foldKey(String(s ?? "")).replace(/[’']/g, " ").replace(/\s+/g, " ").trim();
+  const spellSlug = String(sp?.slug ?? "").toLowerCase();
+  const spellNameFold = fold(itemObj?.name ?? sp?.name ?? "");
+  const auraPhase1NativeSet = new Set(["passage-sans-trace", "aura-de-vie"]);
+  const auraPhase1NativeNameMap = {
+    "passage sans trace": "passage-sans-trace",
+    "aura de vie": "aura-de-vie",
+    "pass without trace": "passage-sans-trace",
+    "aura of life": "aura-de-vie"
+  };
+  const nativeAuraSpellKey = auraPhase1NativeSet.has(spellSlug)
+    ? spellSlug
+    : (auraPhase1NativeSet.has(auraPhase1NativeNameMap[spellNameFold]) ? auraPhase1NativeNameMap[spellNameFold] : null);
   let __beamExtraActivityId = null;
 
   // Deterministic extra activity IDs (avoid duplicates on re-import)
@@ -6027,6 +6040,19 @@ const addDelayedDamageActivity = () => {
   const act = makeActivity(baseId);
   act.sort = 0;
   setCommonFromSpell(act);
+  if (nativeAuraSpellKey) {
+    // Real aura spells handled by Aura Effects: never ask for template placement.
+    act.target = act.target ?? {
+      template: { count:"", contiguous:false, type:"", size:"", width:"", height:"", units:"ft" },
+      affects: { count:"1", type:"self", choice:false, special:"" },
+      prompt: false,
+      override: true
+    };
+    act.target.template = { count: "", contiguous: false, type: "", size: "", width: "", height: "", units: "ft" };
+    act.target.affects = { count: "1", type: "self", choice: false, special: "" };
+    act.target.prompt = false;
+    act.target.override = true;
+  }
   act.type = "utility";
   act.name = act.name || "Lancer";
 }
@@ -6461,6 +6487,7 @@ if (!USE_WEB_REGIONS && (spellNameLC.includes("toile d'araignée") || spellNameL
   };
 
   itemObj.effects.push(effect);
+  if (isAuraEffectsNativeSpell) addEffectRefToBaseActivity(effectId);
 }
 
 
