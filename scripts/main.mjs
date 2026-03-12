@@ -2039,38 +2039,75 @@ Hooks.on("midi-qol.RollComplete", async (workflow) => {
 });
 
 // Lot-1 simple buff applicator: create real Active Effects on cast for importer-marked buff spells.
-Hooks.on("midi-qol.RollComplete", async (workflow) => {
-  try {
-    if (!game.user?.isGM || !workflow?.item || workflow.item.type !== "spell") return;
+// We hook both preItemRoll and RollComplete because some workflows don't keep targets/item data consistently at completion time.
+const __EPI_LOT1_BUFF_DEBUG_PREFIX = "[EPI lot1 buff debug]";
+const __EPI_LOT1_BUFF_DEBUG_SLUGS = new Set(["protection-contre-le-poison", "faveur-divine"]);
 
-    const item = workflow.item;
-    const buffEffects = (item.effects ? Array.from(item.effects) : []).filter((e) => {
+function __epiLot1BuffDebug(slug, msg, extra = undefined) {
+  if (!__EPI_LOT1_BUFF_DEBUG_SLUGS.has(String(slug ?? "").toLowerCase())) return;
+  if (extra !== undefined) console.debug(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} ${msg}`, extra);
+  else console.debug(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} ${msg}`);
+}
+
+async function __epiApplyLot1BuffEffects(workflow, hookName = "unknown") {
+  try {
+    if (!game.user?.isGM) return;
+    const wfItem = workflow?.item ?? null;
+    if (!wfItem || wfItem.type !== "spell") return;
+
+    // Prefer owned item document when available (some Midi workflow clones can lose embedded effect data).
+    const actor = workflow?.actor ?? wfItem?.parent ?? null;
+    const owned = actor?.items?.get?.(wfItem.id) ?? null;
+    const item = owned ?? wfItem;
+
+    const itemEffects = item.effects ? Array.from(item.effects) : [];
+    const buffEffects = itemEffects.filter((e) => {
       const f = e?.flags?.[MODULE_ID] ?? e?.flags?.["encounterplus-importer"] ?? {};
       return !!f?.simpleLot1Buff && !!f?.applyOnCast;
     });
     if (!buffEffects.length) return;
 
-    const getSelfToken = () => workflow.token ?? (Array.from(workflow.actor?.getActiveTokens?.() ?? [])[0] ?? null);
-    const toApply = [];
+    const getSelfToken = () =>
+      workflow?.token
+      ?? (workflow?.tokenUuid ? canvas?.tokens?.get?.(String(workflow.tokenUuid).split(".").pop()) : null)
+      ?? (Array.from(actor?.getActiveTokens?.() ?? [])[0] ?? null);
 
     for (const ef of buffEffects) {
       const f = ef?.flags?.[MODULE_ID] ?? ef?.flags?.["encounterplus-importer"] ?? {};
+      const slug = String(f?.slug ?? "").toLowerCase();
       const mode = String(f?.targetMode ?? "targets").toLowerCase();
-      const targets = (mode === "self")
-        ? [getSelfToken()].filter(Boolean)
-        : Array.from(workflow.targets ?? []);
+      __epiLot1BuffDebug(slug, `hook=${hookName} reached`, {
+        mode,
+        item: item?.name,
+        workflowItem: wfItem?.name,
+        effectName: ef?.name
+      });
+
+      const targets = (() => {
+        if (mode === "self") return [getSelfToken()].filter(Boolean);
+        const t1 = Array.from(workflow?.targets ?? []);
+        if (t1.length) return t1;
+        const t2 = Array.from(workflow?.hitTargets ?? []);
+        if (t2.length) return t2;
+        return [];
+      })();
+
+      __epiLot1BuffDebug(slug, `targets resolved`, targets.map(t => t?.actor?.name ?? t?.name ?? "?") );
+      if (!targets.length) continue;
 
       for (const token of targets) {
-        const actor = token?.actor;
-        if (!actor) continue;
+        const targetActor = token?.actor;
+        if (!targetActor) continue;
 
-        const slug = String(f?.slug ?? "").toLowerCase();
         const key = `${item.uuid}|${slug}|${ef.name ?? ""}`;
-        const already = Array.from(actor.effects ?? []).some((ae) => {
+        const already = Array.from(targetActor.effects ?? []).some((ae) => {
           const af = ae?.flags?.[MODULE_ID] ?? ae?.flags?.["encounterplus-importer"] ?? {};
           return String(af?.simpleLot1BuffKey ?? "") === key;
         });
-        if (already) continue;
+        if (already) {
+          __epiLot1BuffDebug(slug, `skip existing effect`, { actor: targetActor?.name, key });
+          continue;
+        }
 
         const data = ef.toObject ? ef.toObject() : foundry.utils.deepClone(ef);
         delete data._id;
@@ -2086,16 +2123,26 @@ Hooks.on("midi-qol.RollComplete", async (workflow) => {
           slug
         };
 
-        toApply.push({ actor, data });
+        __epiLot1BuffDebug(slug, `create AE attempt`, { actor: targetActor?.name, mode, key });
+        try {
+          await targetActor.createEmbeddedDocuments("ActiveEffect", [data]);
+          __epiLot1BuffDebug(slug, `create AE success`, { actor: targetActor?.name, mode });
+        } catch (e) {
+          __epiLot1BuffDebug(slug, `create AE error`, { actor: targetActor?.name, error: String(e) });
+        }
       }
-    }
-
-    for (const { actor, data } of toApply) {
-      await actor.createEmbeddedDocuments("ActiveEffect", [data]);
     }
   } catch (e) {
     console.warn(`[${MODULE_ID}] Lot-1 simple buff apply-on-cast failed`, e);
   }
+}
+
+Hooks.on("midi-qol.preItemRoll", async (workflow) => {
+  await __epiApplyLot1BuffEffects(workflow, "midi-qol.preItemRoll");
+});
+
+Hooks.on("midi-qol.RollComplete", async (workflow) => {
+  await __epiApplyLot1BuffEffects(workflow, "midi-qol.RollComplete");
 });
 
 
