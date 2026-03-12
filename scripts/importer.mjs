@@ -2148,9 +2148,22 @@ function isLot1SimpleBatchEligible(spellSlug) {
   return LOT1_SIMPLE_BATCH_SLUGS.has(s) && !LOT1_SIMPLE_EXCLUDED_SLUGS.has(s);
 }
 
-function parseSimpleBuffChangesFR(descText = "") {
+function parseSimpleBuffChangesFR(descText = "", spellSlug = "") {
   const t = foldKey(descText);
+  const slug = String(spellSlug ?? "").toLowerCase().trim();
   const changes = [];
+
+  // Targeted hotfixes (lot 1) with explicit semantics.
+  // Protection contre le poison: ensure a useful baseline buff even if wording varies.
+  if (slug === "protection-contre-le-poison") {
+    changes.push({ key: "system.traits.dr.value", mode: 2, value: "poison", priority: 20 });
+  }
+
+  // Faveur divine: offensive rider, never immediate damage at cast.
+  // For this pragmatic pass we only mark a clean prep flag for later hit-rider automation.
+  if (slug === "faveur-divine") {
+    changes.push({ key: "flags.encounterplus-importer.simpleRider.divineFavor", mode: 5, value: true, priority: 20 });
+  }
 
   const dmgTypes = ["acid", "cold", "fire", "force", "lightning", "necrotic", "poison", "psychic", "radiant", "thunder", "bludgeoning", "piercing", "slashing"];
   const frToSys = new Map([
@@ -2171,7 +2184,14 @@ function parseSimpleBuffChangesFR(descText = "") {
     changes.push({ key: "flags.midi-qol.advantage.ability.save.all", mode: 5, value: true, priority: 20 });
   }
 
-  return changes;
+  // de-dup
+  const seen = new Set();
+  return changes.filter((c) => {
+    const k = `${c.key}|${c.mode}|${String(c.value)}`;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
 }
 
 
@@ -4617,6 +4637,28 @@ if (unlimitedTargets && (!maxTargets || Number(maxTargets) <= 1) && (!multiShotT
   // dedicated complex systems (regions/walls/auras/multi-shot special handling).
   const __lot1SimpleEligible = isLot1SimpleBatchEligible(spellSlug);
   if (__lot1SimpleEligible) {
+    if (spellSlug === "faveur-divine") {
+      // Hotfix: Divine Favor is a weapon-hit rider buff, not immediate spell damage.
+      // Keep cast as a clean self utility/buff setup and stop here.
+      const act = makeActivity(baseId);
+      act.sort = 0;
+      setCommonFromSpell(act);
+      act.type = "utility";
+      act.name = act.name || "Lancer";
+      act.target = act.target ?? {
+        template: { count:"", contiguous:false, type:"", size:"", width:"", height:"", units:"ft" },
+        affects: { count:"1", type:"self", choice:false, special:"" },
+        prompt: false,
+        override: true
+      };
+      act.target.template = { count: "", contiguous: false, type: "", size: "", width: "", height: "", units: "ft" };
+      act.target.affects = { count: "1", type: "self", choice: false, special: "" };
+      act.target.prompt = false;
+      act.target.override = true;
+      sys.actionType = "";
+      return;
+    }
+
     const healCandLot1 = parseHealingOrTempFR(descText);
     const primaryDamage = Array.isArray(damages) && damages.length ? damages[0] : null;
 
@@ -6337,7 +6379,7 @@ function applySpellEffects(itemObj, sp, durationObj, measurement) {
   const addSimpleLot1BuffEffect = () => {
     const spellSlug = String(sp?.slug ?? "").toLowerCase();
     if (!isLot1SimpleBatchEligible(spellSlug)) return;
-    const changes = parseSimpleBuffChangesFR(stripHtmlToText(cleanEncounterLinks(sp?.descr ?? "")));
+    const changes = parseSimpleBuffChangesFR(stripHtmlToText(cleanEncounterLinks(sp?.descr ?? "")), spellSlug);
     if (!changes.length) return;
 
     // Avoid duplicates on re-import.
