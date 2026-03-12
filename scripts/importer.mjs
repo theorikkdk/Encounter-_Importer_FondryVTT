@@ -164,6 +164,70 @@ function foldKey(s) {
   }
 }
 
+function normalizeAuraNameKey(s) {
+  return foldKey(String(s ?? ""))
+    .replace(/[’']/g, " ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+const AURA_SPELL_KEYS = new Set([
+  "passage-sans-trace",
+  "aura-de-vie",
+  "aura-de-purete",
+  "aura-du-croise",
+  "cercle-de-pouvoir",
+  "aura-sacree",
+  "esprits-gardiens",
+  "linceul-spirituel",
+  "aura-de-vitalite",
+  "coquille-antivie",
+  "champ-antimagie",
+  "sacre-de-la-glace"
+]);
+
+const AURA_SPELL_NAME_ALIASES = {
+  // FR
+  "passage sans trace": "passage-sans-trace",
+  "aura de vie": "aura-de-vie",
+  "aura de purete": "aura-de-purete",
+  "aura du croise": "aura-du-croise",
+  "cercle de pouvoir": "cercle-de-pouvoir",
+  "aura sacree": "aura-sacree",
+  // EN
+  "pass without trace": "passage-sans-trace",
+  "aura of life": "aura-de-vie",
+  "aura of purity": "aura-de-purete",
+  "purity of aura": "aura-de-purete",
+  "crusader s mantle": "aura-du-croise",
+  "crusaders mantle": "aura-du-croise",
+  "circle of power": "cercle-de-pouvoir",
+  "holy aura": "aura-sacree",
+  // Additional phases
+  "esprits gardiens": "esprits-gardiens",
+  "spirit guardians": "esprits-gardiens",
+  "linceul spirituel": "linceul-spirituel",
+  "spirit shroud": "linceul-spirituel",
+  "aura de vitalite": "aura-de-vitalite",
+  "aura of vitality": "aura-de-vitalite",
+  "coquille antivie": "coquille-antivie",
+  "antilife shell": "coquille-antivie",
+  "champ antimagie": "champ-antimagie",
+  "antimagic field": "champ-antimagie",
+  "sacre de la glace": "sacre-de-la-glace",
+  "armor of agathys": "sacre-de-la-glace"
+};
+
+function resolvePhase1AuraKey(spellSlug, spellName) {
+  const slug = String(spellSlug ?? "").toLowerCase().trim();
+  if (AURA_SPELL_KEYS.has(slug)) return { key: slug, via: "slug" };
+  const nk = normalizeAuraNameKey(spellName ?? "");
+  const byName = AURA_SPELL_NAME_ALIASES[nk] ?? null;
+  if (byName) return { key: byName, via: "name" };
+  return { key: null, via: "none" };
+}
+
 // --- Folder helpers (Foundry Items subfolders)
 async function ensureChildFolder(name, type, parentId) {
   // Reuse existing folder if present
@@ -4434,6 +4498,30 @@ if (unlimitedTargets && (!maxTargets || Number(maxTargets) <= 1) && (!multiShotT
   };
 
   const baseId = firstActivityId(itemObj);
+  const spellSlug = String(sp?.slug ?? "").toLowerCase();
+  const auraMatch = resolvePhase1AuraKey(spellSlug, itemObj?.name ?? sp?.name ?? "");
+  const nativeAuraSpellKey = auraMatch.key;
+
+  // Phase-1 native Aura Effects spells must never go through template-targeting branches.
+  // We normalize them immediately to a self utility cast activity and stop here.
+  if (nativeAuraSpellKey) {
+    const act = makeActivity(baseId);
+    act.sort = 0;
+    setCommonFromSpell(act);
+    act.target = act.target ?? {
+      template: { count:"", contiguous:false, type:"", size:"", width:"", height:"", units:"ft" },
+      affects: { count:"1", type:"self", choice:false, special:"" },
+      prompt: false,
+      override: true
+    };
+    act.target.template = { count: "", contiguous: false, type: "", size: "", width: "", height: "", units: "ft" };
+    act.target.affects = { count: "1", type: "self", choice: false, special: "" };
+    act.target.prompt = false;
+    act.target.override = true;
+    act.type = "utility";
+    act.name = act.name || "Lancer";
+    return;
+  }
   let __beamExtraActivityId = null;
 
   // Deterministic extra activity IDs (avoid duplicates on re-import)
@@ -6076,6 +6164,8 @@ function applySpellEffects(itemObj, sp, durationObj, measurement) {
   if (USE_WEB_REGIONS) {
     const __n = String(itemObj?.name ?? "").toLowerCase();
     const __rule = itemObj?.flags?.["encounterplus-importer"]?.regionRule ?? null;
+    const __auraMatch = resolvePhase1AuraKey(sp?.slug ?? null, itemObj?.name ?? sp?.name ?? "");
+    const __isNativeAuraSpell = !!__auraMatch?.key;
 
     const __isWeb2 = __n.includes("toile d'araignée") || __n.includes("toile d’araignée") || __n === "web";
     const __isGrease2 = __n === "graisse" || __n === "grease";
@@ -6101,7 +6191,9 @@ function applySpellEffects(itemObj, sp, durationObj, measurement) {
     if (implied) {
       mark(implied);
       if (implied === "web") itemObj.flags["encounterplus-importer"].useWebRegions = true;
-      return;
+      // Keep Aura Effects native aura creation for known aura spells
+      // even when they also carry region metadata.
+      if (!__isNativeAuraSpell) return;
     }
   }
 
@@ -6293,12 +6385,268 @@ if (!USE_WEB_REGIONS && (spellNameLC.includes("toile d'araignée") || spellNameL
   } catch (e) { /* ignore */ }
 
 
+  const spellSlug = String(sp?.slug ?? "").toLowerCase();
+
+  // Phase 1 only: explicit, reliable matching by slug (+ folded names as fallback).
+  // Reusable "families" to batch aura mechanics by capability.
+  const AURA_FAMILY_A_SIMPLE = {
+    stealthPlus10: {
+      changes: [{ key: "system.skills.ste.bonuses.check", mode: 2, value: "+10", priority: 20 }],
+      statuses: [],
+      runtime: [],
+      deferred: []
+    },
+    necroticResistance: {
+      changes: [{ key: "system.traits.dr.value", mode: 2, value: "necrotic", priority: 20 }],
+      statuses: [],
+      runtime: [],
+      deferred: []
+    },
+    poisonResistance: {
+      changes: [{ key: "system.traits.dr.value", mode: 2, value: "poison", priority: 20 }],
+      statuses: [],
+      runtime: [],
+      deferred: []
+    },
+    auraLifeProtectionFlag: {
+      changes: [{ key: "flags.encounterplus-importer.auraLife.protected", mode: 5, value: true, priority: 20 }],
+      statuses: [],
+      runtime: [],
+      deferred: []
+    }
+  };
+  const AURA_FAMILY_B_PROTECTION = {
+    purityProtectionPack: {
+      changes: [
+        { key: "flags.encounterplus-importer.auraPurity.protected", mode: 5, value: true, priority: 20 }
+      ],
+      statuses: [],
+      runtime: [
+        "diseasePrevention"
+      ],
+      deferred: [
+        "conditionSaveAdvantagePack: avantage JS contre aveuglé/charmé/assourdi/effrayé/paralysé/empoisonné/étourdi"
+      ]
+    },
+    circleOfPowerProtectionPack: {
+      changes: [
+        { key: "flags.encounterplus-importer.circleOfPower.protected", mode: 5, value: true, priority: 20 },
+        // Best-effort broad automation: advantage on saves (strict "vs magic only" filter remains deferred/runtime).
+        { key: "flags.midi-qol.advantage.ability.save.all", mode: 5, value: true, priority: 20 }
+      ],
+      statuses: [],
+      runtime: [],
+      deferred: [
+        "advantageVsMagicalSaves: filtrer l'avantage JS pour ne l'appliquer qu'aux sources magiques",
+        "evadeOnSuccessVsMagical: aucun dégât sur réussite JS magique à demi-dégâts"
+      ]
+    }
+  };
+  const AURA_FAMILY_C_RUNTIME = {
+    auraLifeRuntimePack: {
+      changes: [],
+      statuses: [],
+      runtime: [
+        "hpMaxReductionBlock",
+        "hpFloorNonUndead"
+      ],
+      deferred: []
+    },
+    crusadersMantleRuntimePack: {
+      changes: [],
+      statuses: [],
+      runtime: [],
+      deferred: ["extraRadiantWeaponHit"]
+    },
+    holyAuraRuntimePack: {
+      changes: [
+        { key: "system.traits.ci.value", mode: 2, value: "frightened", priority: 20 },
+        { key: "flags.encounterplus-importer.holyAura.protected", mode: 5, value: true, priority: 20 },
+        { key: "flags.midi-qol.advantage.ability.save.all", mode: 5, value: true, priority: 20 }
+      ],
+      statuses: [],
+      runtime: [],
+      deferred: [
+        "attackDisadvantageOnAttackers",
+        "blindOnMeleeHitVsFiendUndead"
+      ]
+    },
+    spiritGuardiansRuntimePack: {
+      changes: [],
+      statuses: [],
+      runtime: [],
+      deferred: [
+        "startTurnDamageAndSpeedPenalty: dégâts/réduction de vitesse dépendants de l'alignement et du choix du lanceur"
+      ]
+    },
+    spiritShroudRuntimePack: {
+      changes: [],
+      statuses: [],
+      runtime: [],
+      deferred: [
+        "onHitExtraDamageAndHealPrevention: dégâts supplémentaires et anti-soin sur cibles touchées"
+      ]
+    },
+    auraOfVitalityRuntimePack: {
+      changes: [],
+      statuses: [],
+      runtime: [],
+      deferred: [
+        "bonusActionHealingPulse: soin ciblé répété en action bonus"
+      ]
+    },
+    antimagicFieldRuntimePack: {
+      changes: [],
+      statuses: [],
+      runtime: [],
+      deferred: [
+        "magicSuppressionBubble: suppression d'effets/sorts/objets magiques dans la zone"
+      ]
+    },
+    antilifeShellRuntimePack: {
+      changes: [],
+      statuses: [],
+      runtime: [],
+      deferred: [
+        "livingCreatureBarrier: empêche les créatures vivantes d'entrer dans la zone"
+      ]
+    },
+    armorOfAgathysRuntimePack: {
+      changes: [
+        { key: "system.attributes.hp.temp", mode: 5, value: "@item.level * 5", priority: 20 }
+      ],
+      statuses: [],
+      runtime: [],
+      deferred: [
+        "retaliatoryColdDamageOnMeleeHit: dégâts de froid en représailles tant que PV temporaires actifs"
+      ]
+    }
+  };
+  const buildAuraEffectSpec = (keys = []) => {
+    const out = { changes: [], statuses: [], runtime: [], deferred: [] };
+    for (const k of keys) {
+      const src = AURA_FAMILY_A_SIMPLE[k] ?? AURA_FAMILY_B_PROTECTION[k] ?? AURA_FAMILY_C_RUNTIME[k] ?? null;
+      if (!src) continue;
+      out.changes.push(...(Array.isArray(src.changes) ? src.changes : []));
+      out.statuses.push(...(Array.isArray(src.statuses) ? src.statuses : []));
+      out.runtime.push(...(Array.isArray(src.runtime) ? src.runtime : []));
+      out.deferred.push(...(Array.isArray(src.deferred) ? src.deferred : []));
+    }
+    out.changes = out.changes.filter(Boolean);
+    out.statuses = [...new Set(out.statuses.map(String))];
+    out.runtime = [...new Set(out.runtime.map(String))];
+    out.deferred = [...new Set(out.deferred.map(String))];
+    return out;
+  };
+
+  const auraPhase1Map = {
+    // targeting: allies | all | enemies
+    "passage-sans-trace": {
+      key: "passage-sans-trace",
+      support: "A",
+      defaultRadiusMetric: 9,
+      defaultRadiusImperial: 30,
+      targeting: "allies",
+      effects: buildAuraEffectSpec(["stealthPlus10"])
+    },
+    "aura-de-vie": {
+      key: "aura-de-vie",
+      support: "A",
+      targeting: "allies",
+      effects: buildAuraEffectSpec(["necroticResistance", "auraLifeProtectionFlag", "auraLifeRuntimePack"])
+    },
+    "aura-de-purete": {
+      key: "aura-de-purete",
+      support: "B",
+      targeting: "allies",
+      effects: buildAuraEffectSpec(["poisonResistance", "purityProtectionPack"])
+    },
+    "aura-du-croise": {
+      key: "aura-du-croise",
+      support: "C",
+      targeting: "allies",
+      effects: buildAuraEffectSpec(["crusadersMantleRuntimePack"])
+    },
+    "cercle-de-pouvoir": {
+      key: "cercle-de-pouvoir",
+      support: "B",
+      targeting: "allies",
+      effects: buildAuraEffectSpec(["circleOfPowerProtectionPack"])
+    },
+    "aura-sacree": {
+      key: "aura-sacree",
+      support: "B",
+      targeting: "allies",
+      effects: buildAuraEffectSpec(["holyAuraRuntimePack"])
+    },
+    "esprits-gardiens": {
+      key: "esprits-gardiens",
+      support: "C",
+      defaultRadiusMetric: 4.5,
+      defaultRadiusImperial: 15,
+      targeting: "enemies",
+      effects: buildAuraEffectSpec(["spiritGuardiansRuntimePack"])
+    },
+    "linceul-spirituel": {
+      key: "linceul-spirituel",
+      support: "C",
+      defaultRadiusMetric: 3,
+      defaultRadiusImperial: 10,
+      targeting: "enemies",
+      effects: buildAuraEffectSpec(["spiritShroudRuntimePack"])
+    },
+    "aura-de-vitalite": {
+      key: "aura-de-vitalite",
+      support: "C",
+      defaultRadiusMetric: 9,
+      defaultRadiusImperial: 30,
+      targeting: "allies",
+      effects: buildAuraEffectSpec(["auraOfVitalityRuntimePack"])
+    },
+    "coquille-antivie": {
+      key: "coquille-antivie",
+      support: "C",
+      defaultRadiusMetric: 3,
+      defaultRadiusImperial: 10,
+      targeting: "all",
+      effects: buildAuraEffectSpec(["antilifeShellRuntimePack"])
+    },
+    "champ-antimagie": {
+      key: "champ-antimagie",
+      support: "C",
+      defaultRadiusMetric: 3,
+      defaultRadiusImperial: 10,
+      targeting: "all",
+      effects: buildAuraEffectSpec(["antimagicFieldRuntimePack"])
+    },
+    "sacre-de-la-glace": {
+      key: "sacre-de-la-glace",
+      support: "B",
+      targeting: "enemies",
+      effects: buildAuraEffectSpec(["armorOfAgathysRuntimePack"])
+    }
+  };
+  const auraMatch = resolvePhase1AuraKey(spellSlug, itemObj?.name ?? sp?.name ?? "");
+  const matchedAuraKey = auraMatch.key;
+  try {
+    itemObj.flags ??= {};
+    itemObj.flags["encounterplus-importer"] ??= {};
+    itemObj.flags["encounterplus-importer"].auraPhase1Audit = {
+      slug: spellSlug,
+      name: String(itemObj?.name ?? sp?.name ?? ""),
+      recognized: !!matchedAuraKey,
+      key: matchedAuraKey,
+      via: auraMatch.via,
+      reason: matchedAuraKey ? "aura-match" : "no-aura-match"
+    };
+  } catch (_e) {}
+  if (!matchedAuraKey) return;
+  if ((durationObj?.units ?? "inst") === "inst") return;
+
   const rangeType = String(sp?.data?.rangeType ?? "").toLowerCase();
   const shape = String(sp?.data?.areaEffectShape ?? "").toLowerCase();
   const size = sp?.data?.areaEffectSize ?? null;
-  if (!shape || size == null) return;
   if (rangeType !== "self") return;
-  if ((durationObj?.units ?? "inst") === "inst") return;
 
   const srcMetric = (measurement === "metric");
   const wantMetric = srcMetric || !!game.settings.get(MODULE_ID, SETTINGS.USE_METRIC);
@@ -6307,9 +6655,10 @@ if (!USE_WEB_REGIONS && (spellNameLC.includes("toile d'araignée") || spellNameL
   const sysTgt = itemObj?.system?.target ?? {};
   const tmpl = sysTgt?.template ?? null;
 
+  const auraDef = auraPhase1Map[matchedAuraKey] ?? null;
   let radius = null;
   let units = wantMetric ? "m" : "ft";
-  let auraShape = null;
+  let auraShape = "sphere";
 
   if (tmpl && Number.isFinite(Number(tmpl.size))) {
     auraShape = String(tmpl.type ?? shape).toLowerCase();
@@ -6319,12 +6668,16 @@ if (!USE_WEB_REGIONS && (spellNameLC.includes("toile d'araignée") || spellNameL
     auraShape = String(sysTgt.type).toLowerCase();
     radius = Number(sysTgt.value);
     units = String(sysTgt.units ?? units);
-  } else {
+  } else if (shape && size != null) {
     // Fallback : depuis Encounter+ (size en m si metric, sinon ft)
     const base = srcMetric ? Number(size) : roundTo5(size);
     radius = wantMetric ? (srcMetric ? base : feetToMeters(base)) : (srcMetric ? metersToFeet(base) : base);
     units = wantMetric ? "m" : "ft";
     auraShape = shape;
+  } else if (auraDef && Number.isFinite(Number(auraDef.defaultRadiusMetric)) && Number.isFinite(Number(auraDef.defaultRadiusImperial))) {
+    radius = wantMetric ? Number(auraDef.defaultRadiusMetric) : Number(auraDef.defaultRadiusImperial);
+    units = wantMetric ? "m" : "ft";
+    auraShape = "sphere";
   }
 
   if (!Number.isFinite(radius) || radius <= 0) return;
@@ -6351,37 +6704,104 @@ if (!USE_WEB_REGIONS && (spellNameLC.includes("toile d'araignée") || spellNameL
   const seconds = toSeconds(itemObj?.system?.duration);
   const effectId = foundry?.utils?.randomID ? foundry.utils.randomID(16) : crypto.randomUUID().slice(0, 16);
 
+  const auraDispositionByTargeting = {
+    allies: "friendly",
+    all: "all",
+    enemies: "hostile"
+  };
   const aura = {
     enabled: true,
     radius,
     shape: auraShape,
     units,
-    disposition: "all"
+    disposition: auraDispositionByTargeting[auraDef?.targeting] ?? "all",
+    phase: "phase1",
+    spellKey: matchedAuraKey
   };
 
+  // Real Aura Effects schema (phase-1): effect.type + effect.system + flags.auraeffects.
+  const isAuraEffectsNativeSpell = !!auraDef;
+  const auraPayload = {
+    changes: Array.isArray(auraDef?.effects?.changes) ? auraDef.effects.changes : [],
+    statuses: Array.isArray(auraDef?.effects?.statuses) ? auraDef.effects.statuses : [],
+    runtime: Array.isArray(auraDef?.effects?.runtime) ? auraDef.effects.runtime : [],
+    deferred: Array.isArray(auraDef?.effects?.deferred) ? auraDef.effects.deferred : []
+  };
+  const resolveAuraEffectsDisposition = (raw) => {
+    // Aura Effects expects a numeric disposition choice (Token disposition enum-like values).
+    // For phase-1 aura propagation, prefer a permissive default (0 = Any/Neutral-like bucket),
+    // then let individual world token dispositions drive effective inclusion.
+    const s = String(raw ?? "").toLowerCase().trim();
+    if (s === "friendly" || s === "ally" || s === "allies" || s === "non-hostile" || s === "nonhostile") return 1;
+    if (s === "all" || s === "any") return 0;
+    if (s === "neutral") return 0;
+    if (s === "hostile" || s === "enemy" || s === "enemies") return -1;
+    const n = Number(raw);
+    if (Number.isFinite(n) && (n === -1 || n === 0 || n === 1)) return n;
+    return 0;
+  };
+
+  const auraEffectsSystem = isAuraEffectsNativeSpell ? {
+    showRadius: false,
+    applyToSelf: true,
+    bestFormula: "",
+    canStack: false,
+    collisionTypes: ["move"],
+    color: "#000000",
+    combatOnly: false,
+    disableOnHidden: false,
+    distanceFormula: String(aura.radius),
+    disposition: resolveAuraEffectsDisposition(aura.disposition),
+    evaluatePreApply: true,
+    opacity: 0.15,
+    overrideName: "",
+    script: "",
+    stashedChanges: Array.isArray(auraPayload.changes) ? auraPayload.changes : [],
+    stashedStatuses: Array.isArray(auraPayload.statuses) ? auraPayload.statuses : []
+  } : null;
+
   // Change inoffensif => rend l'effet visible + stocke la config pour nos usages
+  const propagatedChanges = Array.isArray(auraPayload.changes) ? auraPayload.changes : [];
   const effect = {
     _id: effectId,
     name: `Aura — ${itemObj.name}`,
     icon: itemObj.img,
     img: itemObj.img,
+    ...(isAuraEffectsNativeSpell ? { type: "auraeffects.aura" } : {}),
+    ...(auraEffectsSystem ? { system: auraEffectsSystem } : {}),
     origin: null,
     changes: [
+      ...(isAuraEffectsNativeSpell ? propagatedChanges : []),
       { key: "flags.encounterplus-importer.aura", mode: 5, value: JSON.stringify(aura), priority: 20 }
     ],
     disabled: false,
     duration: seconds ? { seconds } : {},
     transfer: false,
     flags: {
-      "encounterplus-importer": { aura },
-      // Compat "best effort" : plusieurs clés possibles selon les modules
-      "aura-effects": { isAura: true, ...aura },
-      auraeffects: { isAura: true, ...aura },
-      AuraEffects: { isAura: true, ...aura }
+      "encounterplus-importer": {
+        aura,
+        auraEffectPlan: {
+          support: String(auraDef?.support ?? "C"),
+          automatedChanges: auraPayload.changes,
+          automatedStatuses: auraPayload.statuses,
+          runtime: auraPayload.runtime,
+          deferred: auraPayload.deferred
+        }
+      },
+      ...(isAuraEffectsNativeSpell ? { auraeffects: { originalType: "base" } } : {}),
+      // Compat for Aura Effects module namespace.
+      "aura-effects": {
+        isAura: isAuraEffectsNativeSpell,
+        radius: aura.radius,
+        shape: aura.shape,
+        units: aura.units,
+        spellKey: matchedAuraKey
+      }
     }
   };
 
   itemObj.effects.push(effect);
+  if (isAuraEffectsNativeSpell) addEffectRefToBaseActivity(effectId);
 }
 
 
