@@ -2086,6 +2086,94 @@ function parseHealingOrTempFR(text) {
   return null;
 }
 
+// --- Lot 1 (batch simple) ---------------------------------------------------
+// Pragmatic fast-pass: only for explicitly listed simple/ROI spells,
+// while excluding already-validated heavy systems (auras/regions/walls/multi-shot-like specials).
+const LOT1_SIMPLE_BATCH_SLUGS = new Set([
+  "blessure",
+  "chatiment-du-ban",
+  "chatiment-revelateur",
+  "coup-au-but",
+  "dissipation-du-mal-et-du-bien",
+  "duel-force",
+  "ennemis-a-foison",
+  "faveur-divine",
+  "flammes",
+  "fleche-acide-de-melf",
+  "fleches-enflammees",
+  "forme-gazeuse",
+  "foulee-d-ashardalon",
+  "frayeur",
+  "guerison-de-groupe",
+  "image-miroir",
+  "invulnerabilite",
+  "lame-de-feu",
+  "lame-retentissante",
+  "lueurs-feeriques",
+  "mot-de-guerison-de-groupe",
+  "ombre-d-egarement",
+  "orbe-chromatique",
+  "premonition",
+  "priere-de-guerison",
+  "protection-contre-le-mal-et-le-bien",
+  "protection-contre-le-poison",
+  "rayon-de-givre",
+  "regeneration",
+  "resistance",
+  "sauvagerie-primitive",
+  "soins",
+  "trait-de-feu",
+  "vent-protecteur"
+]);
+
+const LOT1_SIMPLE_EXCLUDED_SLUGS = new Set([
+  // Explicitly out-of-scope for this pass (existing dedicated systems)
+  "aura-de-purete",
+  "cercle-de-pouvoir",
+  "croissance-d-epines",
+  "mur-d-eau",
+  "nuee-de-dagues",
+  "tentacules-noirs-d-evard",
+  // Not prioritized combat simple mechanics for this pass
+  "message",
+  "pierre-magique",
+  "sieste",
+  "sommeil",
+  "sphere-resiliente-d-otiluke",
+  "tempete-vengeresse"
+]);
+
+function isLot1SimpleBatchEligible(spellSlug) {
+  const s = String(spellSlug ?? "").toLowerCase().trim();
+  return LOT1_SIMPLE_BATCH_SLUGS.has(s) && !LOT1_SIMPLE_EXCLUDED_SLUGS.has(s);
+}
+
+function parseSimpleBuffChangesFR(descText = "") {
+  const t = foldKey(descText);
+  const changes = [];
+
+  const dmgTypes = ["acid", "cold", "fire", "force", "lightning", "necrotic", "poison", "psychic", "radiant", "thunder", "bludgeoning", "piercing", "slashing"];
+  const frToSys = new Map([
+    ["acide", "acid"], ["froid", "cold"], ["feu", "fire"], ["force", "force"], ["foudre", "lightning"],
+    ["necrotique", "necrotic"], ["nécrotique", "necrotic"], ["poison", "poison"], ["psychique", "psychic"],
+    ["radiant", "radiant"], ["radieux", "radiant"], ["tonnerre", "thunder"], ["contondant", "bludgeoning"],
+    ["contendant", "bludgeoning"], ["perforant", "piercing"], ["tranchant", "slashing"]
+  ]);
+
+  for (const [fr, sysType] of frToSys.entries()) {
+    const rx = new RegExp(`resistan(?:ce|t)\\s+(?:aux|au|a la|a l')\\s+degats?\\s+(?:de\\s+|d')?${fr}`);
+    if (rx.test(t) && dmgTypes.includes(sysType)) {
+      changes.push({ key: "system.traits.dr.value", mode: 2, value: sysType, priority: 20 });
+    }
+  }
+
+  if (/avantage[^\.]{0,80}jets? de sauvegarde/.test(t)) {
+    changes.push({ key: "flags.midi-qol.advantage.ability.save.all", mode: 5, value: true, priority: 20 });
+  }
+
+  return changes;
+}
+
 
 
 function parseMaxTargetsFR(text) {
@@ -4524,6 +4612,106 @@ if (unlimitedTargets && (!maxTargets || Number(maxTargets) <= 1) && (!multiShotT
   }
   let __beamExtraActivityId = null;
 
+  // Lot 1 fast-path: keep implementation simple, deterministic, and cheap.
+  // This path is intentionally limited to selected lot-1 slugs and avoids touching
+  // dedicated complex systems (regions/walls/auras/multi-shot special handling).
+  const __lot1SimpleEligible = isLot1SimpleBatchEligible(spellSlug);
+  if (__lot1SimpleEligible) {
+    const healCandLot1 = parseHealingOrTempFR(descText);
+    const primaryDamage = Array.isArray(damages) && damages.length ? damages[0] : null;
+
+    const act = makeActivity(baseId);
+    act.sort = 0;
+    setCommonFromSpell(act);
+    act.midiProperties = act.midiProperties ?? {};
+    act.midiProperties.displayActivityName = true;
+
+    if (healCandLot1) {
+      const isTemp = healCandLot1.kind === "temp";
+      act.type = "heal";
+      act.name = isMidi ? "midi heal" : (wantsFR ? (isTemp ? "PV temporaires" : "Soigner") : (isTemp ? "Temp HP" : "Heal"));
+      act.healing = act.healing ?? { number: null, denomination: null, bonus: "", types: [], custom: { enabled: false, formula: "" }, scaling: { mode: "whole", number: 1, formula: "" } };
+      act.healing.types = [isTemp ? "temphp" : "healing"];
+      if (healCandLot1.custom) {
+        act.healing.custom.enabled = true;
+        act.healing.custom.formula = String(healCandLot1.custom).trim();
+        act.healing.number = null;
+        act.healing.denomination = null;
+        act.healing.bonus = "";
+      } else {
+        act.healing.custom.enabled = false;
+        act.healing.custom.formula = "";
+        act.healing.number = Number(healCandLot1.number ?? 0) || null;
+        act.healing.denomination = Number(healCandLot1.denom ?? healCandLot1.denomination ?? 0) || null;
+        act.healing.bonus = String(healCandLot1.bonus ?? "");
+      }
+      sys.actionType = "";
+      return;
+    }
+
+    if (saveAb && primaryDamage) {
+      act.type = "save";
+      act.name = isMidi ? "midi save" : (wantsFR ? "Sauvegarde" : "Save");
+      act.save = act.save ?? { ability: [saveAb], dc: { calculation: "", formula: CASTER_DC_FORMULA } };
+      act.save.ability = [saveAb];
+      act.save.dc = act.save.dc ?? { calculation: "", formula: CASTER_DC_FORMULA };
+      act.save.dc.calculation = "";
+      act.save.dc.formula = CASTER_DC_FORMULA;
+      try { delete act.save.dc.value; } catch (e) { act.save.dc.value = null; }
+      act.damage = act.damage ?? { critical: { bonus: "" }, includeBase: true, parts: [] };
+      act.damage.parts = [{
+        number: primaryDamage.number,
+        denomination: primaryDamage.denom,
+        bonus: String(primaryDamage.bonus ?? ""),
+        types: [primaryDamage.dtype || ""],
+        custom: { enabled: false, formula: "" },
+        scaling: { mode: "whole", number: 1, formula: "" }
+      }];
+      act.description = act.description ?? { chatFlavor: "" };
+      act.description.chatFlavor = wantsFR
+        ? `JS ${saveAb.toUpperCase()} · ${primaryDamage.number}d${primaryDamage.denom} ${primaryDamage.dtype}${halfOnSave ? " (moitié si réussite)" : ""}`
+        : `${saveAb.toUpperCase()} save · ${primaryDamage.number}d${primaryDamage.denom} ${primaryDamage.dtype}${halfOnSave ? " (half on save)" : ""}`;
+      sys.actionType = "save";
+      return;
+    }
+
+    if (atk && primaryDamage) {
+      act.type = "attack";
+      act.name = isMidi ? "midi attack" : (wantsFR ? "Attaque" : "Attack");
+      act.attack = act.attack ?? { ability: "", bonus: "", critical: { threshold: null }, flat: false, type: { value: "ranged", classification: "spell" } };
+      act.attack.type = act.attack.type ?? { value: "ranged", classification: "spell" };
+      act.attack.type.value = (atk.mode === "melee") ? "melee" : "ranged";
+      act.attack.type.classification = "spell";
+      act.damage = act.damage ?? { critical: { bonus: "" }, includeBase: true, parts: [] };
+      act.damage.parts = [{
+        number: primaryDamage.number,
+        denomination: primaryDamage.denom,
+        bonus: String(primaryDamage.bonus ?? ""),
+        types: [primaryDamage.dtype || ""],
+        custom: { enabled: false, formula: "" },
+        scaling: { mode: "whole", number: 1, formula: "" }
+      }];
+      sys.actionType = atk.actionType;
+      return;
+    }
+
+    if (primaryDamage) {
+      act.type = "damage";
+      act.name = isMidi ? "midi damage" : (wantsFR ? "Dégâts" : "Damage");
+      act.damage = act.damage ?? { critical: { bonus: "" }, includeBase: true, parts: [] };
+      act.damage.parts = [{
+        number: primaryDamage.number,
+        denomination: primaryDamage.denom,
+        bonus: String(primaryDamage.bonus ?? ""),
+        types: [primaryDamage.dtype || ""],
+        custom: { enabled: false, formula: "" },
+        scaling: { mode: "whole", number: 1, formula: "" }
+      }];
+      sys.actionType = "";
+      return;
+    }
+  }
+
   // Deterministic extra activity IDs (avoid duplicates on re-import)
   const deriveSiblingId = (base, preferChars = ["x","1","2","3","4","5","6","7","8","9","a","b","c","d","e","f"]) => {
     const b = String(base ?? "");
@@ -6146,8 +6334,42 @@ function applySpellEffects(itemObj, sp, durationObj, measurement) {
     if (!act.effects.some(e => e?._id === effectId)) act.effects.push({ _id: effectId });
   };
 
+  const addSimpleLot1BuffEffect = () => {
+    const spellSlug = String(sp?.slug ?? "").toLowerCase();
+    if (!isLot1SimpleBatchEligible(spellSlug)) return;
+    const changes = parseSimpleBuffChangesFR(stripHtmlToText(cleanEncounterLinks(sp?.descr ?? "")));
+    if (!changes.length) return;
+
+    // Avoid duplicates on re-import.
+    const existing = (itemObj.effects ?? []).find(e => e?.flags?.["encounterplus-importer"]?.simpleLot1Buff === true);
+    if (existing) return;
+
+    const effectId = foundry?.utils?.randomID ? foundry.utils.randomID(16) : crypto.randomUUID().slice(0, 16);
+    itemObj.effects.push({
+      _id: effectId,
+      name: `${itemObj.name} — Buff simple`,
+      icon: itemObj.img ?? "icons/svg/aura.svg",
+      origin: null,
+      disabled: false,
+      transfer: false,
+      duration: toEffectDuration(itemObj?.system?.duration ?? durationObj),
+      changes,
+      flags: {
+        "encounterplus-importer": {
+          simpleLot1Buff: true,
+          slug: spellSlug,
+          family: "buffs-resistances"
+        }
+      }
+    });
+    addEffectRefToBaseActivity(effectId);
+  };
+
   // Nettoie d'éventuels anciens placeholders d'aura
   itemObj.effects = itemObj.effects.filter(e => !(e?.flags?.["encounterplus-importer"]?.aura));
+
+  // Lot-1 simple buffs/resistances (pragmatic batch pass).
+  try { addSimpleLot1BuffEffect(); } catch (e) { /* ignore */ }
 
   // Nettoie aussi d'éventuels anciens placeholders "OverTime" générés par l'import
   {
