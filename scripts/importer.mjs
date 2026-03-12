@@ -164,6 +164,51 @@ function foldKey(s) {
   }
 }
 
+function normalizeAuraNameKey(s) {
+  return foldKey(String(s ?? ""))
+    .replace(/[’']/g, " ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+const PHASE1_AURA_KEYS = new Set([
+  "passage-sans-trace",
+  "aura-de-vie",
+  "aura-de-purete",
+  "aura-du-croise",
+  "cercle-de-pouvoir",
+  "aura-sacree"
+]);
+
+const PHASE1_AURA_NAME_ALIASES = {
+  // FR
+  "passage sans trace": "passage-sans-trace",
+  "aura de vie": "aura-de-vie",
+  "aura de purete": "aura-de-purete",
+  "aura du croise": "aura-du-croise",
+  "cercle de pouvoir": "cercle-de-pouvoir",
+  "aura sacree": "aura-sacree",
+  // EN
+  "pass without trace": "passage-sans-trace",
+  "aura of life": "aura-de-vie",
+  "aura of purity": "aura-de-purete",
+  "purity of aura": "aura-de-purete",
+  "crusader s mantle": "aura-du-croise",
+  "crusaders mantle": "aura-du-croise",
+  "circle of power": "cercle-de-pouvoir",
+  "holy aura": "aura-sacree"
+};
+
+function resolvePhase1AuraKey(spellSlug, spellName) {
+  const slug = String(spellSlug ?? "").toLowerCase().trim();
+  if (PHASE1_AURA_KEYS.has(slug)) return { key: slug, via: "slug" };
+  const nk = normalizeAuraNameKey(spellName ?? "");
+  const byName = PHASE1_AURA_NAME_ALIASES[nk] ?? null;
+  if (byName) return { key: byName, via: "name" };
+  return { key: null, via: "none" };
+}
+
 // --- Folder helpers (Foundry Items subfolders)
 async function ensureChildFolder(name, type, parentId) {
   // Reuse existing folder if present
@@ -4434,34 +4479,9 @@ if (unlimitedTargets && (!maxTargets || Number(maxTargets) <= 1) && (!multiShotT
   };
 
   const baseId = firstActivityId(itemObj);
-  const fold = (s) => foldKey(String(s ?? "")).replace(/[’']/g, " ").replace(/\s+/g, " ").trim();
   const spellSlug = String(sp?.slug ?? "").toLowerCase();
-  const spellNameFold = fold(itemObj?.name ?? sp?.name ?? "");
-  const auraPhase1NativeSet = new Set([
-    "passage-sans-trace",
-    "aura-de-vie",
-    "aura-de-purete",
-    "aura-du-croise",
-    "cercle-de-pouvoir",
-    "aura-sacree"
-  ]);
-  const auraPhase1NativeNameMap = {
-    "passage sans trace": "passage-sans-trace",
-    "aura de vie": "aura-de-vie",
-    "aura de purete": "aura-de-purete",
-    "aura du croise": "aura-du-croise",
-    "cercle de pouvoir": "cercle-de-pouvoir",
-    "aura sacree": "aura-sacree",
-    "pass without trace": "passage-sans-trace",
-    "aura of life": "aura-de-vie",
-    "aura of purity": "aura-de-purete",
-    "crusader s mantle": "aura-du-croise",
-    "circle of power": "cercle-de-pouvoir",
-    "holy aura": "aura-sacree"
-  };
-  const nativeAuraSpellKey = auraPhase1NativeSet.has(spellSlug)
-    ? spellSlug
-    : (auraPhase1NativeSet.has(auraPhase1NativeNameMap[spellNameFold]) ? auraPhase1NativeNameMap[spellNameFold] : null);
+  const auraMatch = resolvePhase1AuraKey(spellSlug, itemObj?.name ?? sp?.name ?? "");
+  const nativeAuraSpellKey = auraMatch.key;
 
   // Phase-1 native Aura Effects spells must never go through template-targeting branches.
   // We normalize them immediately to a self utility cast activity and stop here.
@@ -6342,9 +6362,7 @@ if (!USE_WEB_REGIONS && (spellNameLC.includes("toile d'araignée") || spellNameL
   } catch (e) { /* ignore */ }
 
 
-  const fold = (s) => foldKey(String(s ?? "")).replace(/[’']/g, " ").replace(/\s+/g, " ").trim();
   const spellSlug = String(sp?.slug ?? "").toLowerCase();
-  const spellNameFold = fold(itemObj?.name ?? sp?.name ?? "");
 
   // Phase 1 only: explicit, reliable matching by slug (+ folded names as fallback).
   // Reusable "families" to batch aura mechanics by capability.
@@ -6481,22 +6499,20 @@ if (!USE_WEB_REGIONS && (spellNameLC.includes("toile d'araignée") || spellNameL
       effects: buildAuraEffectSpec(["holyAuraRuntimePack"])
     }
   };
-  const auraPhase1NameMap = {
-    "passage sans trace": "passage-sans-trace",
-    "aura de purete": "aura-de-purete",
-    "aura du croise": "aura-du-croise",
-    "aura de vie": "aura-de-vie",
-    "cercle de pouvoir": "cercle-de-pouvoir",
-    "aura sacree": "aura-sacree",
-    "pass without trace": "passage-sans-trace",
-    "purity of aura": "aura-de-purete",
-    "crusader s mantle": "aura-du-croise",
-    "aura of life": "aura-de-vie",
-    "circle of power": "cercle-de-pouvoir",
-    "holy aura": "aura-sacree"
-  };
-
-  const matchedAuraKey = auraPhase1Map[spellSlug]?.key ?? auraPhase1NameMap[spellNameFold] ?? null;
+  const auraMatch = resolvePhase1AuraKey(spellSlug, itemObj?.name ?? sp?.name ?? "");
+  const matchedAuraKey = auraMatch.key;
+  try {
+    itemObj.flags ??= {};
+    itemObj.flags["encounterplus-importer"] ??= {};
+    itemObj.flags["encounterplus-importer"].auraPhase1Audit = {
+      slug: spellSlug,
+      name: String(itemObj?.name ?? sp?.name ?? ""),
+      recognized: !!matchedAuraKey,
+      key: matchedAuraKey,
+      via: auraMatch.via,
+      reason: matchedAuraKey ? "phase1-match" : "no-phase1-match"
+    };
+  } catch (_e) {}
   if (!matchedAuraKey) return;
   if ((durationObj?.units ?? "inst") === "inst") return;
 
