@@ -6396,6 +6396,23 @@ if (!USE_WEB_REGIONS && (spellNameLC.includes("toile d'araignée") || spellNameL
     spellKey: matchedAuraKey
   };
 
+  // Aura Effects / Active Auras runtime schema (used to mark an effect as an already-converted aura).
+  // Keep this tightly scoped to the initial validated phase-1 pair.
+  const supportsNativeAuraEffects = (matchedAuraKey === "passage-sans-trace" || matchedAuraKey === "aura-de-vie");
+  const activeAurasFlags = supportsNativeAuraEffects ? {
+    isAura: true,
+    aura: "All",
+    radius: String(aura.radius),
+    alignment: "",
+    type: "",
+    ignoreSelf: false,
+    hidden: false,
+    displayTemp: true,
+    hostile: false,
+    onlyOnce: false,
+    height: false
+  } : null;
+
   // Change inoffensif => rend l'effet visible + stocke la config pour nos usages
   const effect = {
     _id: effectId,
@@ -6404,7 +6421,16 @@ if (!USE_WEB_REGIONS && (spellNameLC.includes("toile d'araignée") || spellNameL
     img: itemObj.img,
     origin: null,
     changes: [
-      { key: "flags.encounterplus-importer.aura", mode: 5, value: JSON.stringify(aura), priority: 20 }
+      { key: "flags.encounterplus-importer.aura", mode: 5, value: JSON.stringify(aura), priority: 20 },
+      ...(supportsNativeAuraEffects ? [
+        { key: "flags.ActiveAuras.isAura", mode: 5, value: true, priority: 20 },
+        { key: "flags.ActiveAuras.aura", mode: 5, value: "All", priority: 20 },
+        { key: "flags.ActiveAuras.radius", mode: 5, value: String(aura.radius), priority: 20 },
+        { key: "flags.ActiveAuras.ignoreSelf", mode: 5, value: false, priority: 20 },
+        { key: "flags.ActiveAuras.hostile", mode: 5, value: false, priority: 20 },
+        { key: "flags.ActiveAuras.onlyOnce", mode: 5, value: false, priority: 20 },
+        { key: "flags.ActiveAuras.height", mode: 5, value: false, priority: 20 }
+      ] : [])
     ],
     disabled: false,
     duration: seconds ? { seconds } : {},
@@ -6420,8 +6446,15 @@ if (!USE_WEB_REGIONS && (spellNameLC.includes("toile d'araignée") || spellNameL
           spellKey: matchedAuraKey
         }
       },
-      // Compat best-effort (kept for existing worlds): only minimal shared fields.
-      "aura-effects": { isAura: true, radius: aura.radius, shape: aura.shape, units: aura.units }
+      ...(activeAurasFlags ? { ActiveAuras: activeAurasFlags } : {}),
+      // Compat for Aura Effects module namespace.
+      "aura-effects": {
+        isAura: supportsNativeAuraEffects,
+        radius: aura.radius,
+        shape: aura.shape,
+        units: aura.units,
+        spellKey: matchedAuraKey
+      }
     }
   };
 
