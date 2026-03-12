@@ -2264,6 +2264,20 @@ function __epiHasAuraPurityProtection(actor) {
   }
 }
 
+function __epiHasHolyAuraProtection(actor) {
+  try {
+    const viaFlag = !!foundry?.utils?.getProperty?.(actor, "flags.encounterplus-importer.holyAura.protected");
+    if (viaFlag) return true;
+    const effects = Array.from(actor?.effects ?? []);
+    return effects.some((e) => {
+      const ch = Array.isArray(e?.changes) ? e.changes : [];
+      return ch.some(c => String(c?.key ?? "") === "flags.encounterplus-importer.holyAura.protected");
+    });
+  } catch (_e) {
+    return false;
+  }
+}
+
 function __epiLooksLikeDiseaseEffect(effectData) {
   try {
     const name = String(effectData?.name ?? "").toLowerCase();
@@ -2287,6 +2301,19 @@ Hooks.on("preCreateActiveEffect", (effect, data) => {
     }
   } catch (e) {
     console.warn(`[${MODULE_ID}] Aura de pureté disease prevention failed`, e);
+  }
+});
+
+Hooks.on("midi-qol.preAttackRoll", (workflow) => {
+  try {
+    if (!game.user?.isGM || !workflow) return;
+    const targets = Array.from(workflow.targets ?? []);
+    if (!targets.length) return;
+    const hasProtectedTarget = targets.some(t => __epiHasHolyAuraProtection(t?.actor ?? null));
+    if (!hasProtectedTarget) return;
+    workflow.disadvantage = true;
+  } catch (e) {
+    console.warn(`[${MODULE_ID}] Aura sacrée preAttackRoll disadvantage failed`, e);
   }
 });
 

@@ -6407,12 +6407,14 @@ if (!USE_WEB_REGIONS && (spellNameLC.includes("toile d'araignée") || spellNameL
     },
     circleOfPowerProtectionPack: {
       changes: [
-        { key: "flags.encounterplus-importer.circleOfPower.protected", mode: 5, value: true, priority: 20 }
+        { key: "flags.encounterplus-importer.circleOfPower.protected", mode: 5, value: true, priority: 20 },
+        // Best-effort broad automation: advantage on saves (strict "vs magic only" filter remains deferred/runtime).
+        { key: "flags.midi-qol.advantage.ability.save.all", mode: 5, value: true, priority: 20 }
       ],
       statuses: [],
       runtime: [],
       deferred: [
-        "advantageVsMagicalSaves: avantage aux JS contre magie",
+        "advantageVsMagicalSaves: filtrer l'avantage JS pour ne l'appliquer qu'aux sources magiques",
         "evadeOnSuccessVsMagical: aucun dégât sur réussite JS magique à demi-dégâts"
       ]
     }
