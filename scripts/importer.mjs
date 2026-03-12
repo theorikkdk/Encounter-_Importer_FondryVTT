@@ -6164,6 +6164,8 @@ function applySpellEffects(itemObj, sp, durationObj, measurement) {
   if (USE_WEB_REGIONS) {
     const __n = String(itemObj?.name ?? "").toLowerCase();
     const __rule = itemObj?.flags?.["encounterplus-importer"]?.regionRule ?? null;
+    const __auraMatch = resolvePhase1AuraKey(sp?.slug ?? null, itemObj?.name ?? sp?.name ?? "");
+    const __isNativeAuraSpell = !!__auraMatch?.key;
 
     const __isWeb2 = __n.includes("toile d'araignée") || __n.includes("toile d’araignée") || __n === "web";
     const __isGrease2 = __n === "graisse" || __n === "grease";
@@ -6189,7 +6191,9 @@ function applySpellEffects(itemObj, sp, durationObj, measurement) {
     if (implied) {
       mark(implied);
       if (implied === "web") itemObj.flags["encounterplus-importer"].useWebRegions = true;
-      return;
+      // Keep Aura Effects native aura creation for known aura spells
+      // even when they also carry region metadata.
+      if (!__isNativeAuraSpell) return;
     }
   }
 
