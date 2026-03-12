@@ -3229,7 +3229,8 @@ function epiGetMultiAttackMeta(item) {
       thresholds: Array.isArray(meta0.thresholds) && meta0.thresholds.length ? meta0.thresholds.map(n => Number(n) || 0) : [1, 5, 11, 17],
       slotScaling: meta0?.slotScaling ? {
         baseLevel: Number(meta0?.slotScaling?.baseLevel ?? item?.system?.level ?? 0) || 0,
-        perLevel: Number(meta0?.slotScaling?.perLevel ?? 0) || 0
+        perLevel: Number(meta0?.slotScaling?.perLevel ?? 0) || 0,
+        countOnly: !!meta0?.slotScaling?.countOnly
       } : null,
       promptLabel: String(meta0.promptLabel ?? "rayon")
     };
@@ -3249,6 +3250,55 @@ function epiGetMultiAttackMeta(item) {
       promptLabel: "rayon"
     };
   }
+
+  // Legacy fallback: older imports may have created the extra activity but missed multiAttackChain flags.
+  // Infer a conservative fixed chain for known multi-hit spells.
+  try {
+    const name = String(item?.name ?? "").toLowerCase();
+    const acts = epiListActivities(item);
+    const extra = acts.find(a => {
+      const f = a?.flags?.[MODULE_ID] ?? a?.flags?.["encounterplus-importer"] ?? {};
+      return f?.kind === "multi-attack-extra";
+    }) ?? null;
+    const base = acts.find(a => String(a?._id ?? a?.id ?? "") !== String(extra?._id ?? extra?.id ?? "")) ?? acts[0] ?? null;
+    if (!base || !extra) return null;
+
+    if (/rayon\s+ardent|scorching\s+ray/i.test(name)) {
+      return {
+        enabled: true,
+        slug: "rayon-ardent",
+        baseActivityId: String(base?._id ?? base?.id ?? ""),
+        extraActivityId: String(extra?._id ?? extra?.id ?? ""),
+        fixedCount: 3,
+        countMode: "fixed",
+        thresholds: [],
+        slotScaling: {
+          baseLevel: Math.max(2, Number(item?.system?.level ?? 2) || 2),
+          perLevel: 1,
+          countOnly: true
+        },
+        promptLabel: "rayon"
+      };
+    }
+
+    if (/projectile\s+magique|magic\s+missile/i.test(name)) {
+      return {
+        enabled: true,
+        slug: "projectile-magique",
+        baseActivityId: String(base?._id ?? base?.id ?? ""),
+        extraActivityId: String(extra?._id ?? extra?.id ?? ""),
+        fixedCount: 3,
+        countMode: "fixed",
+        thresholds: [],
+        slotScaling: {
+          baseLevel: Math.max(1, Number(item?.system?.level ?? 1) || 1),
+          perLevel: 1,
+          countOnly: true
+        },
+        promptLabel: "projectile"
+      };
+    }
+  } catch (_e) { /* ignore */ }
 
   return null;
 }
@@ -3304,20 +3354,47 @@ function epiGetBeamCantripCount(actor, meta = {}) {
 
 function epiGetCastLevelFromUsage(item, usage = {}, result = null) {
   const baseLevel = Number(item?.system?.level ?? 0) || 0;
+
+  const parseSlot = (slotLike) => {
+    const s = String(slotLike ?? "").toLowerCase().trim();
+    if (!s) return undefined;
+    if (/^spell\d+$/.test(s)) return Number(s.replace("spell", ""));
+    // Some systems/workflows may expose plain numeric slot strings.
+    if (/^\d+$/.test(s)) return Number(s);
+    return undefined;
+  };
+
   const raw = Number(
     usage?.spellLevel ??
     usage?.castLevel ??
+    usage?.__epiDetectedSlotLevel ??
+    usage?.level ??
+    usage?.slotLevel ??
     usage?.spell?.level ??
     usage?.spell?.castLevel ??
-    ((typeof usage?.spell?.slot === "string" && /^spell\d+$/.test(usage?.spell?.slot)) ? Number(String(usage.spell.slot).replace("spell", "")) : undefined) ??
+    parseSlot(usage?.spell?.slot) ??
+    usage?.midiOptions?.workflowOptions?.castLevel ??
     result?.castData?.castLevel ??
+    result?.castData?.slotLevel ??
+    result?.castData?.baseLevel ??
+    result?.castLevel ??
+    result?.workflow?.castData?.castLevel ??
+    result?.workflow?.castData?.slotLevel ??
+    result?.workflow?.castData?.baseLevel ??
+    result?.workflow?.workflowOptions?.castLevel ??
+    result?.workflow?.options?.castLevel ??
+    result?.workflow?.options?.spellLevel ??
+    result?.workflow?.spellLevel ??
+    result?.workflow?.itemLevel ??
     result?.workflowOptions?.castLevel ??
     result?.options?.castLevel ??
     result?.options?.spellLevel ??
+    parseSlot(result?.options?.spell?.slot) ??
     result?.spellLevel ??
     result?.itemLevel ??
     baseLevel
   ) || baseLevel;
+
   return Math.max(baseLevel, raw);
 }
 
@@ -3562,8 +3639,215 @@ Hooks.once("ready", () => {
           activityId: String(baseDoc?._id ?? baseDoc?.id ?? ""),
           activity: baseDoc ?? String(baseDoc?._id ?? baseDoc?.id ?? "")
         }, { inplace: false });
+
+        const countOnlySlotScaling = !!(
+          Number(multiMeta?.slotScaling?.perLevel ?? 0) > 0
+          && (
+            !!multiMeta?.slotScaling?.countOnly
+            || /rayon-ardent|scorching-ray|projectile-magique|magic-missile/i.test(String(multiMeta?.slug ?? ""))
+            || /rayon\s+ardent|scorching\s+ray|projectile\s+magique|magic\s+missile/i.test(String(item?.name ?? ""))
+          )
+        );
+        const isMultiShotDebugSpell = /rayon-ardent|scorching-ray|projectile-magique|magic-missile/i.test(String(multiMeta?.slug ?? ""))
+          || /rayon\s+ardent|scorching\s+ray|projectile\s+magique|magic\s+missile/i.test(String(item?.name ?? ""));
+        if (countOnlySlotScaling) {
+          // IMPORTANT: do not mutate imported activity documents at cast-time.
+          // Count-only behavior must be guaranteed by importer data and usage payload only.
+        }
+
+        if (isMultiShotDebugSpell) {
+          try {
+            const basePart = baseDoc?.damage?.parts?.[0] ?? null;
+            const extraPart = extraDoc?.damage?.parts?.[0] ?? null;
+            console.log('[EPI multi-shot debug] pre-cast', {
+              item: item?.name,
+              slug: multiMeta?.slug,
+              countOnlySlotScaling,
+              baseUsageScaling: baseUsage?.scaling,
+              baseUsageConsumeScaling: baseUsage?.consume?.scaling,
+              itemActionType: item?.system?.actionType,
+              itemScaling: item?.system?.scaling,
+              basePart,
+              extraPart,
+              baseConsumption: baseDoc?.consumption,
+              extraConsumption: extraDoc?.consumption
+            });
+          } catch (_e) {}
+        }
+
+        const snapshotSpellSlots = (actor) => {
+          const out = {};
+          try {
+            for (let lvl = 1; lvl <= 9; lvl += 1) {
+              const key = `spell${lvl}`;
+              out[key] = Number(actor?.system?.spells?.[key]?.value ?? 0) || 0;
+            }
+            out.pactValue = Number(actor?.system?.spells?.pact?.value ?? 0) || 0;
+            out.pactLevel = Number(actor?.system?.spells?.pact?.level ?? 0) || 0;
+          } catch (_e) {}
+          return out;
+        };
+
+        const inferCastLevelFromSlotDelta = (before, after) => {
+          try {
+            for (let lvl = 9; lvl >= 1; lvl -= 1) {
+              const key = `spell${lvl}`;
+              const b = Number(before?.[key] ?? 0) || 0;
+              const a = Number(after?.[key] ?? 0) || 0;
+              // dnd5e tracks remaining slots in `.value`; spending a slot decreases it.
+              if (a < b) return lvl;
+            }
+            const pactBefore = Number(before?.pactValue ?? 0) || 0;
+            const pactAfter = Number(after?.pactValue ?? 0) || 0;
+            const pactLevel = Number(after?.pactLevel ?? before?.pactLevel ?? 0) || 0;
+            if (pactAfter < pactBefore && pactLevel > 0) return pactLevel;
+          } catch (_e) {}
+          return null;
+        };
+
+        const inferCastLevelFromArgs = (arr = [], minLevel = 1) => {
+          const seen = new Set();
+          const toNum = (v) => {
+            const n = Number(v);
+            return Number.isFinite(n) ? n : null;
+          };
+          const walk = (obj, depth = 0) => {
+            if (!obj || depth > 4) return null;
+            if (typeof obj !== 'object') return null;
+            if (seen.has(obj)) return null;
+            seen.add(obj);
+
+            const direct = [
+              obj.castLevel, obj.spellLevel, obj.slotLevel, obj.level,
+              obj?.spell?.castLevel, obj?.spell?.level, obj?.spell?.slot,
+              obj?.castData?.castLevel, obj?.castData?.slotLevel,
+              obj?.workflow?.castData?.castLevel, obj?.workflow?.castData?.slotLevel,
+              obj?.workflowOptions?.castLevel, obj?.midiOptions?.workflowOptions?.castLevel
+            ];
+            for (const v of direct) {
+              const n = toNum(v);
+              if (n && n >= minLevel && n <= 9) return n;
+              const s = String(v ?? '').toLowerCase();
+              if (/^spell\d+$/.test(s)) {
+                const sn = Number(s.replace('spell', ''));
+                if (sn >= minLevel && sn <= 9) return sn;
+              }
+            }
+
+            for (const val of Object.values(obj)) {
+              const n = walk(val, depth + 1);
+              if (n) return n;
+            }
+            return null;
+          };
+          for (const a of arr) {
+            const n = walk(a, 0);
+            if (n) return n;
+          }
+          return null;
+        };
+
+        const detectSpentSlotLevel = async (actor, before, attempts = 10, waitMs = 150) => {
+          let latest = snapshotSpellSlots(actor);
+          let lvl = inferCastLevelFromSlotDelta(before, latest);
+          if (lvl) return lvl;
+
+          for (let i = 0; i < attempts; i += 1) {
+            try { await new Promise(resolve => setTimeout(resolve, waitMs)); } catch (_e) {}
+            latest = snapshotSpellSlots(actor);
+            lvl = inferCastLevelFromSlotDelta(before, latest);
+            if (lvl) return lvl;
+          }
+          return null;
+        };
+
+        const promptCastLevelFallback = async (itemDoc, meta) => {
+          try {
+            const base = Math.max(1, Number(itemDoc?.system?.level ?? 1) || 1);
+            const maxLvl = 9;
+            const opts = [];
+            for (let lvl = base; lvl <= maxLvl; lvl += 1) {
+              opts.push(`<option value="${lvl}">${lvl}</option>`);
+            }
+            const content = `
+              <form>
+                <div class="form-group">
+                  <label>Niveau d'emplacement utilisé</label>
+                  <select id="epi-cast-level">${opts.join("")}</select>
+                </div>
+              </form>`;
+
+            const DialogV2 = foundry?.applications?.api?.DialogV2 ?? globalThis?.foundry?.applications?.api?.DialogV2;
+            if (DialogV2?.wait) {
+              const val = await DialogV2.wait({
+                window: { title: String(itemDoc?.name ?? 'Sort') },
+                content,
+                buttons: [
+                  { action: 'ok', label: 'Valider', default: true, callback: (event, button, html) => Number(html?.querySelector?.('#epi-cast-level')?.value ?? base) || base },
+                  { action: 'cancel', label: 'Annuler', callback: () => null }
+                ],
+                modal: true
+              });
+              if (Number.isFinite(Number(val)) && Number(val) >= base) return Number(val);
+              return null;
+            }
+
+            if (globalThis?.Dialog) {
+              const val = await new Promise(resolve => {
+                new globalThis.Dialog({
+                  title: String(itemDoc?.name ?? 'Sort'),
+                  content,
+                  buttons: {
+                    ok: { label: 'Valider', callback: (html) => resolve(Number(html.find?.('#epi-cast-level')?.val?.() ?? base) || base) },
+                    cancel: { label: 'Annuler', callback: () => resolve(null) }
+                  },
+                  default: 'ok',
+                  close: () => resolve(null)
+                }).render(true);
+              });
+              if (Number.isFinite(Number(val)) && Number(val) >= base) return Number(val);
+            }
+          } catch (_e) {}
+          return null;
+        };
+
+        const beforeSlots = snapshotSpellSlots(item?.actor);
         const baseArgs = [baseUsage, ...args.slice(1)];
         const result = await wrapped(...baseArgs);
+        if (isMultiShotDebugSpell) {
+          try {
+            const baseAfter = epiGetActivityById(item, multiMeta?.baseActivityId);
+            const extraAfter = epiGetActivityById(item, multiMeta?.extraActivityId);
+            console.log('[EPI multi-shot debug] post-base-cast', {
+              item: item?.name,
+              slug: multiMeta?.slug,
+              resultCastData: result?.castData ?? result?.workflow?.castData ?? null,
+              resultDamageTotal: result?.damageTotal ?? result?.workflow?.damageTotal ?? null,
+              resultDamageRoll: String(result?.damageRoll ?? result?.workflow?.damageRoll ?? ''),
+              basePartAfter: baseAfter?.damage?.parts?.[0] ?? null,
+              extraPartAfter: extraAfter?.damage?.parts?.[0] ?? null
+            });
+          } catch (_e) {}
+        }
+
+        // Slot consumption can be applied asynchronously by dnd5e/Midi;
+        // poll briefly so upcast-dependent multi-shot counts (e.g. Magic Missile) are correct.
+        const inferredSlotLevel = await detectSpentSlotLevel(item?.actor, beforeSlots);
+        if (inferredSlotLevel) baseUsage.__epiDetectedSlotLevel = inferredSlotLevel;
+
+        // Fallback: some workflows never expose slot spend synchronously on actor data.
+        // Try to recover an explicit cast/slot level from wrapper args/result payloads.
+        if (!baseUsage.__epiDetectedSlotLevel) {
+          const minLevel = Math.max(1, Number(item?.system?.level ?? 1) || 1);
+          const fromArgs = inferCastLevelFromArgs([opts0, args[1], args[2], result], minLevel);
+          if (fromArgs) baseUsage.__epiDetectedSlotLevel = fromArgs;
+        }
+
+        // Last-resort fallback: ask the user for the cast slot level when automatic detection failed.
+        if (!baseUsage.__epiDetectedSlotLevel && (Number(multiMeta?.slotScaling?.perLevel ?? 0) > 0)) {
+          const manual = await promptCastLevelFallback(item, multiMeta);
+          if (manual) baseUsage.__epiDetectedSlotLevel = manual;
+        }
 
         const multiCount = epiGetMultiAttackCount(item, baseUsage, multiMeta, result);
         for (let shotIndex = 2; shotIndex <= multiCount; shotIndex += 1) {

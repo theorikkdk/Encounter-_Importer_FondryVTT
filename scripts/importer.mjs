@@ -1852,14 +1852,57 @@ function parseScalingFR(text, spellLevel) {
   return null;
 }
 
+function parseMultiShotCountScaling(text, spellLevel, opts = {}) {
+  const t = String(text ?? "");
+  const baseSpellLevel = Number(spellLevel ?? 0) || 0;
+  const slug = String(opts?.slug ?? "").toLowerCase();
+  const name = String(opts?.name ?? "").toLowerCase();
+
+  const words = new Map([
+    ["un", 1], ["une", 1], ["one", 1], ["deux", 2], ["two", 2], ["trois", 3], ["three", 3],
+    ["quatre", 4], ["four", 4], ["cinq", 5], ["five", 5], ["six", 6],
+    ["sept", 7], ["seven", 7], ["huit", 8], ["eight", 8], ["neuf", 9], ["nine", 9], ["dix", 10], ["ten", 10],
+    ["onze", 11], ["douze", 12]
+  ]);
+  const toQty = (raw) => {
+    const v = String(raw ?? "").trim().toLowerCase();
+    if (!v) return 0;
+    if (/^\d+$/.test(v)) return Number(v) || 0;
+    return Number(words.get(v) ?? 0) || 0;
+  };
+
+  const fr = t.match(/(un|une|deux|trois|quatre|cinq|six|sept|huit|neuf|dix|onze|douze|\d+)\s+(?:rayon|faisceau|projectile|dard|trait|fl[ée]chette|carreau)\s+de\s+plus\s+par\s+niveau\s+(?:d['’]emplacement\s+de\s+sort\s+)?(?:au[- ]del[aà]\s+du|au-delà\s+du|sup[eé]rieur\s+[àa])\s+(\d+)(?:er|e|ème|eme)?/i);
+  if (fr) return { perLevel: toQty(fr[1]), baseLevel: Number(fr[2] ?? baseSpellLevel) || baseSpellLevel, countOnly: true };
+
+  const en = t.match(/(one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+(?:additional\s+)?(?:ray|rays|beam|beams|projectile|projectiles|dart|darts|bolt|bolts|missile|missiles)\s+for\s+each\s+slot\s+level\s+above\s+(\d+)(?:st|nd|rd|th)?/i);
+  if (en) return { perLevel: toQty(en[1]), baseLevel: Number(en[2] ?? baseSpellLevel) || baseSpellLevel, countOnly: true };
+
+  if (/rayon-ardent|scorching-ray|projectile-magique|magic-missile/.test(slug) || /rayon\s+ardent|scorching\s+ray|projectile\s+magique|magic\s+missile/.test(name)) {
+    return { perLevel: 1, baseLevel: baseSpellLevel, countOnly: true };
+  }
+  return null;
+}
+
 function disableActivityDamageScaling(activity) {
   try {
     const parts = Array.isArray(activity?.damage?.parts) ? activity.damage.parts : [];
     for (const part of parts) {
-      part.scaling = { mode: "", number: null, formula: "" };
+      part.scaling = { mode: "", number: 0, formula: "" };
     }
   } catch (e) {
     log("disableActivityDamageScaling failed", e);
+  }
+}
+
+function ensureActivitySlotLevelChoice(activity) {
+  try {
+    activity.consumption = activity.consumption ?? { targets: [], scaling: { allowed: true, max: "" }, spellSlot: true };
+    activity.consumption.spellSlot = true;
+    activity.consumption.scaling = activity.consumption.scaling ?? { allowed: true, max: "" };
+    activity.consumption.scaling.allowed = true;
+    if (activity.consumption.scaling.max == null) activity.consumption.scaling.max = "";
+  } catch (e) {
+    log("ensureActivitySlotLevelChoice failed", e);
   }
 }
 
@@ -2100,13 +2143,38 @@ function parseMultiShotTargetsFR(text) {
   m = t.match(new RegExp(`(?:le\\s+sort\\s+)?cr[ée]e\\s+${qty}\\s+${noun}`, "i"));
   if (m) return toNum(m[1]);
 
+  // EN variant: "The spell creates three rays / darts / missiles ..."
+  m = t.match(new RegExp(`(?:the\\s+spell\\s+)?creates?\\s+${qty}\\s+${noun}`, "i"));
+  if (m) return toNum(m[1]);
+
   // "tire trois rayons" / "lance trois projectiles"
   m = t.match(new RegExp(`(?:tire|lance|projette)\\s+${qty}\\s+${noun}`, "i"));
+  if (m) return toNum(m[1]);
+
+  // EN variant: "fire/shoot/cast three rays/missiles"
+  m = t.match(new RegExp(`(?:fire|fires|shoot|shoots|cast|casts|launch|launches)\\s+${qty}\\s+${noun}`, "i"));
   if (m) return toNum(m[1]);
 
   // "chacun des X rayons" (sometimes phrased like this)
   m = t.match(new RegExp(`chacun[e]?\\s+des?\\s+${qty}\\s+${noun}`, "i"));
   if (m) return toNum(m[1]);
+
+  // "jusqu'à trois rayons" / "up to three rays"
+  m = t.match(new RegExp(`(?:jusqu['’]?\\s*[àa]|up\\s+to)\\s+${qty}\\s+${noun}`, "i"));
+  if (m) return toNum(m[1]);
+
+  // "un rayon/fléchette de plus par niveau ..." => infer base count from common baseline spells.
+  const hasPerSlotExtra = /(?:rayon|faisceau|projectile|dard|trait|missile|fl[ée]chette|carreau)\\s+de\\s+plus\\s+par\\s+niveau/i.test(t)
+    || /one\\s+(?:ray|beam|dart|missile)\\s+more\\s+per\\s+slot/i.test(t);
+  if (hasPerSlotExtra) {
+    if (/rayon\\s+ardent|scorching\\s+ray/i.test(t)) return 3;
+    if (/projectile\\s+magique|magic\\s+missile/i.test(t)) return 3;
+  }
+
+  // "deux rayons au niveau 5 ..." (beam-scaling cantrips like Eldritch Blast)
+  const hasCantripBeamScale = /(deux|2)\\s+rayons?\\s+au\\s+niveau\\s+5|(trois|3)\\s+rayons?\\s+au\\s+niveau\\s+11|(quatre|4)\\s+rayons?\\s+au\\s+niveau\\s+17/i.test(t)
+    || /two\\s+beams?\\s+at\\s+5th\\s+level|three\\s+beams?\\s+at\\s+11th\\s+level|four\\s+beams?\\s+at\\s+17th\\s+level/i.test(t);
+  if (hasCantripBeamScale) return 1;
 
   return null;
 }
@@ -4150,6 +4218,15 @@ function applySpellActivities(itemObj, sp, durationObj, measurement) {
 
 const multiShotTargets = parseMultiShotTargetsFR(descText);
 const unlimitedTargets = parseUnlimitedTargetsFR(descText);
+const multiShotCountScaling = parseMultiShotCountScaling(descText, Number(sys.level ?? 0), {
+  slug: __epiSpellSlug,
+  name: itemObj?.name ?? sp?.name ?? ""
+});
+const isKnownCountOnlyMultiShot = !!(
+  /rayon-ardent|scorching-ray|projectile-magique|magic-missile/.test(String(__epiSpellSlug ?? ""))
+  || /rayon\s+ardent|scorching\s+ray|projectile\s+magique|magic\s+missile/.test(String(itemObj?.name ?? sp?.name ?? "").toLowerCase())
+);
+const isCountOnlyMultiShotSpell = !!(isKnownCountOnlyMultiShot || (Number(multiShotTargets ?? 0) > 1 && !!multiShotCountScaling?.countOnly));
 
 // Multi-shot spells (e.g. Projectiles magiques / Rayon ardent): prefer a target count equal to the number of darts/rays.
 if ((!maxTargets || Number(maxTargets) <= 1) && multiShotTargets && Number(multiShotTargets) > 1) {
@@ -5273,8 +5350,10 @@ const addDelayedDamageActivity = () => {
         custom: { enabled: false, formula: "" },
         scaling: { mode: "whole", number: 1, formula: "" }
       }];
-      if (isBeamScalingCantrip && scaling?.kind === "cantrip") disableActivityDamageScaling(act);
-      else applyScalingToActivityDamage(act, scaling);
+      if ((isBeamScalingCantrip && scaling?.kind === "cantrip") || isCountOnlyMultiShotSpell) {
+        disableActivityDamageScaling(act);
+        if (isCountOnlyMultiShotSpell && Number(multiShotCountScaling?.perLevel ?? 0) > 0) ensureActivitySlotLevelChoice(act);
+      } else applyScalingToActivityDamage(act, scaling);
       act.description.chatFlavor = `JS ${saveAb.toUpperCase()} · ${dmg.number}d${dmg.denom} ${dmg.dtype}${halfOnSave ? " (moitié si réussite)" : ""}`;
     } else {
       act.description.chatFlavor = `JS ${saveAb.toUpperCase()}`;
@@ -5352,8 +5431,10 @@ const addDelayedDamageActivity = () => {
         custom: { enabled: false, formula: "" },
         scaling: { mode: "whole", number: 1, formula: "" }
       }];
-      if (isBeamScalingCantrip && scaling?.kind === "cantrip") disableActivityDamageScaling(act);
-      else applyScalingToActivityDamage(act, scaling);
+      if ((isBeamScalingCantrip && scaling?.kind === "cantrip") || isCountOnlyMultiShotSpell) {
+        disableActivityDamageScaling(act);
+        if (isCountOnlyMultiShotSpell && Number(multiShotCountScaling?.perLevel ?? 0) > 0) ensureActivitySlotLevelChoice(act);
+      } else applyScalingToActivityDamage(act, scaling);
       act.description.chatFlavor = `${atk.actionType.toUpperCase()} · ${dmg.number}d${dmg.denom} ${dmg.dtype}`;
     } else {
       act.description.chatFlavor = `${atk.actionType.toUpperCase()}`;
@@ -5366,17 +5447,8 @@ const addDelayedDamageActivity = () => {
       const multi = (multiShotTargets && Number(multiShotTargets) > 1) ? Number(multiShotTargets) : 1;
       const perShotCue = /pour\s+chaque\s+(?:rayon|faisceau|projectile|dard|trait|fl[ée]chette|carreau)|pour\s+chacun(?:e)?\s+des?\s+(?:rayons?|faisceaux?|projectiles?|dards?|traits?|fl[ée]chettes?|carreaux?)/i.test(descText);
       const beamsByLevelCue = /(deux|2)\s+rayons?\s+au\s+niveau\s+5|(trois|3)\s+rayons?\s+au\s+niveau\s+11|(quatre|4)\s+rayons?\s+au\s+niveau\s+17/i.test(descText);
-      const extraShotsBySlotMatch = descText.match(/(un|une|deux|trois|quatre|cinq|six|sept|huit|neuf|dix|onze|douze|\d+)\s+(?:rayon|faisceau|projectile|dard|trait|fl[ée]chette|carreau)\s+de\s+plus\s+par\s+niveau\s+(?:d['’]emplacement\s+de\s+sort\s+)?(?:au[- ]del[aà]\s+du|au-delà\s+du|sup[eé]rieur\s+[àa])\s+(\d+)(?:er|e|ème|eme)?/i);
-      const qtyWords = new Map([
-        ["un", 1], ["une", 1], ["deux", 2], ["trois", 3], ["quatre", 4], ["cinq", 5], ["six", 6],
-        ["sept", 7], ["huit", 8], ["neuf", 9], ["dix", 10], ["onze", 11], ["douze", 12]
-      ]);
-      const extraShotsPerLevel = extraShotsBySlotMatch
-        ? (/^\d+$/.test(String(extraShotsBySlotMatch[1] ?? "").trim())
-            ? Number(extraShotsBySlotMatch[1])
-            : (qtyWords.get(String(extraShotsBySlotMatch[1] ?? "").trim().toLowerCase()) ?? 0))
-        : 0;
-      const slotScalingBaseLevel = extraShotsBySlotMatch ? (Number(extraShotsBySlotMatch[2] ?? (sys.level ?? 0)) || Number(sys.level ?? 0) || 0) : 0;
+      const extraShotsPerLevel = Number(multiShotCountScaling?.perLevel ?? 0) || 0;
+      const slotScalingBaseLevel = Number(multiShotCountScaling?.baseLevel ?? (sys.level ?? 0)) || Number(sys.level ?? 0) || 0;
       if (perShotCue && (multi > 1 || beamsByLevelCue)) {
         const extraId = deriveSiblingId(baseId, ["x","X","1","2","3","4","5","6","7","8","9","a","b","c","d","e","f"]);
         const extra = makeActivity(extraId);
@@ -5391,7 +5463,7 @@ const addDelayedDamageActivity = () => {
         // Copy attack + damage definition from the base activity (1 ray / 1 projectile)
         extra.attack = foundry?.utils?.deepClone ? foundry.utils.deepClone(act.attack) : JSON.parse(JSON.stringify(act.attack ?? {}));
         extra.damage = foundry?.utils?.deepClone ? foundry.utils.deepClone(act.damage) : JSON.parse(JSON.stringify(act.damage ?? {}));
-        if (isBeamScalingCantrip) disableActivityDamageScaling(extra);
+        if (isBeamScalingCantrip || isCountOnlyMultiShotSpell) disableActivityDamageScaling(extra);
         extra.description = extra.description ?? { chatFlavor: "" };
         extra.description.chatFlavor = (wantsFR ? "Rayon / projectile supplémentaire" : "Extra ray/shot");
 
@@ -5412,6 +5484,12 @@ const addDelayedDamageActivity = () => {
 
         itemObj.flags ??= {};
         itemObj.flags["encounterplus-importer"] ??= {};
+
+        if (extraShotsPerLevel > 0 || isCountOnlyMultiShotSpell) {
+          // Count-only upcast (e.g. Scorching Ray): slot level adds shots, not damage per shot.
+          disableActivityDamageScaling(act);
+          disableActivityDamageScaling(extra);
+        }
 
         if (isBeamScalingCantrip) {
           __beamExtraActivityId = String(extraId);
@@ -5435,7 +5513,8 @@ const addDelayedDamageActivity = () => {
           countMode: isBeamScalingCantrip ? "cantrip-thresholds" : "fixed",
           slotScaling: extraShotsPerLevel > 0 ? {
             baseLevel: slotScalingBaseLevel,
-            perLevel: extraShotsPerLevel
+            perLevel: extraShotsPerLevel,
+            countOnly: true
           } : null,
           promptLabel: wantsFR ? "rayon" : "shot"
         };
@@ -5473,7 +5552,14 @@ const addDelayedDamageActivity = () => {
 
     try { maybeAddRepeatChoiceActivities(act); } catch (e) { /* ignore */ }
 
-    sys.actionType = atk.actionType;
+    if (isCountOnlyMultiShotSpell) {
+      sys.actionType = "";
+      sys.formula = "";
+      sys.scaling = { mode: "none", formula: "" };
+      sys.damage = { parts: [], versatile: "" };
+    } else {
+      sys.actionType = atk.actionType;
+    }
     return;
   }
 
@@ -5505,6 +5591,14 @@ const addDelayedDamageActivity = () => {
 
     if (isMagicMissile && multi > 1) {
       // Activity A: per dart (recommended when splitting missiles)
+      // Build Magic Missile damage from canonical RAW values (not parser-dependent),
+      // so exported activity JSON always contains a complete base damage part.
+      const mmBase = {
+        number: 1,
+        denom: 4,
+        bonus: "+1",
+        dtype: "force"
+      };
       act.name = isMidi ? "midi missile" : (wantsFR ? "Fléchette" : "Dart");
       act.target = act.target ?? { template: { count:"", contiguous:false, type:"", size:"", width:"", height:"", units:"ft" }, affects: { count:"", type:"", choice:false, special:"" }, prompt:true, override:false };
       act.target.template = { count: "", contiguous: false, type: "", size: "", width: "", height: "", units: "ft" };
@@ -5512,14 +5606,15 @@ const addDelayedDamageActivity = () => {
       act.target.prompt = true;
       act.target.override = true;
       act.damage.parts = [{
-        number: dmg.number,
-        denomination: dmg.denom,
-        bonus: String(dmg.bonus ?? ""),
-        types: [dmg.dtype],
+        number: mmBase.number,
+        denomination: mmBase.denom,
+        bonus: String(mmBase.bonus ?? ""),
+        types: [mmBase.dtype],
         custom: { enabled: false, formula: "" },
         scaling: { mode: "whole", number: 0, formula: "" }
       }];
-      act.description.chatFlavor = `1d${dmg.denom}${dmg.bonus ? (String(dmg.bonus).startsWith("@") ? `+${dmg.bonus}` : `+${dmg.bonus}`) : ""} ${dmg.dtype}`;
+      act.description.chatFlavor = `1d${mmBase.denom}${mmBase.bonus ? (String(mmBase.bonus).startsWith("@") ? `+${mmBase.bonus}` : `+${mmBase.bonus}`) : ""} ${mmBase.dtype}`;
+      ensureActivitySlotLevelChoice(act);
 
       // Activity B: extra dart for sequential resolution / retargeting
       const extraId = deriveSiblingId(baseId, ["x","X","1","2","3","4","5","6","7","8","9","a","b","c","d","e","f"]);
@@ -5539,10 +5634,10 @@ const addDelayedDamageActivity = () => {
       extra.damage = extra.damage ?? { onSave: "none", critical: { bonus: "" }, includeBase: true, parts: [] };
       extra.damage.onSave = "none";
       extra.damage.parts = [{
-        number: dmg.number,
-        denomination: dmg.denom,
-        bonus: String(dmg.bonus ?? ""),
-        types: [dmg.dtype],
+        number: mmBase.number,
+        denomination: mmBase.denom,
+        bonus: String(mmBase.bonus ?? ""),
+        types: [mmBase.dtype],
         custom: { enabled: false, formula: "" },
         scaling: { mode: "whole", number: 0, formula: "" }
       }];
@@ -5566,7 +5661,8 @@ const addDelayedDamageActivity = () => {
         countMode: "fixed",
         slotScaling: {
           baseLevel: Number(sys.level ?? 1) || 1,
-          perLevel: 1
+          perLevel: 1,
+          countOnly: true
         },
         promptLabel: wantsFR ? "projectile" : "missile"
       };
@@ -5606,9 +5702,9 @@ const addDelayedDamageActivity = () => {
       a2.damage.onSave = "none";
 
       // Aggregate base darts (level 1 = 3 darts)
-      let number = Number(dmg.number ?? 1) * multi;
-      let denom = dmg.denom;
-      let bonus = dmg.bonus ?? "";
+      let number = Number(mmBase.number ?? 1) * multi;
+      let denom = mmBase.denom;
+      let bonus = mmBase.bonus ?? "";
       if (bonus && /^-?\d+$/.test(String(bonus))) bonus = String(Number(bonus) * multi);
       // If bonus is @mod, keep it as-is (can't multiply safely).
 
@@ -5616,7 +5712,7 @@ const addDelayedDamageActivity = () => {
         number,
         denomination: denom,
         bonus: String(bonus ?? ""),
-        types: [dmg.dtype],
+        types: [mmBase.dtype],
         custom: { enabled: false, formula: "" },
         scaling: { mode: "whole", number: 1, formula: "" }
       }];
@@ -5643,7 +5739,16 @@ const addDelayedDamageActivity = () => {
 
       a2.flags = a2.flags ?? {};
       a2.flags["encounterplus-importer"] = { ...(a2.flags["encounterplus-importer"] ?? {}), generated: true, kind: "multi-attack-focus" };
-      a2.description.chatFlavor = `${number}d${denom}${bonus ? (String(bonus).startsWith("@") ? `+${bonus}` : `+${bonus}`) : ""} ${dmg.dtype}`;
+      a2.description.chatFlavor = `${number}d${denom}${bonus ? (String(bonus).startsWith("@") ? `+${bonus}` : `+${bonus}`) : ""} ${mmBase.dtype}`;
+      try {
+        log("[EPI multi-shot debug] magic missile imported damage", {
+          spell: String(itemObj?.name ?? sp?.name ?? ""),
+          rawDamage: dmg,
+          basePart: act?.damage?.parts?.[0] ?? null,
+          extraPart: extra?.damage?.parts?.[0] ?? null,
+          focusPart: a2?.damage?.parts?.[0] ?? null
+        });
+      } catch (_e) {}
       try { addDelayedDamageActivity(); } catch (e) { /* ignore */ }
 
       sys.actionType = "";
