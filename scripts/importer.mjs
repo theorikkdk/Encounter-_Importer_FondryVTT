@@ -6293,12 +6293,42 @@ if (!USE_WEB_REGIONS && (spellNameLC.includes("toile d'araignée") || spellNameL
   } catch (e) { /* ignore */ }
 
 
+  const fold = (s) => foldKey(String(s ?? "")).replace(/[’']/g, " ").replace(/\s+/g, " ").trim();
+  const spellSlug = String(sp?.slug ?? "").toLowerCase();
+  const spellNameFold = fold(itemObj?.name ?? sp?.name ?? "");
+
+  // Phase 1 only: explicit, reliable matching by slug (+ folded names as fallback).
+  const auraPhase1Map = {
+    "passage-sans-trace": { key: "passage-sans-trace", defaultRadiusMetric: 9, defaultRadiusImperial: 30 },
+    "aura-de-purete": { key: "aura-de-purete" },
+    "aura-du-croise": { key: "aura-du-croise" },
+    "aura-de-vie": { key: "aura-de-vie" },
+    "cercle-de-pouvoir": { key: "cercle-de-pouvoir" },
+    "aura-sacree": { key: "aura-sacree" }
+  };
+  const auraPhase1NameMap = {
+    "passage sans trace": "passage-sans-trace",
+    "aura de purete": "aura-de-purete",
+    "aura du croise": "aura-du-croise",
+    "aura de vie": "aura-de-vie",
+    "cercle de pouvoir": "cercle-de-pouvoir",
+    "aura sacree": "aura-sacree",
+    "pass without trace": "passage-sans-trace",
+    "purity of aura": "aura-de-purete",
+    "crusader s mantle": "aura-du-croise",
+    "aura of life": "aura-de-vie",
+    "circle of power": "cercle-de-pouvoir",
+    "holy aura": "aura-sacree"
+  };
+
+  const matchedAuraKey = auraPhase1Map[spellSlug]?.key ?? auraPhase1NameMap[spellNameFold] ?? null;
+  if (!matchedAuraKey) return;
+  if ((durationObj?.units ?? "inst") === "inst") return;
+
   const rangeType = String(sp?.data?.rangeType ?? "").toLowerCase();
   const shape = String(sp?.data?.areaEffectShape ?? "").toLowerCase();
   const size = sp?.data?.areaEffectSize ?? null;
-  if (!shape || size == null) return;
   if (rangeType !== "self") return;
-  if ((durationObj?.units ?? "inst") === "inst") return;
 
   const srcMetric = (measurement === "metric");
   const wantMetric = srcMetric || !!game.settings.get(MODULE_ID, SETTINGS.USE_METRIC);
@@ -6307,9 +6337,10 @@ if (!USE_WEB_REGIONS && (spellNameLC.includes("toile d'araignée") || spellNameL
   const sysTgt = itemObj?.system?.target ?? {};
   const tmpl = sysTgt?.template ?? null;
 
+  const auraDef = auraPhase1Map[matchedAuraKey] ?? null;
   let radius = null;
   let units = wantMetric ? "m" : "ft";
-  let auraShape = null;
+  let auraShape = "sphere";
 
   if (tmpl && Number.isFinite(Number(tmpl.size))) {
     auraShape = String(tmpl.type ?? shape).toLowerCase();
@@ -6319,12 +6350,16 @@ if (!USE_WEB_REGIONS && (spellNameLC.includes("toile d'araignée") || spellNameL
     auraShape = String(sysTgt.type).toLowerCase();
     radius = Number(sysTgt.value);
     units = String(sysTgt.units ?? units);
-  } else {
+  } else if (shape && size != null) {
     // Fallback : depuis Encounter+ (size en m si metric, sinon ft)
     const base = srcMetric ? Number(size) : roundTo5(size);
     radius = wantMetric ? (srcMetric ? base : feetToMeters(base)) : (srcMetric ? metersToFeet(base) : base);
     units = wantMetric ? "m" : "ft";
     auraShape = shape;
+  } else if (auraDef && Number.isFinite(Number(auraDef.defaultRadiusMetric)) && Number.isFinite(Number(auraDef.defaultRadiusImperial))) {
+    radius = wantMetric ? Number(auraDef.defaultRadiusMetric) : Number(auraDef.defaultRadiusImperial);
+    units = wantMetric ? "m" : "ft";
+    auraShape = "sphere";
   }
 
   if (!Number.isFinite(radius) || radius <= 0) return;
@@ -6356,7 +6391,9 @@ if (!USE_WEB_REGIONS && (spellNameLC.includes("toile d'araignée") || spellNameL
     radius,
     shape: auraShape,
     units,
-    disposition: "all"
+    disposition: "all",
+    phase: "phase1",
+    spellKey: matchedAuraKey
   };
 
   // Change inoffensif => rend l'effet visible + stocke la config pour nos usages
@@ -6373,11 +6410,18 @@ if (!USE_WEB_REGIONS && (spellNameLC.includes("toile d'araignée") || spellNameL
     duration: seconds ? { seconds } : {},
     transfer: false,
     flags: {
-      "encounterplus-importer": { aura },
-      // Compat "best effort" : plusieurs clés possibles selon les modules
-      "aura-effects": { isAura: true, ...aura },
-      auraeffects: { isAura: true, ...aura },
-      AuraEffects: { isAura: true, ...aura }
+      "encounterplus-importer": {
+        aura,
+        auraEffectsBridge: {
+          module: "aura-effects",
+          version: 1,
+          strategy: "phase1-spell-aura",
+          enabled: true,
+          spellKey: matchedAuraKey
+        }
+      },
+      // Compat best-effort (kept for existing worlds): only minimal shared fields.
+      "aura-effects": { isAura: true, radius: aura.radius, shape: aura.shape, units: aura.units }
     }
   };
 
