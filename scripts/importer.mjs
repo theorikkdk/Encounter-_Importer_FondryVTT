@@ -6402,7 +6402,9 @@ function applySpellEffects(itemObj, sp, durationObj, measurement) {
         "encounterplus-importer": {
           simpleLot1Buff: true,
           slug: spellSlug,
-          family: "buffs-resistances"
+          family: "buffs-resistances",
+          applyOnCast: true,
+          targetMode: (spellSlug === "faveur-divine") ? "self" : "targets"
         }
       }
     });

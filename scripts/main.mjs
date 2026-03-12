@@ -2038,6 +2038,66 @@ Hooks.on("midi-qol.RollComplete", async (workflow) => {
   }
 });
 
+// Lot-1 simple buff applicator: create real Active Effects on cast for importer-marked buff spells.
+Hooks.on("midi-qol.RollComplete", async (workflow) => {
+  try {
+    if (!game.user?.isGM || !workflow?.item || workflow.item.type !== "spell") return;
+
+    const item = workflow.item;
+    const buffEffects = (item.effects ? Array.from(item.effects) : []).filter((e) => {
+      const f = e?.flags?.[MODULE_ID] ?? e?.flags?.["encounterplus-importer"] ?? {};
+      return !!f?.simpleLot1Buff && !!f?.applyOnCast;
+    });
+    if (!buffEffects.length) return;
+
+    const getSelfToken = () => workflow.token ?? (Array.from(workflow.actor?.getActiveTokens?.() ?? [])[0] ?? null);
+    const toApply = [];
+
+    for (const ef of buffEffects) {
+      const f = ef?.flags?.[MODULE_ID] ?? ef?.flags?.["encounterplus-importer"] ?? {};
+      const mode = String(f?.targetMode ?? "targets").toLowerCase();
+      const targets = (mode === "self")
+        ? [getSelfToken()].filter(Boolean)
+        : Array.from(workflow.targets ?? []);
+
+      for (const token of targets) {
+        const actor = token?.actor;
+        if (!actor) continue;
+
+        const slug = String(f?.slug ?? "").toLowerCase();
+        const key = `${item.uuid}|${slug}|${ef.name ?? ""}`;
+        const already = Array.from(actor.effects ?? []).some((ae) => {
+          const af = ae?.flags?.[MODULE_ID] ?? ae?.flags?.["encounterplus-importer"] ?? {};
+          return String(af?.simpleLot1BuffKey ?? "") === key;
+        });
+        if (already) continue;
+
+        const data = ef.toObject ? ef.toObject() : foundry.utils.deepClone(ef);
+        delete data._id;
+        data.origin = item.uuid;
+        data.transfer = false;
+        data.disabled = false;
+        data.flags = data.flags ?? {};
+        data.flags[MODULE_ID] = { ...(data.flags[MODULE_ID] ?? {}), simpleLot1BuffKey: key, slug };
+        data.flags["encounterplus-importer"] = {
+          ...(data.flags["encounterplus-importer"] ?? {}),
+          simpleLot1Buff: true,
+          simpleLot1BuffKey: key,
+          slug
+        };
+
+        toApply.push({ actor, data });
+      }
+    }
+
+    for (const { actor, data } of toApply) {
+      await actor.createEmbeddedDocuments("ActiveEffect", [data]);
+    }
+  } catch (e) {
+    console.warn(`[${MODULE_ID}] Lot-1 simple buff apply-on-cast failed`, e);
+  }
+});
+
 
 function __epiIsWallOfLightCastWorkflow(workflow) {
   try {
