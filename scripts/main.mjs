@@ -2250,6 +2250,46 @@ function __epiHasAuraLifeProtection(actor) {
   }
 }
 
+function __epiHasAuraPurityProtection(actor) {
+  try {
+    const viaFlag = !!foundry?.utils?.getProperty?.(actor, "flags.encounterplus-importer.auraPurity.protected");
+    if (viaFlag) return true;
+    const effects = Array.from(actor?.effects ?? []);
+    return effects.some((e) => {
+      const ch = Array.isArray(e?.changes) ? e.changes : [];
+      return ch.some(c => String(c?.key ?? "") === "flags.encounterplus-importer.auraPurity.protected");
+    });
+  } catch (_e) {
+    return false;
+  }
+}
+
+function __epiLooksLikeDiseaseEffect(effectData) {
+  try {
+    const name = String(effectData?.name ?? "").toLowerCase();
+    const label = String(effectData?.label ?? "").toLowerCase();
+    const statuses = Array.isArray(effectData?.statuses) ? effectData.statuses.map(s => String(s).toLowerCase()) : [];
+    if (statuses.includes("diseased") || statuses.includes("disease")) return true;
+    return /\b(disease|diseased|maladie|malade)\b/i.test(`${name} ${label}`);
+  } catch (_e) {
+    return false;
+  }
+}
+
+Hooks.on("preCreateActiveEffect", (effect, data) => {
+  try {
+    if (!game.user?.isGM) return;
+    const actor = effect?.parent;
+    if (!actor || !__epiHasAuraPurityProtection(actor)) return;
+    if (__epiLooksLikeDiseaseEffect(data ?? effect)) {
+      console.debug(`[${MODULE_ID}] Aura de pureté: prevented disease effect on`, actor?.name);
+      return false;
+    }
+  } catch (e) {
+    console.warn(`[${MODULE_ID}] Aura de pureté disease prevention failed`, e);
+  }
+});
+
 Hooks.on("preUpdateActor", (actor, changed) => {
   try {
     if (!game.user?.isGM || !actor || !__epiHasAuraLifeProtection(actor)) return;

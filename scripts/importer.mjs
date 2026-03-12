@@ -6368,16 +6368,21 @@ if (!USE_WEB_REGIONS && (spellNameLC.includes("toile d'araignée") || spellNameL
   };
   const AURA_FAMILY_B_PROTECTION = {
     purityProtectionPack: {
-      changes: [],
+      changes: [
+        { key: "flags.encounterplus-importer.auraPurity.protected", mode: 5, value: true, priority: 20 }
+      ],
       statuses: [],
-      runtime: [],
+      runtime: [
+        "diseasePrevention"
+      ],
       deferred: [
-        "conditionSaveAdvantagePack: avantage JS contre aveuglé/charmé/assourdi/effrayé/paralysé/empoisonné/étourdi",
-        "diseasePrevention: ne peut pas tomber malade"
+        "conditionSaveAdvantagePack: avantage JS contre aveuglé/charmé/assourdi/effrayé/paralysé/empoisonné/étourdi"
       ]
     },
     circleOfPowerProtectionPack: {
-      changes: [],
+      changes: [
+        { key: "flags.encounterplus-importer.circleOfPower.protected", mode: 5, value: true, priority: 20 }
+      ],
       statuses: [],
       runtime: [],
       deferred: [
@@ -6403,7 +6408,11 @@ if (!USE_WEB_REGIONS && (spellNameLC.includes("toile d'araignée") || spellNameL
       deferred: ["extraRadiantWeaponHit"]
     },
     holyAuraRuntimePack: {
-      changes: [],
+      changes: [
+        { key: "system.traits.ci.value", mode: 2, value: "frightened", priority: 20 },
+        { key: "flags.encounterplus-importer.holyAura.protected", mode: 5, value: true, priority: 20 },
+        { key: "flags.midi-qol.advantage.ability.save.all", mode: 5, value: true, priority: 20 }
+      ],
       statuses: [],
       runtime: [],
       deferred: [
