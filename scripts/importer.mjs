@@ -6424,6 +6424,23 @@ if (!USE_WEB_REGIONS && (spellNameLC.includes("toile d'araignée") || spellNameL
 
   // Real Aura Effects schema (phase-1 initial pair only): effect.type + effect.system + flags.auraeffects.
   const isAuraEffectsNativeSpell = (matchedAuraKey === "passage-sans-trace" || matchedAuraKey === "aura-de-vie");
+  const auraPayloadBySpellKey = {
+    // +10 bonus to Stealth checks for allies in aura.
+    "passage-sans-trace": {
+      changes: [
+        { key: "system.skills.ste.bonuses.check", mode: 2, value: "+10", priority: 20 }
+      ],
+      statuses: []
+    },
+    // Necrotic resistance for allies in aura.
+    "aura-de-vie": {
+      changes: [
+        { key: "system.traits.dr.value", mode: 2, value: "necrotic", priority: 20 }
+      ],
+      statuses: []
+    }
+  };
+  const auraPayload = auraPayloadBySpellKey[matchedAuraKey] ?? { changes: [], statuses: [] };
   const resolveAuraEffectsDisposition = (raw) => {
     // Aura Effects expects a numeric disposition choice (Token disposition enum-like values).
     // Keep a stable default (friendly = 1) for phase-1 support when source data is ambiguous.
@@ -6437,7 +6454,7 @@ if (!USE_WEB_REGIONS && (spellNameLC.includes("toile d'araignée") || spellNameL
   };
 
   const auraEffectsSystem = isAuraEffectsNativeSpell ? {
-    showRadius: true,
+    showRadius: false,
     applyToSelf: true,
     bestFormula: false,
     canStack: false,
@@ -6451,8 +6468,8 @@ if (!USE_WEB_REGIONS && (spellNameLC.includes("toile d'araignée") || spellNameL
     opacity: 0.15,
     overrideName: "",
     script: "",
-    stashedChanges: [],
-    stashedStatuses: []
+    stashedChanges: Array.isArray(auraPayload.changes) ? auraPayload.changes : [],
+    stashedStatuses: Array.isArray(auraPayload.statuses) ? auraPayload.statuses : []
   } : null;
 
   // Change inoffensif => rend l'effet visible + stocke la config pour nos usages
