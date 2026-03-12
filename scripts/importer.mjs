@@ -6325,12 +6325,13 @@ if (!USE_WEB_REGIONS && (spellNameLC.includes("toile d'araignée") || spellNameL
 
   // Phase 1 only: explicit, reliable matching by slug (+ folded names as fallback).
   const auraPhase1Map = {
-    "passage-sans-trace": { key: "passage-sans-trace", defaultRadiusMetric: 9, defaultRadiusImperial: 30 },
-    "aura-de-purete": { key: "aura-de-purete" },
-    "aura-du-croise": { key: "aura-du-croise" },
-    "aura-de-vie": { key: "aura-de-vie" },
-    "cercle-de-pouvoir": { key: "cercle-de-pouvoir" },
-    "aura-sacree": { key: "aura-sacree" }
+    // targeting: allies | all | enemies
+    "passage-sans-trace": { key: "passage-sans-trace", defaultRadiusMetric: 9, defaultRadiusImperial: 30, targeting: "allies" },
+    "aura-de-purete": { key: "aura-de-purete", targeting: "allies" },
+    "aura-du-croise": { key: "aura-du-croise", targeting: "allies" },
+    "aura-de-vie": { key: "aura-de-vie", targeting: "allies" },
+    "cercle-de-pouvoir": { key: "cercle-de-pouvoir", targeting: "allies" },
+    "aura-sacree": { key: "aura-sacree", targeting: "allies" }
   };
   const auraPhase1NameMap = {
     "passage sans trace": "passage-sans-trace",
@@ -6412,12 +6413,17 @@ if (!USE_WEB_REGIONS && (spellNameLC.includes("toile d'araignée") || spellNameL
   const seconds = toSeconds(itemObj?.system?.duration);
   const effectId = foundry?.utils?.randomID ? foundry.utils.randomID(16) : crypto.randomUUID().slice(0, 16);
 
+  const auraDispositionByTargeting = {
+    allies: "friendly",
+    all: "all",
+    enemies: "hostile"
+  };
   const aura = {
     enabled: true,
     radius,
     shape: auraShape,
     units,
-    disposition: "all",
+    disposition: auraDispositionByTargeting[auraDef?.targeting] ?? "all",
     phase: "phase1",
     spellKey: matchedAuraKey
   };
