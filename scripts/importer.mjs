@@ -6324,6 +6324,96 @@ if (!USE_WEB_REGIONS && (spellNameLC.includes("toile d'araignée") || spellNameL
   const spellNameFold = fold(itemObj?.name ?? sp?.name ?? "");
 
   // Phase 1 only: explicit, reliable matching by slug (+ folded names as fallback).
+  // Reusable "families" to batch aura mechanics by capability.
+  const AURA_FAMILY_A_SIMPLE = {
+    stealthPlus10: {
+      changes: [{ key: "system.skills.ste.bonuses.check", mode: 2, value: "+10", priority: 20 }],
+      statuses: [],
+      runtime: [],
+      deferred: []
+    },
+    necroticResistance: {
+      changes: [{ key: "system.traits.dr.value", mode: 2, value: "necrotic", priority: 20 }],
+      statuses: [],
+      runtime: [],
+      deferred: []
+    },
+    poisonResistance: {
+      changes: [{ key: "system.traits.dr.value", mode: 2, value: "poison", priority: 20 }],
+      statuses: [],
+      runtime: [],
+      deferred: []
+    },
+    auraLifeProtectionFlag: {
+      changes: [{ key: "flags.encounterplus-importer.auraLife.protected", mode: 5, value: true, priority: 20 }],
+      statuses: [],
+      runtime: [],
+      deferred: []
+    }
+  };
+  const AURA_FAMILY_B_PROTECTION = {
+    purityProtectionPack: {
+      changes: [],
+      statuses: [],
+      runtime: [],
+      deferred: [
+        "conditionSaveAdvantagePack: avantage JS contre aveuglé/charmé/assourdi/effrayé/paralysé/empoisonné/étourdi",
+        "diseasePrevention: ne peut pas tomber malade"
+      ]
+    },
+    circleOfPowerProtectionPack: {
+      changes: [],
+      statuses: [],
+      runtime: [],
+      deferred: [
+        "advantageVsMagicalSaves: avantage aux JS contre magie",
+        "evadeOnSuccessVsMagical: aucun dégât sur réussite JS magique à demi-dégâts"
+      ]
+    }
+  };
+  const AURA_FAMILY_C_RUNTIME = {
+    auraLifeRuntimePack: {
+      changes: [],
+      statuses: [],
+      runtime: [
+        "hpMaxReductionBlock",
+        "hpFloorNonUndead"
+      ],
+      deferred: []
+    },
+    crusadersMantleRuntimePack: {
+      changes: [],
+      statuses: [],
+      runtime: [],
+      deferred: ["extraRadiantWeaponHit"]
+    },
+    holyAuraRuntimePack: {
+      changes: [],
+      statuses: [],
+      runtime: [],
+      deferred: [
+        "attackDisadvantageOnAttackers",
+        "blindOnMeleeHitVsFiendUndead"
+      ]
+    }
+  };
+  const buildAuraEffectSpec = (keys = []) => {
+    const out = { changes: [], statuses: [], runtime: [], deferred: [] };
+    for (const k of keys) {
+      const src = AURA_FAMILY_A_SIMPLE[k] ?? AURA_FAMILY_B_PROTECTION[k] ?? AURA_FAMILY_C_RUNTIME[k] ?? null;
+      if (!src) continue;
+      out.changes.push(...(Array.isArray(src.changes) ? src.changes : []));
+      out.statuses.push(...(Array.isArray(src.statuses) ? src.statuses : []));
+      out.runtime.push(...(Array.isArray(src.runtime) ? src.runtime : []));
+      out.deferred.push(...(Array.isArray(src.deferred) ? src.deferred : []));
+    }
+    out.changes = out.changes.filter(Boolean);
+    out.statuses = [...new Set(out.statuses.map(String))];
+    out.runtime = [...new Set(out.runtime.map(String))];
+    out.deferred = [...new Set(out.deferred.map(String))];
+    return out;
+  };
+
   const auraPhase1Map = {
     // targeting: allies | all | enemies
     "passage-sans-trace": {
@@ -6331,74 +6421,32 @@ if (!USE_WEB_REGIONS && (spellNameLC.includes("toile d'araignée") || spellNameL
       defaultRadiusMetric: 9,
       defaultRadiusImperial: 30,
       targeting: "allies",
-      effects: {
-        changes: [
-          { key: "system.skills.ste.bonuses.check", mode: 2, value: "+10", priority: 20 }
-        ],
-        statuses: [],
-        deferred: []
-      }
+      effects: buildAuraEffectSpec(["stealthPlus10"])
     },
     "aura-de-vie": {
       key: "aura-de-vie",
       targeting: "allies",
-      effects: {
-        changes: [
-          { key: "system.traits.dr.value", mode: 2, value: "necrotic", priority: 20 },
-          { key: "flags.encounterplus-importer.auraLife.protected", mode: 5, value: true, priority: 20 }
-        ],
-        statuses: [],
-        deferred: [
-          "hpMaxReductionBlock: prévention runtime des réductions de PV max",
-          "hpFloorNonUndead: début de tour à 0 PV -> remonte à 1 PV (runtime)"
-        ]
-      }
+      effects: buildAuraEffectSpec(["necroticResistance", "auraLifeProtectionFlag", "auraLifeRuntimePack"])
     },
     "aura-de-purete": {
       key: "aura-de-purete",
       targeting: "allies",
-      effects: {
-        changes: [],
-        statuses: [],
-        deferred: [
-          "multiConditionImmunity: plusieurs immunités conditionnelles selon état/effet (logique spéciale)"
-        ]
-      }
+      effects: buildAuraEffectSpec(["poisonResistance", "purityProtectionPack"])
     },
     "aura-du-croise": {
       key: "aura-du-croise",
       targeting: "allies",
-      effects: {
-        changes: [],
-        statuses: [],
-        deferred: [
-          "extraRadiantWeaponHit: dégâts radiants supplémentaires sur attaques d'armes (hook de workflow requis)"
-        ]
-      }
+      effects: buildAuraEffectSpec(["crusadersMantleRuntimePack"])
     },
     "cercle-de-pouvoir": {
       key: "cercle-de-pouvoir",
       targeting: "allies",
-      effects: {
-        changes: [],
-        statuses: [],
-        deferred: [
-          "advantageVsMagicalSaves: avantage sur JS contre magie (logique spéciale)",
-          "evadeOnSuccessVsMagical: aucun dégât sur réussite JS magique à demi-dégâts (logique spéciale)"
-        ]
-      }
+      effects: buildAuraEffectSpec(["circleOfPowerProtectionPack"])
     },
     "aura-sacree": {
       key: "aura-sacree",
       targeting: "allies",
-      effects: {
-        changes: [],
-        statuses: [],
-        deferred: [
-          "attackDisadvantageOnAttackers: désavantage des ennemis (hors morts-vivants/fiélons) contre cibles de l'aura",
-          "blindOnMeleeHitVsFiendUndead: aveuglement conditionnel sur attaque CAC (logique spéciale)"
-        ]
-      }
+      effects: buildAuraEffectSpec(["holyAuraRuntimePack"])
     }
   };
   const auraPhase1NameMap = {
@@ -6501,6 +6549,7 @@ if (!USE_WEB_REGIONS && (spellNameLC.includes("toile d'araignée") || spellNameL
   const auraPayload = {
     changes: Array.isArray(auraDef?.effects?.changes) ? auraDef.effects.changes : [],
     statuses: Array.isArray(auraDef?.effects?.statuses) ? auraDef.effects.statuses : [],
+    runtime: Array.isArray(auraDef?.effects?.runtime) ? auraDef.effects.runtime : [],
     deferred: Array.isArray(auraDef?.effects?.deferred) ? auraDef.effects.deferred : []
   };
   const resolveAuraEffectsDisposition = (raw) => {
@@ -6559,6 +6608,7 @@ if (!USE_WEB_REGIONS && (spellNameLC.includes("toile d'araignée") || spellNameL
         auraEffectPlan: {
           automatedChanges: auraPayload.changes,
           automatedStatuses: auraPayload.statuses,
+          runtime: auraPayload.runtime,
           deferred: auraPayload.deferred
         }
       },
