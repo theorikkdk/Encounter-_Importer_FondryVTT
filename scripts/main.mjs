@@ -3650,36 +3650,9 @@ Hooks.once("ready", () => {
         );
         const isMultiShotDebugSpell = /rayon-ardent|scorching-ray|projectile-magique|magic-missile/i.test(String(multiMeta?.slug ?? ""))
           || /rayon\s+ardent|scorching\s+ray|projectile\s+magique|magic\s+missile/i.test(String(item?.name ?? ""));
-        const enforceCountOnlyDamageScaling = async (itemDoc, activityIds = []) => {
-          try {
-            if (!itemDoc?.update) return;
-            const update = {};
-            let changed = false;
-            for (const aIdRaw of activityIds) {
-              const aId = String(aIdRaw ?? "");
-              if (!aId) continue;
-              const act = itemDoc?.system?.activities?.get?.(aId) ?? itemDoc?.system?.activities?.[aId] ?? null;
-              const parts = Array.isArray(act?.damage?.parts) ? act.damage.parts : [];
-              for (let i = 0; i < parts.length; i += 1) {
-                const sc = parts[i]?.scaling ?? null;
-                const mode = String(sc?.mode ?? "");
-                const num = Number(sc?.number ?? 0) || 0;
-                const formula = String(sc?.formula ?? "");
-                if (mode || num || formula) {
-                  update[`system.activities.${aId}.damage.parts.${i}.scaling.mode`] = "whole";
-                  update[`system.activities.${aId}.damage.parts.${i}.scaling.number`] = 0;
-                  update[`system.activities.${aId}.damage.parts.${i}.scaling.formula`] = "";
-                  changed = true;
-                }
-              }
-            }
-            if (changed) await itemDoc.update(update);
-          } catch (_e) { /* ignore */ }
-        };
-
         if (countOnlySlotScaling) {
-          // Keep normal cast-level dialog on the base cast; only sanitize stored activity damage scaling.
-          await enforceCountOnlyDamageScaling(item, [multiMeta?.baseActivityId, multiMeta?.extraActivityId]);
+          // IMPORTANT: do not mutate imported activity documents at cast-time.
+          // Count-only behavior must be guaranteed by importer data and usage payload only.
         }
 
         if (isMultiShotDebugSpell) {
@@ -3843,12 +3816,16 @@ Hooks.once("ready", () => {
         const result = await wrapped(...baseArgs);
         if (isMultiShotDebugSpell) {
           try {
+            const baseAfter = epiGetActivityById(item, multiMeta?.baseActivityId);
+            const extraAfter = epiGetActivityById(item, multiMeta?.extraActivityId);
             console.log('[EPI multi-shot debug] post-base-cast', {
               item: item?.name,
               slug: multiMeta?.slug,
               resultCastData: result?.castData ?? result?.workflow?.castData ?? null,
               resultDamageTotal: result?.damageTotal ?? result?.workflow?.damageTotal ?? null,
-              resultDamageRoll: String(result?.damageRoll ?? result?.workflow?.damageRoll ?? '')
+              resultDamageRoll: String(result?.damageRoll ?? result?.workflow?.damageRoll ?? ''),
+              basePartAfter: baseAfter?.damage?.parts?.[0] ?? null,
+              extraPartAfter: extraAfter?.damage?.parts?.[0] ?? null
             });
           } catch (_e) {}
         }
