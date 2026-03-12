@@ -4437,12 +4437,27 @@ if (unlimitedTargets && (!maxTargets || Number(maxTargets) <= 1) && (!multiShotT
   const fold = (s) => foldKey(String(s ?? "")).replace(/[’']/g, " ").replace(/\s+/g, " ").trim();
   const spellSlug = String(sp?.slug ?? "").toLowerCase();
   const spellNameFold = fold(itemObj?.name ?? sp?.name ?? "");
-  const auraPhase1NativeSet = new Set(["passage-sans-trace", "aura-de-vie"]);
+  const auraPhase1NativeSet = new Set([
+    "passage-sans-trace",
+    "aura-de-vie",
+    "aura-de-purete",
+    "aura-du-croise",
+    "cercle-de-pouvoir",
+    "aura-sacree"
+  ]);
   const auraPhase1NativeNameMap = {
     "passage sans trace": "passage-sans-trace",
     "aura de vie": "aura-de-vie",
+    "aura de purete": "aura-de-purete",
+    "aura du croise": "aura-du-croise",
+    "cercle de pouvoir": "cercle-de-pouvoir",
+    "aura sacree": "aura-sacree",
     "pass without trace": "passage-sans-trace",
-    "aura of life": "aura-de-vie"
+    "aura of life": "aura-de-vie",
+    "aura of purity": "aura-de-purete",
+    "crusader s mantle": "aura-du-croise",
+    "circle of power": "cercle-de-pouvoir",
+    "holy aura": "aura-sacree"
   };
   const nativeAuraSpellKey = auraPhase1NativeSet.has(spellSlug)
     ? spellSlug
@@ -6544,8 +6559,8 @@ if (!USE_WEB_REGIONS && (spellNameLC.includes("toile d'araignée") || spellNameL
     spellKey: matchedAuraKey
   };
 
-  // Real Aura Effects schema (phase-1 initial pair only): effect.type + effect.system + flags.auraeffects.
-  const isAuraEffectsNativeSpell = (matchedAuraKey === "passage-sans-trace" || matchedAuraKey === "aura-de-vie");
+  // Real Aura Effects schema (phase-1): effect.type + effect.system + flags.auraeffects.
+  const isAuraEffectsNativeSpell = !!auraDef;
   const auraPayload = {
     changes: Array.isArray(auraDef?.effects?.changes) ? auraDef.effects.changes : [],
     statuses: Array.isArray(auraDef?.effects?.statuses) ? auraDef.effects.statuses : [],
