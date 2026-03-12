@@ -6458,7 +6458,7 @@ if (!USE_WEB_REGIONS && (spellNameLC.includes("toile d'araignée") || spellNameL
   const auraEffectsSystem = isAuraEffectsNativeSpell ? {
     showRadius: false,
     applyToSelf: true,
-    bestFormula: false,
+    bestFormula: "",
     canStack: false,
     collisionTypes: ["move"],
     color: "#000000",
@@ -6475,6 +6475,7 @@ if (!USE_WEB_REGIONS && (spellNameLC.includes("toile d'araignée") || spellNameL
   } : null;
 
   // Change inoffensif => rend l'effet visible + stocke la config pour nos usages
+  const propagatedChanges = Array.isArray(auraPayload.changes) ? auraPayload.changes : [];
   const effect = {
     _id: effectId,
     name: `Aura — ${itemObj.name}`,
@@ -6484,6 +6485,7 @@ if (!USE_WEB_REGIONS && (spellNameLC.includes("toile d'araignée") || spellNameL
     ...(auraEffectsSystem ? { system: auraEffectsSystem } : {}),
     origin: null,
     changes: [
+      ...(isAuraEffectsNativeSpell ? propagatedChanges : []),
       { key: "flags.encounterplus-importer.aura", mode: 5, value: JSON.stringify(aura), priority: 20 }
     ],
     disabled: false,
