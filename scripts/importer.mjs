@@ -4462,6 +4462,27 @@ if (unlimitedTargets && (!maxTargets || Number(maxTargets) <= 1) && (!multiShotT
   const nativeAuraSpellKey = auraPhase1NativeSet.has(spellSlug)
     ? spellSlug
     : (auraPhase1NativeSet.has(auraPhase1NativeNameMap[spellNameFold]) ? auraPhase1NativeNameMap[spellNameFold] : null);
+
+  // Phase-1 native Aura Effects spells must never go through template-targeting branches.
+  // We normalize them immediately to a self utility cast activity and stop here.
+  if (nativeAuraSpellKey) {
+    const act = makeActivity(baseId);
+    act.sort = 0;
+    setCommonFromSpell(act);
+    act.target = act.target ?? {
+      template: { count:"", contiguous:false, type:"", size:"", width:"", height:"", units:"ft" },
+      affects: { count:"1", type:"self", choice:false, special:"" },
+      prompt: false,
+      override: true
+    };
+    act.target.template = { count: "", contiguous: false, type: "", size: "", width: "", height: "", units: "ft" };
+    act.target.affects = { count: "1", type: "self", choice: false, special: "" };
+    act.target.prompt = false;
+    act.target.override = true;
+    act.type = "utility";
+    act.name = act.name || "Lancer";
+    return;
+  }
   let __beamExtraActivityId = null;
 
   // Deterministic extra activity IDs (avoid duplicates on re-import)
@@ -6055,19 +6076,6 @@ const addDelayedDamageActivity = () => {
   const act = makeActivity(baseId);
   act.sort = 0;
   setCommonFromSpell(act);
-  if (nativeAuraSpellKey) {
-    // Real aura spells handled by Aura Effects: never ask for template placement.
-    act.target = act.target ?? {
-      template: { count:"", contiguous:false, type:"", size:"", width:"", height:"", units:"ft" },
-      affects: { count:"1", type:"self", choice:false, special:"" },
-      prompt: false,
-      override: true
-    };
-    act.target.template = { count: "", contiguous: false, type: "", size: "", width: "", height: "", units: "ft" };
-    act.target.affects = { count: "1", type: "self", choice: false, special: "" };
-    act.target.prompt = false;
-    act.target.override = true;
-  }
   act.type = "utility";
   act.name = act.name || "Lancer";
 }
