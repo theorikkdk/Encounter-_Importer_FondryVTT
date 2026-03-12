@@ -2222,6 +2222,71 @@ function __epiHasWallOfLightBlindOverTime(effect) {
   }
 }
 
+const __EPI_AURA_LIFE_TURN_KEYS = globalThis.__EPI_AURA_LIFE_TURN_KEYS ?? (globalThis.__EPI_AURA_LIFE_TURN_KEYS = new Set());
+
+function __epiIsLivingCreatureActor(actor) {
+  try {
+    const t = String(actor?.system?.details?.type?.value ?? actor?.system?.details?.race ?? "").toLowerCase();
+    if (!t) return true;
+    if (t.includes("undead") || t.includes("mort-vivant") || t.includes("mort vivant")) return false;
+    if (t.includes("construct") || t.includes("artificiel")) return false;
+    return true;
+  } catch (_e) {
+    return true;
+  }
+}
+
+function __epiHasAuraLifeProtection(actor) {
+  try {
+    const viaFlag = !!foundry?.utils?.getProperty?.(actor, "flags.encounterplus-importer.auraLife.protected");
+    if (viaFlag) return true;
+    const effects = Array.from(actor?.effects ?? []);
+    return effects.some((e) => {
+      const ch = Array.isArray(e?.changes) ? e.changes : [];
+      return ch.some(c => String(c?.key ?? "") === "flags.encounterplus-importer.auraLife.protected");
+    });
+  } catch (_e) {
+    return false;
+  }
+}
+
+Hooks.on("preUpdateActor", (actor, changed) => {
+  try {
+    if (!game.user?.isGM || !actor || !__epiHasAuraLifeProtection(actor)) return;
+    const cur = Number(actor?.system?.attributes?.hp?.max ?? 0);
+    const nextRaw = foundry?.utils?.getProperty?.(changed, "system.attributes.hp.max");
+    if (nextRaw == null) return;
+    const next = Number(nextRaw);
+    if (!Number.isFinite(next) || !Number.isFinite(cur)) return;
+    if (next < cur) {
+      foundry?.utils?.setProperty?.(changed, "system.attributes.hp.max", cur);
+      console.debug(`[${MODULE_ID}] Aura de vie: blocked HP max reduction on`, actor?.name);
+    }
+  } catch (e) {
+    console.warn(`[${MODULE_ID}] Aura de vie preUpdateActor guard failed`, e);
+  }
+});
+
+Hooks.on("updateCombat", async (combat, changed) => {
+  try {
+    if (!game.user?.isGM || !combat?.started) return;
+    if (!('turn' in (changed ?? {})) && !('round' in (changed ?? {}))) return;
+    const cbt = combat.combatant ?? (Array.isArray(combat.turns) ? (combat.turns[Number(combat.turn) ?? 0] ?? null) : null);
+    const actor = cbt?.actor ?? null;
+    if (!actor || !__epiHasAuraLifeProtection(actor) || !__epiIsLivingCreatureActor(actor)) return;
+    const hp = Number(actor?.system?.attributes?.hp?.value ?? 0);
+    if (hp !== 0) return;
+    const key = [combat.id, Number(combat.round ?? 0), Number(combat.turn ?? -1), actor.uuid].join("|");
+    if (__EPI_AURA_LIFE_TURN_KEYS.has(key)) return;
+    __EPI_AURA_LIFE_TURN_KEYS.add(key);
+    setTimeout(() => __EPI_AURA_LIFE_TURN_KEYS.delete(key), 15000);
+    await actor.update({ "system.attributes.hp.value": 1 });
+    console.debug(`[${MODULE_ID}] Aura de vie: restored ${actor?.name} to 1 HP at turn start.`);
+  } catch (e) {
+    console.warn(`[${MODULE_ID}] Aura de vie start-turn recovery failed`, e);
+  }
+});
+
 Hooks.on('preUpdateCombat', (combat, changed) => {
   try {
     if (!game.user?.isGM || !combat) return;

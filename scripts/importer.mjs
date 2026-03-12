@@ -6344,11 +6344,13 @@ if (!USE_WEB_REGIONS && (spellNameLC.includes("toile d'araignée") || spellNameL
       targeting: "allies",
       effects: {
         changes: [
-          { key: "system.traits.dr.value", mode: 2, value: "necrotic", priority: 20 }
+          { key: "system.traits.dr.value", mode: 2, value: "necrotic", priority: 20 },
+          { key: "flags.encounterplus-importer.auraLife.protected", mode: 5, value: true, priority: 20 }
         ],
         statuses: [],
         deferred: [
-          "hpFloorNonUndead: remettre à 1 PV au lieu de 0 PV (logique spéciale nécessaire)"
+          "hpMaxReductionBlock: prévention runtime des réductions de PV max",
+          "hpFloorNonUndead: début de tour à 0 PV -> remonte à 1 PV (runtime)"
         ]
       }
     },
