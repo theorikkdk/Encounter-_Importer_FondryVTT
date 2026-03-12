@@ -6326,12 +6326,78 @@ if (!USE_WEB_REGIONS && (spellNameLC.includes("toile d'araignée") || spellNameL
   // Phase 1 only: explicit, reliable matching by slug (+ folded names as fallback).
   const auraPhase1Map = {
     // targeting: allies | all | enemies
-    "passage-sans-trace": { key: "passage-sans-trace", defaultRadiusMetric: 9, defaultRadiusImperial: 30, targeting: "allies" },
-    "aura-de-purete": { key: "aura-de-purete", targeting: "allies" },
-    "aura-du-croise": { key: "aura-du-croise", targeting: "allies" },
-    "aura-de-vie": { key: "aura-de-vie", targeting: "allies" },
-    "cercle-de-pouvoir": { key: "cercle-de-pouvoir", targeting: "allies" },
-    "aura-sacree": { key: "aura-sacree", targeting: "allies" }
+    "passage-sans-trace": {
+      key: "passage-sans-trace",
+      defaultRadiusMetric: 9,
+      defaultRadiusImperial: 30,
+      targeting: "allies",
+      effects: {
+        changes: [
+          { key: "system.skills.ste.bonuses.check", mode: 2, value: "+10", priority: 20 }
+        ],
+        statuses: [],
+        deferred: []
+      }
+    },
+    "aura-de-vie": {
+      key: "aura-de-vie",
+      targeting: "allies",
+      effects: {
+        changes: [
+          { key: "system.traits.dr.value", mode: 2, value: "necrotic", priority: 20 }
+        ],
+        statuses: [],
+        deferred: [
+          "hpFloorNonUndead: remettre à 1 PV au lieu de 0 PV (logique spéciale nécessaire)"
+        ]
+      }
+    },
+    "aura-de-purete": {
+      key: "aura-de-purete",
+      targeting: "allies",
+      effects: {
+        changes: [],
+        statuses: [],
+        deferred: [
+          "multiConditionImmunity: plusieurs immunités conditionnelles selon état/effet (logique spéciale)"
+        ]
+      }
+    },
+    "aura-du-croise": {
+      key: "aura-du-croise",
+      targeting: "allies",
+      effects: {
+        changes: [],
+        statuses: [],
+        deferred: [
+          "extraRadiantWeaponHit: dégâts radiants supplémentaires sur attaques d'armes (hook de workflow requis)"
+        ]
+      }
+    },
+    "cercle-de-pouvoir": {
+      key: "cercle-de-pouvoir",
+      targeting: "allies",
+      effects: {
+        changes: [],
+        statuses: [],
+        deferred: [
+          "advantageVsMagicalSaves: avantage sur JS contre magie (logique spéciale)",
+          "evadeOnSuccessVsMagical: aucun dégât sur réussite JS magique à demi-dégâts (logique spéciale)"
+        ]
+      }
+    },
+    "aura-sacree": {
+      key: "aura-sacree",
+      targeting: "allies",
+      effects: {
+        changes: [],
+        statuses: [],
+        deferred: [
+          "attackDisadvantageOnAttackers: désavantage des ennemis (hors morts-vivants/fiélons) contre cibles de l'aura",
+          "blindOnMeleeHitVsFiendUndead: aveuglement conditionnel sur attaque CAC (logique spéciale)"
+        ]
+      }
+    }
   };
   const auraPhase1NameMap = {
     "passage sans trace": "passage-sans-trace",
@@ -6430,23 +6496,11 @@ if (!USE_WEB_REGIONS && (spellNameLC.includes("toile d'araignée") || spellNameL
 
   // Real Aura Effects schema (phase-1 initial pair only): effect.type + effect.system + flags.auraeffects.
   const isAuraEffectsNativeSpell = (matchedAuraKey === "passage-sans-trace" || matchedAuraKey === "aura-de-vie");
-  const auraPayloadBySpellKey = {
-    // +10 bonus to Stealth checks for allies in aura.
-    "passage-sans-trace": {
-      changes: [
-        { key: "system.skills.ste.bonuses.check", mode: 2, value: "+10", priority: 20 }
-      ],
-      statuses: []
-    },
-    // Necrotic resistance for allies in aura.
-    "aura-de-vie": {
-      changes: [
-        { key: "system.traits.dr.value", mode: 2, value: "necrotic", priority: 20 }
-      ],
-      statuses: []
-    }
+  const auraPayload = {
+    changes: Array.isArray(auraDef?.effects?.changes) ? auraDef.effects.changes : [],
+    statuses: Array.isArray(auraDef?.effects?.statuses) ? auraDef.effects.statuses : [],
+    deferred: Array.isArray(auraDef?.effects?.deferred) ? auraDef.effects.deferred : []
   };
-  const auraPayload = auraPayloadBySpellKey[matchedAuraKey] ?? { changes: [], statuses: [] };
   const resolveAuraEffectsDisposition = (raw) => {
     // Aura Effects expects a numeric disposition choice (Token disposition enum-like values).
     // For phase-1 aura propagation, prefer a permissive default (0 = Any/Neutral-like bucket),
@@ -6499,7 +6553,12 @@ if (!USE_WEB_REGIONS && (spellNameLC.includes("toile d'araignée") || spellNameL
     transfer: false,
     flags: {
       "encounterplus-importer": {
-        aura
+        aura,
+        auraEffectPlan: {
+          automatedChanges: auraPayload.changes,
+          automatedStatuses: auraPayload.statuses,
+          deferred: auraPayload.deferred
+        }
       },
       ...(isAuraEffectsNativeSpell ? { auraeffects: { originalType: "base" } } : {}),
       // Compat for Aura Effects module namespace.
