@@ -467,6 +467,7 @@ Hooks.once("ready", async () => {
   const mod = game.modules?.get?.(MODULE_ID);
   const v = mod?.version ?? "(unknown)";
   console.log(`[${MODULE_ID}] Loaded version`, v);
+  console.log(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} hardproof main.mjs loaded (post-ready)`);
 
   // Hotfix270 safety: clean up any legacy Midi-QOL OnUse macros injected by earlier experimental hotfixes.
   // This prevents broken automation persisting on items even after reverting the module.
@@ -2043,7 +2044,7 @@ Hooks.on("midi-qol.RollComplete", async (workflow) => {
 const __EPI_LOT1_BUFF_DEBUG_PREFIX = "[EPI lot1 buff debug]";
 const __EPI_LOT1_BUFF_DEBUG_SLUGS = new Set(["protection-contre-le-poison", "faveur-divine"]);
 
-console.debug(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} init loaded`);
+console.log(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} hardproof main.mjs loaded`);
 
 function __epiLot1BuffSlugFromItem(item) {
   try {
@@ -2175,7 +2176,7 @@ Hooks.on("midi-qol.RollComplete", async (workflow) => {
   await __epiApplyLot1BuffEffects(workflow, "midi-qol.RollComplete");
 });
 
-console.debug(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} hooks registered`, ["midi-qol.preItemRoll", "midi-qol.RollComplete", "createActiveEffect"]);
+console.log(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} hardproof hooks registered`, ["midi-qol.preItemRoll", "midi-qol.RollComplete", "createActiveEffect"]);
 
 
 function __epiIsWallOfLightCastWorkflow(workflow) {
@@ -3777,7 +3778,7 @@ Hooks.once("ready", () => {
     try {
       const slugDbg = __epiLot1BuffSlugFromItem(item);
       if (__EPI_LOT1_BUFF_DEBUG_SLUGS.has(slugDbg)) {
-        console.debug(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} Item.use wrapper reached`, {
+        console.log(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} hardproof Item.use path reached`, {
           slug: slugDbg,
           item: item?.name ?? "",
           actor: item?.parent?.name ?? item?.actor?.name ?? ""
