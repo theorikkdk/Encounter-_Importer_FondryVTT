@@ -2043,6 +2043,26 @@ Hooks.on("midi-qol.RollComplete", async (workflow) => {
 const __EPI_LOT1_BUFF_DEBUG_PREFIX = "[EPI lot1 buff debug]";
 const __EPI_LOT1_BUFF_DEBUG_SLUGS = new Set(["protection-contre-le-poison", "faveur-divine"]);
 
+console.debug(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} init loaded`);
+
+function __epiLot1BuffSlugFromItem(item) {
+  try {
+    const slug = String(
+      item?.flags?.[MODULE_ID]?.slug
+      ?? item?.flags?.["encounterplus-importer"]?.slug
+      ?? item?.system?.identifier
+      ?? ""
+    ).toLowerCase().trim();
+    if (slug) return slug;
+    const name = String(item?.name ?? "").toLowerCase();
+    if (/faveur\s+divine/i.test(name)) return "faveur-divine";
+    if (/protection\s+contre\s+le\s+poison/i.test(name)) return "protection-contre-le-poison";
+    return "";
+  } catch (_e) {
+    return "";
+  }
+}
+
 function __epiLot1BuffDebug(slug, msg, extra = undefined) {
   if (!__EPI_LOT1_BUFF_DEBUG_SLUGS.has(String(slug ?? "").toLowerCase())) return;
   if (extra !== undefined) console.debug(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} ${msg}`, extra);
@@ -2051,8 +2071,18 @@ function __epiLot1BuffDebug(slug, msg, extra = undefined) {
 
 async function __epiApplyLot1BuffEffects(workflow, hookName = "unknown") {
   try {
+    console.debug(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} hook=${hookName} fired`, { hasWorkflow: !!workflow });
     if (!game.user?.isGM) return;
     const wfItem = workflow?.item ?? null;
+    const earlySlug = __epiLot1BuffSlugFromItem(wfItem);
+    if (__EPI_LOT1_BUFF_DEBUG_SLUGS.has(earlySlug)) {
+      console.debug(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} hook=${hookName} item seen`, {
+        slug: earlySlug,
+        item: wfItem?.name ?? "",
+        hasActor: !!workflow?.actor,
+        hasToken: !!workflow?.token
+      });
+    }
     if (!wfItem || wfItem.type !== "spell") return;
 
     // Prefer owned item document when available (some Midi workflow clones can lose embedded effect data).
@@ -2074,7 +2104,7 @@ async function __epiApplyLot1BuffEffects(workflow, hookName = "unknown") {
 
     for (const ef of buffEffects) {
       const f = ef?.flags?.[MODULE_ID] ?? ef?.flags?.["encounterplus-importer"] ?? {};
-      const slug = String(f?.slug ?? "").toLowerCase();
+      const slug = String(f?.slug ?? __epiLot1BuffSlugFromItem(item) ?? "").toLowerCase();
       const mode = String(f?.targetMode ?? "targets").toLowerCase();
       __epiLot1BuffDebug(slug, `hook=${hookName} reached`, {
         mode,
@@ -2144,6 +2174,8 @@ Hooks.on("midi-qol.preItemRoll", async (workflow) => {
 Hooks.on("midi-qol.RollComplete", async (workflow) => {
   await __epiApplyLot1BuffEffects(workflow, "midi-qol.RollComplete");
 });
+
+console.debug(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} hooks registered`, ["midi-qol.preItemRoll", "midi-qol.RollComplete", "createActiveEffect"]);
 
 
 function __epiIsWallOfLightCastWorkflow(workflow) {
@@ -3742,6 +3774,16 @@ Hooks.once("ready", () => {
     lw.register(MODULE_ID, "CONFIG.Item.documentClass.prototype.use", async function (wrapped, ...args) {
   try {
     const item = this;
+    try {
+      const slugDbg = __epiLot1BuffSlugFromItem(item);
+      if (__EPI_LOT1_BUFF_DEBUG_SLUGS.has(slugDbg)) {
+        console.debug(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} Item.use wrapper reached`, {
+          slug: slugDbg,
+          item: item?.name ?? "",
+          actor: item?.parent?.name ?? item?.actor?.name ?? ""
+        });
+      }
+    } catch (_e) {}
 
 // args[0] is usually the "usage" options object; preserve the rest (dialog/message) when present.
     const opts0 = (args.length && args[0] && typeof args[0] === "object") ? args[0] : {};
