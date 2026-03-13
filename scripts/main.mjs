@@ -2077,6 +2077,10 @@ async function __epiApplyLot1BuffEffects(workflow, hookName = "unknown") {
     const wfItem = workflow?.item ?? null;
     const earlySlug = __epiLot1BuffSlugFromItem(wfItem);
     if (__EPI_LOT1_BUFF_DEBUG_SLUGS.has(earlySlug)) {
+      __epiLot1BuffDebug(earlySlug, `hook=${hookName} skipped (wrapper primary path)`);
+      return;
+    }
+    if (__EPI_LOT1_BUFF_DEBUG_SLUGS.has(earlySlug)) {
       console.debug(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} hook=${hookName} item seen`, {
         slug: earlySlug,
         item: wfItem?.name ?? "",
@@ -3789,12 +3793,16 @@ Hooks.once("ready", () => {
 // args[0] is usually the "usage" options object; preserve the rest (dialog/message) when present.
     const opts0 = (args.length && args[0] && typeof args[0] === "object") ? args[0] : {};
     const ev = opts0?.event ?? (args.find(a => a?.event)?.event ?? null);
+    const __epiMaybeApplyWrapperBuff = async (res) => {
+      await __epiApplyLot1BuffViaWrapper(item, opts0, res);
+      return res;
+    };
 
     const bypass = !!ev?.shiftKey
       || !!opts0.__epiBypassActivityChooser
       || !!opts0.__epiActivityChoiceDone;
 
-    if (bypass) return await wrapped(...args);
+    if (bypass) return await __epiMaybeApplyWrapperBuff(await wrapped(...args));
 
     const explicitActivityId = String(opts0?.activityId ?? opts0?.activity?._id ?? opts0?.activity?.id ?? "");
 
@@ -4186,7 +4194,7 @@ Hooks.once("ready", () => {
     // Generic: prompt a dnd5e ActivityChoiceDialog when the spell has BOTH:
     // - at least one activity that consumes a spell slot (cast)
     // - at least one activity that does NOT consume a spell slot (repeat/follow-up)
-    if (!epiShouldPromptActivityChoice(item)) return await wrapped(...args);
+    if (!epiShouldPromptActivityChoice(item)) return await __epiMaybeApplyWrapperBuff(await wrapped(...args));
 
 
     // If there isn't more than one usable activity, don't prompt.
@@ -4198,7 +4206,7 @@ Hooks.once("ready", () => {
     } catch (e) { /* ignore */ }
 
     const choiceId = await epiStormSphereChoiceDialog(item);
-    if (!choiceId) return await wrapped(...args);
+    if (!choiceId) return await __epiMaybeApplyWrapperBuff(await wrapped(...args));
 
     
     // Run the chosen activity.
@@ -4273,6 +4281,103 @@ function epiUnitsToSceneDistance(value, units) {
   if (u === "m" && sceneUnits === "ft") return v * 3.28084;
   if (u === "ft" && sceneUnits === "m") return v / 3.28084;
   return v;
+}
+
+function __epiResolveActorsFromUsageForLot1(opts0 = {}, item = null) {
+  const out = [];
+  const pushActor = (a) => { if (a && !out.includes(a)) out.push(a); };
+  const pushTokenLike = (t) => { const a = t?.actor ?? t?.document?.actor ?? null; if (a) pushActor(a); };
+
+  // Explicit usage targets (when available)
+  const usageTargets = opts0?.targets ?? opts0?.targetUuids ?? opts0?.tokenUuids ?? null;
+  if (usageTargets) {
+    const arr = Array.isArray(usageTargets) ? usageTargets : (usageTargets instanceof Set ? Array.from(usageTargets) : [usageTargets]);
+    for (const it of arr) {
+      if (!it) continue;
+      if (typeof it === "string") {
+        const id = it.split(".").pop();
+        const tok = canvas?.tokens?.get?.(id) ?? canvas?.scene?.tokens?.get?.(id)?.object ?? null;
+        if (tok?.actor) pushActor(tok.actor);
+      } else if (it?.actor || it?.document?.actor) {
+        pushTokenLike(it);
+      }
+    }
+  }
+
+  // Fallback to current user targets at cast time.
+  if (!out.length) {
+    for (const t of Array.from(game.user?.targets ?? [])) pushTokenLike(t);
+  }
+
+  // Last fallback: the caster itself.
+  if (!out.length) {
+    const caster = item?.parent ?? item?.actor ?? null;
+    if (caster?.documentName === "Actor") pushActor(caster);
+  }
+
+  return out;
+}
+
+async function __epiApplyLot1BuffViaWrapper(item, opts0 = {}, result = null) {
+  try {
+    const slug = __epiLot1BuffSlugFromItem(item);
+    if (!(slug === "faveur-divine" || slug === "protection-contre-le-poison")) return;
+
+    console.log(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} wrapper apply path`, {
+      slug,
+      item: item?.name ?? "",
+      hasResult: result !== undefined
+    });
+
+    const itemEffects = item?.effects ? Array.from(item.effects) : [];
+    const src = itemEffects.find((e) => {
+      const f = e?.flags?.[MODULE_ID] ?? e?.flags?.["encounterplus-importer"] ?? {};
+      return !!f?.simpleLot1Buff && String(f?.slug ?? "").toLowerCase() === slug;
+    });
+    if (!src) {
+      console.log(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} wrapper AE error`, { slug, error: "no-item-effect-template" });
+      return;
+    }
+
+    const caster = item?.parent ?? item?.actor ?? null;
+    const targets = (slug === "faveur-divine")
+      ? [caster].filter(a => a?.documentName === "Actor")
+      : __epiResolveActorsFromUsageForLot1(opts0, item);
+
+    for (const actor of targets) {
+      const key = `${item.uuid}|${slug}|${src.name ?? ""}`;
+      const exists = Array.from(actor?.effects ?? []).some((ae) => {
+        const af = ae?.flags?.[MODULE_ID] ?? ae?.flags?.["encounterplus-importer"] ?? {};
+        return String(af?.simpleLot1BuffKey ?? "") === key;
+      });
+      if (exists) continue;
+
+      const data = src.toObject ? src.toObject() : foundry.utils.deepClone(src);
+      delete data._id;
+      data.origin = item.uuid;
+      data.transfer = false;
+      data.disabled = false;
+      data.flags = data.flags ?? {};
+      data.flags[MODULE_ID] = { ...(data.flags[MODULE_ID] ?? {}), simpleLot1BuffKey: key, slug };
+      data.flags["encounterplus-importer"] = { ...(data.flags["encounterplus-importer"] ?? {}), simpleLot1Buff: true, simpleLot1BuffKey: key, slug };
+
+      try {
+        await actor.createEmbeddedDocuments("ActiveEffect", [data]);
+        if (slug === "protection-contre-le-poison") {
+          const poisoned = Array.from(actor.effects ?? []).filter((e) => {
+            const s = e?.statuses;
+            return s?.has?.("poisoned") || (Array.isArray(s) && s.includes("poisoned"));
+          });
+          if (poisoned.length) await actor.deleteEmbeddedDocuments("ActiveEffect", poisoned.map(e => e.id).filter(Boolean));
+        }
+        console.log(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} wrapper AE success`, { slug, actor: actor?.name ?? "" });
+      } catch (e) {
+        console.log(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} wrapper AE error`, { slug, actor: actor?.name ?? "", error: String(e) });
+      }
+    }
+  } catch (e) {
+    console.log(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} wrapper AE error`, { error: String(e) });
+  }
 }
 
 Hooks.once("ready", () => {
