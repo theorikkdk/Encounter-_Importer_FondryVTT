@@ -4360,6 +4360,20 @@ async function __epiApplyLot1BuffViaWrapper(item, opts0 = {}, result = null) {
       });
 
       for (const actor of targets) {
+        if (slug === "faveur-divine") {
+          // Migration-on-use: normalize older/imported Divine Favor effects to a single 1d4 source.
+          for (const ae of Array.from(actor?.effects ?? [])) {
+            const af = ae?.flags?.[MODULE_ID] ?? ae?.flags?.["encounterplus-importer"] ?? {};
+            if (String(af?.slug ?? "").toLowerCase() !== "faveur-divine") continue;
+            const ch = Array.isArray(ae?.changes) ? ae.changes : [];
+            const hasLegacy = ch.some(c => ["system.bonuses.mwak.damage", "system.bonuses.rwak.damage"].includes(String(c?.key ?? "")));
+            if (!hasLegacy) continue;
+            const normalized = ch.filter(c => !["system.bonuses.mwak.damage", "system.bonuses.rwak.damage", "system.bonuses.weapon.damage"].includes(String(c?.key ?? "")));
+            normalized.push({ key: "system.bonuses.weapon.damage", mode: 2, value: "+1d4[radiant]", priority: 20 });
+            try { await ae.update({ changes: normalized }); } catch (_e) {}
+          }
+        }
+
         const key = `${item.uuid}|${slug}|${src.name ?? ""}`;
         const exists = Array.from(actor?.effects ?? []).some((ae) => {
           const af = ae?.flags?.[MODULE_ID] ?? ae?.flags?.["encounterplus-importer"] ?? {};
@@ -4375,6 +4389,13 @@ async function __epiApplyLot1BuffViaWrapper(item, opts0 = {}, result = null) {
         data.flags = data.flags ?? {};
         data.flags[MODULE_ID] = { ...(data.flags[MODULE_ID] ?? {}), simpleLot1BuffKey: key, slug };
         data.flags["encounterplus-importer"] = { ...(data.flags["encounterplus-importer"] ?? {}), simpleLot1Buff: true, simpleLot1BuffKey: key, slug };
+
+        if (slug === "faveur-divine") {
+          const baseChanges = Array.isArray(data.changes) ? data.changes : [];
+          const keep = baseChanges.filter(c => !["system.bonuses.mwak.damage", "system.bonuses.rwak.damage", "system.bonuses.weapon.damage"].includes(String(c?.key ?? "")));
+          keep.push({ key: "system.bonuses.weapon.damage", mode: 2, value: "+1d4[radiant]", priority: 20 });
+          data.changes = keep;
+        }
 
         try {
           await actor.createEmbeddedDocuments("ActiveEffect", [data]);

@@ -2160,10 +2160,9 @@ function parseSimpleBuffChangesFR(descText = "", spellSlug = "") {
   }
 
   // Faveur divine: offensive rider, never immediate damage at cast.
-  // Use a lightweight, native dnd5e damage bonus on weapon attacks (+1d4 radiant).
+  // Use a single native dnd5e weapon damage bonus (+1d4 radiant) to avoid double counting.
   if (slug === "faveur-divine") {
-    changes.push({ key: "system.bonuses.mwak.damage", mode: 2, value: "+1d4[radiant]", priority: 20 });
-    changes.push({ key: "system.bonuses.rwak.damage", mode: 2, value: "+1d4[radiant]", priority: 20 });
+    changes.push({ key: "system.bonuses.weapon.damage", mode: 2, value: "+1d4[radiant]", priority: 20 });
     changes.push({ key: "flags.encounterplus-importer.simpleRider.divineFavor", mode: 5, value: true, priority: 20 });
   }
 
