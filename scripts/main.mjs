@@ -2043,6 +2043,8 @@ Hooks.on("midi-qol.RollComplete", async (workflow) => {
 // We hook both preItemRoll and RollComplete because some workflows don't keep targets/item data consistently at completion time.
 const __EPI_LOT1_BUFF_DEBUG_PREFIX = "[EPI lot1 buff debug]";
 const __EPI_LOT1_BUFF_DEBUG_SLUGS = new Set(["protection-contre-le-poison", "faveur-divine"]);
+const __EPI_LOT1_WRAPPER_CAST_GUARD = new Map();
+const __EPI_LOT1_WRAPPER_CAST_GUARD_MS = 1200;
 
 console.log(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} hardproof main.mjs loaded`);
 
@@ -4344,6 +4346,18 @@ async function __epiApplyLot1BuffViaWrapper(item, opts0 = {}, result = null) {
 
     const caster = item?.parent ?? item?.actor ?? null;
 
+    const buildGuardKey = (slug, targetMode) => {
+      const actorId = String(caster?.uuid ?? caster?.id ?? "");
+      const itemId = String(item?.uuid ?? item?.id ?? "");
+      const actId = String(opts0?.activityId ?? opts0?.activity?._id ?? opts0?.activity?.id ?? "");
+      const tgt = (() => {
+        const x = opts0?.targets ?? opts0?.targetUuids ?? opts0?.tokenUuids ?? [];
+        const arr = Array.isArray(x) ? x : (x instanceof Set ? Array.from(x) : (x ? [x] : []));
+        return arr.map(v => (typeof v === "string" ? v : (v?.uuid ?? v?.id ?? v?.actor?.id ?? ""))).filter(Boolean).sort().join("|");
+      })();
+      return [slug, targetMode, actorId, itemId, actId, tgt].join("::");
+    };
+
     for (const src of templates) {
       const f = src?.flags?.[MODULE_ID] ?? src?.flags?.["encounterplus-importer"] ?? {};
       const slug = String(f?.slug ?? __epiLot1BuffSlugFromItem(item) ?? "").toLowerCase();
@@ -4351,6 +4365,31 @@ async function __epiApplyLot1BuffViaWrapper(item, opts0 = {}, result = null) {
       const targets = (targetMode === "self")
         ? [caster].filter(a => a?.documentName === "Actor")
         : __epiResolveActorsFromUsageForLot1(opts0, item);
+
+      const guardKey = buildGuardKey(slug, targetMode);
+      const now = Date.now();
+      const last = Number(__EPI_LOT1_WRAPPER_CAST_GUARD.get(guardKey) ?? 0);
+      if (last && (now - last) < __EPI_LOT1_WRAPPER_CAST_GUARD_MS) {
+        console.log(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} wrapper duplicate cast skipped`, {
+          item: item?.name ?? "",
+          slug,
+          targetMode,
+          deltaMs: now - last
+        });
+        continue;
+      }
+      __EPI_LOT1_WRAPPER_CAST_GUARD.set(guardKey, now);
+      setTimeout(() => {
+        const cur = Number(__EPI_LOT1_WRAPPER_CAST_GUARD.get(guardKey) ?? 0);
+        if (cur === now) __EPI_LOT1_WRAPPER_CAST_GUARD.delete(guardKey);
+      }, __EPI_LOT1_WRAPPER_CAST_GUARD_MS + 500);
+
+      console.log(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} wrapper first cast accepted`, {
+        item: item?.name ?? "",
+        slug,
+        targetMode,
+        targetActors: targets.map(a => a?.name ?? "")
+      });
 
       console.log(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} wrapper apply path`, {
         item: item?.name ?? "",
