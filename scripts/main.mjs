@@ -2072,141 +2072,6 @@ function __epiLot1BuffDebug(slug, msg, extra = undefined) {
   else console.debug(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} ${msg}`);
 }
 
-const __EPI_SIMPLE_FRIENDLY_HEAL_DEBUG_PREFIX = "[EPI simple friendly heal debug]";
-const __EPI_SIMPLE_FRIENDLY_HEAL_SLUGS = new Set([
-  "soins-de-groupe",
-  "guerison-de-groupe",
-  "mot-de-guerison-de-groupe",
-  "priere-de-guerison"
-]);
-
-function __epiSimpleSlugFromItem(item) {
-  try {
-    const direct = String(item?.flags?.[MODULE_ID]?.slug ?? item?.flags?.["encounterplus-importer"]?.slug ?? item?.system?.identifier ?? "").toLowerCase().trim();
-    if (direct) return direct;
-    const nm = String(item?.name ?? "").toLowerCase();
-    if (/soins?\s+de\s+groupe|mass\s+cure\s+wounds/.test(nm)) return "soins-de-groupe";
-    if (/gu[ée]rison\s+de\s+groupe|mass\s+heal/.test(nm)) return "guerison-de-groupe";
-    if (/mot\s+de\s+gu[ée]rison\s+de\s+groupe|mass\s+healing\s+word/.test(nm)) return "mot-de-guerison-de-groupe";
-    if (/pri[èe]re\s+de\s+gu[ée]rison|prayer\s+of\s+healing/.test(nm)) return "priere-de-guerison";
-  } catch (_e) {}
-  return "";
-}
-
-function __epiSimpleFriendlyHealCandidate(workflow) {
-  const item = workflow?.item ?? null;
-  const name = String(item?.name ?? "");
-  const slug = __epiSimpleSlugFromItem(item);
-  const lower = name.toLowerCase();
-  const byName = /soins?\s+de\s+groupe|gu[ée]rison\s+de\s+groupe|mot\s+de\s+gu[ée]rison\s+de\s+groupe|pri[èe]re\s+de\s+gu[ée]rison|mass\s+(cure\s+wounds|healing\s+word|heal)|prayer\s+of\s+healing/.test(lower);
-  return { item, name, slug, isCandidate: __EPI_SIMPLE_FRIENDLY_HEAL_SLUGS.has(slug) || byName };
-}
-
-function __epiTokenFromTargetRef(ref) {
-  try {
-    if (!ref) return null;
-    if (ref?.documentName === "Token") return ref?.object ?? ref;
-    if (ref?.document?.documentName === "Token") return ref;
-    if (ref?.token?.documentName === "Token") return ref.token?.object ?? ref.token;
-    if (ref?.token?.document?.documentName === "Token") return ref.token;
-    if (ref?.object?.document?.documentName === "Token") return ref.object;
-    const id = String(ref?.id ?? ref?._id ?? "");
-    if (id && canvas?.tokens?.get?.(id)) return canvas.tokens.get(id);
-    const uuid = String(ref?.uuid ?? ref?.document?.uuid ?? ref?.tokenUuid ?? "");
-    if (uuid && uuid.includes(".Token.")) {
-      const tid = uuid.split(".").pop();
-      if (tid && canvas?.tokens?.get?.(tid)) return canvas.tokens.get(tid);
-    }
-  } catch (_e) {}
-  return null;
-}
-
-function __epiIsFriendlyTargetFor(sourceToken, targetToken) {
-  try {
-    const s = __epiTokenFromTargetRef(sourceToken);
-    const t = __epiTokenFromTargetRef(targetToken);
-    const sd = Number(s?.document?.disposition ?? s?.disposition ?? 0);
-    const td = Number(t?.document?.disposition ?? t?.disposition ?? 0);
-    return Number.isFinite(sd) && Number.isFinite(td) && sd === td;
-  } catch (_e) {
-    return false;
-  }
-}
-
-function __epiFilterSimpleFriendlyHealTargets(workflow, hookName = "unknown") {
-  try {
-    const info = __epiSimpleFriendlyHealCandidate(workflow);
-    if (!info?.isCandidate) return;
-
-    const aType = String(workflow?.activity?.type ?? workflow?.activity?.actionType ?? "").toLowerCase();
-    console.debug(`${__EPI_SIMPLE_FRIENDLY_HEAL_DEBUG_PREFIX} hardproof hook reached`, {
-      hook: hookName,
-      item: info?.name ?? "",
-      slug: info?.slug ?? "",
-      activityType: aType || "",
-      hasWorkflow: !!workflow
-    });
-
-    if (aType && aType !== "heal") return;
-
-    const sourceToken = __epiTokenFromTargetRef(workflow?.token)
-      ?? __epiTokenFromTargetRef(workflow?.tokenUuid ? canvas?.tokens?.get?.(String(workflow.tokenUuid).split('.').pop()) : null)
-      ?? __epiTokenFromTargetRef(Array.from(workflow?.actor?.getActiveTokens?.() ?? [])[0] ?? null);
-    if (!sourceToken) {
-      console.debug(`${__EPI_SIMPLE_FRIENDLY_HEAL_DEBUG_PREFIX} source token missing`, { hook: hookName, slug: info?.slug ?? "" });
-      return;
-    }
-
-    const sourceDisp = Number(sourceToken?.document?.disposition ?? sourceToken?.disposition ?? 0);
-    const primaryList = Array.from(workflow?.targets ?? []);
-    const fallbackList = primaryList.length
-      ? primaryList
-      : Array.from(workflow?.applicationTargets ?? workflow?.hitTargets ?? workflow?.failedSaves ?? []);
-
-    const beforeTokens = fallbackList.map((t) => __epiTokenFromTargetRef(t)).filter(Boolean);
-    const filteredTokens = beforeTokens.filter((t) => __epiIsFriendlyTargetFor(sourceToken, t));
-
-    const beforeNames = beforeTokens.map(t => t?.name ?? t?.id);
-    const afterNames = filteredTokens.map(t => t?.name ?? t?.id);
-
-    const setFromTokens = () => new Set(filteredTokens);
-    try { workflow.targets = setFromTokens(); } catch (_e) {}
-    try { workflow.hitTargets = setFromTokens(); } catch (_e) {}
-    try { workflow.applicationTargets = setFromTokens(); } catch (_e) {}
-    try { workflow.failedSaves = setFromTokens(); } catch (_e) {}
-
-    const targetIds = filteredTokens.map((t) => String(t?.id ?? t?._id ?? "")).filter(Boolean);
-    try { game.user?.updateTokenTargets?.(targetIds); } catch (_e) {}
-
-    const targetUuids = filteredTokens.map((t) => String(t?.document?.uuid ?? t?.uuid ?? "")).filter(Boolean);
-    try {
-      workflow.options ??= {};
-      workflow.options.midiOptions ??= {};
-      workflow.options.midiOptions.targetUuids = targetUuids;
-    } catch (_e) {}
-
-    try {
-      if (Array.isArray(workflow?.damageList)) {
-        const allowedIds = new Set(targetIds);
-        workflow.damageList = workflow.damageList.filter((d) => {
-          const tid = String(d?.tokenId ?? d?.token?.id ?? d?.tokenUuid?.split?.('.')?.pop?.() ?? "");
-          return !tid || allowedIds.has(tid);
-        });
-      }
-    } catch (_e) {}
-
-    console.debug(`${__EPI_SIMPLE_FRIENDLY_HEAL_DEBUG_PREFIX} filter applied`, {
-      hook: hookName,
-      slug: info?.slug ?? "",
-      sourceDisposition: sourceDisp,
-      targetsBefore: beforeNames,
-      targetsAfter: afterNames
-    });
-  } catch (e) {
-    console.warn(`${__EPI_SIMPLE_FRIENDLY_HEAL_DEBUG_PREFIX} filter failed`, e);
-  }
-}
-
 async function __epiApplyLot1BuffEffects(workflow, hookName = "unknown") {
   try {
     console.debug(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} hook=${hookName} fired`, { hasWorkflow: !!workflow });
@@ -2314,20 +2179,6 @@ async function __epiApplyLot1BuffEffects(workflow, hookName = "unknown") {
   }
 }
 
-for (const __evt of [
-  "midi-qol.preTargeting",
-  "midi-qol.preItemRoll",
-  "midi-qol.preCheckHits",
-  "midi-qol.preDamageRoll",
-  "midi-qol.preDamageRollComplete",
-  "midi-qol.preApplyDynamicEffects",
-  "midi-qol.RollComplete"
-]) {
-  Hooks.on(__evt, (workflow) => {
-    __epiFilterSimpleFriendlyHealTargets(workflow, __evt);
-  });
-}
-
 Hooks.on("midi-qol.preItemRoll", async (workflow) => {
   await __epiApplyLot1BuffEffects(workflow, "midi-qol.preItemRoll");
 });
@@ -2337,7 +2188,6 @@ Hooks.on("midi-qol.RollComplete", async (workflow) => {
 });
 
 console.log(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} hardproof hooks registered`, ["midi-qol.preItemRoll", "midi-qol.RollComplete", "createActiveEffect"]);
-console.log(`${__EPI_SIMPLE_FRIENDLY_HEAL_DEBUG_PREFIX} hooks registered`, ["midi-qol.preTargeting", "midi-qol.preItemRoll", "midi-qol.preCheckHits", "midi-qol.preDamageRoll", "midi-qol.preDamageRollComplete", "midi-qol.preApplyDynamicEffects", "midi-qol.RollComplete"]);
 
 
 function __epiIsWallOfLightCastWorkflow(workflow) {

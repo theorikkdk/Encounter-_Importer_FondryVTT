@@ -2187,17 +2187,12 @@ function isSimpleFriendlyHeal(spellSlug) {
 
 function applyFriendlyOnlyHealTarget(act, spellSlug) {
   if (!isSimpleFriendlyHeal(spellSlug)) return;
-  const tType = String(act?.target?.template?.type ?? "").toLowerCase();
-  const hasTemplate = !!tType;
-  const hasMultiAffects = Number(act?.target?.affects?.count ?? 0) > 1;
-  if (!hasTemplate && !hasMultiAffects) return;
-
   act.target = act.target ?? { template: {count:"", contiguous:false, type:"", size:"", width:"", height:"", units:"ft"}, affects: {count:"", type:"", choice:false, special:""}, prompt: true, override: false };
   act.target.affects = act.target.affects ?? { count: "", type: "", choice: false, special: "" };
   act.target.affects.type = "ally";
-  if (hasTemplate && (act.target.affects.count == null || String(act.target.affects.count) === "")) {
-    act.target.affects.count = "";
-  }
+  act.target.affects.choice = true;
+  act.target.prompt = true;
+  act.target.override = true;
 }
 
 function parseSimpleBuffChangesFR(descText = "", spellSlug = "") {
