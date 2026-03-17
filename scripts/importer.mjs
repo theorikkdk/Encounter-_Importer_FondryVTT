@@ -2152,10 +2152,8 @@ const LOT2_SIMPLE_BATCH_SLUGS = new Set([
   "soins-de-groupe",
   // Next pragmatic sub-batch (ROI): additional straightforward damage/save templates.
   "aspersion-acide",
-  "eclair-de-chaos",
   "flambee-d-aganazzar",
-  "fleche-de-foudre",
-  "sphere-de-vitriol"
+  "fleche-de-foudre"
 ]);
 
 const SIMPLE_BATCH_EXCLUDED_SLUGS = new Set([
@@ -4782,6 +4780,40 @@ if (unlimitedTargets && (!maxTargets || Number(maxTargets) <= 1) && (!multiShotT
     return;
   }
   let __beamExtraActivityId = null;
+
+  // Targeted exception: Chaos Bolt damage type is chosen at resolution time.
+  // Do not freeze a wrong fixed type in generic simple-batch damage templates.
+  if (spellSlug === "eclair-de-chaos") {
+    const primaryDamage = Array.isArray(damages) && damages.length ? damages[0] : null;
+    const act = makeActivity(baseId);
+    act.sort = 0;
+    setCommonFromSpell(act);
+    act.midiProperties = act.midiProperties ?? {};
+    act.midiProperties.displayActivityName = true;
+    act.type = "attack";
+    act.name = isMidi ? "midi attack" : (wantsFR ? "Attaque" : "Attack");
+    act.attack = act.attack ?? { ability: "", bonus: "", critical: { threshold: null }, flat: false, type: { value: "ranged", classification: "spell" } };
+    act.attack.type = act.attack.type ?? { value: "ranged", classification: "spell" };
+    act.attack.type.value = "ranged";
+    act.attack.type.classification = "spell";
+    if (primaryDamage) {
+      act.damage = act.damage ?? { critical: { bonus: "" }, includeBase: true, parts: [] };
+      act.damage.parts = [{
+        number: primaryDamage.number,
+        denomination: primaryDamage.denom,
+        bonus: String(primaryDamage.bonus ?? ""),
+        types: [],
+        custom: { enabled: false, formula: "" },
+        scaling: { mode: "whole", number: 1, formula: "" }
+      }];
+      act.description = act.description ?? { chatFlavor: "" };
+      act.description.chatFlavor = wantsFR
+        ? "Type de dégâts variable (acide/froid/feu/force/foudre/poison/psychique/tonnerre)"
+        : "Variable damage type (acid/cold/fire/force/lightning/poison/psychic/thunder)";
+    }
+    sys.actionType = "rsak";
+    return;
+  }
 
   // Lot 1/2 simple fast-path: keep implementation simple, deterministic, and cheap.
   // This path is intentionally limited to selected simple-batch slugs and avoids touching
