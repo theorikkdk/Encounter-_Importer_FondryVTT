@@ -2126,7 +2126,24 @@ const LOT1_SIMPLE_BATCH_SLUGS = new Set([
   "vent-protecteur"
 ]);
 
-const LOT1_SIMPLE_EXCLUDED_SLUGS = new Set([
+// Lot 2 sub-batch (ROI): keep only broad, reusable and low-special-case spells.
+// Target families: damage simple + save-then-damage simple.
+const LOT2_SIMPLE_BATCH_SLUGS = new Set([
+  "boule-de-feu",
+  "mains-brulantes",
+  "eclair",
+  "vague-tonnante",
+  "glas",
+  "moquerie-cruelle",
+  "piqure-mentale",
+  "epine-mentale",
+  "trait-ensorcele",
+  "gelure",
+  "poigne-electrique",
+  "contact-glacial"
+]);
+
+const SIMPLE_BATCH_EXCLUDED_SLUGS = new Set([
   // Explicitly out-of-scope for this pass (existing dedicated systems)
   "aura-de-purete",
   "cercle-de-pouvoir",
@@ -2143,9 +2160,9 @@ const LOT1_SIMPLE_EXCLUDED_SLUGS = new Set([
   "tempete-vengeresse"
 ]);
 
-function isLot1SimpleBatchEligible(spellSlug) {
+function isSimpleBatchEligible(spellSlug) {
   const s = String(spellSlug ?? "").toLowerCase().trim();
-  return LOT1_SIMPLE_BATCH_SLUGS.has(s) && !LOT1_SIMPLE_EXCLUDED_SLUGS.has(s);
+  return (LOT1_SIMPLE_BATCH_SLUGS.has(s) || LOT2_SIMPLE_BATCH_SLUGS.has(s)) && !SIMPLE_BATCH_EXCLUDED_SLUGS.has(s);
 }
 
 function parseSimpleBuffChangesFR(descText = "", spellSlug = "") {
@@ -4722,11 +4739,11 @@ if (unlimitedTargets && (!maxTargets || Number(maxTargets) <= 1) && (!multiShotT
   }
   let __beamExtraActivityId = null;
 
-  // Lot 1 fast-path: keep implementation simple, deterministic, and cheap.
-  // This path is intentionally limited to selected lot-1 slugs and avoids touching
+  // Lot 1/2 simple fast-path: keep implementation simple, deterministic, and cheap.
+  // This path is intentionally limited to selected simple-batch slugs and avoids touching
   // dedicated complex systems (regions/walls/auras/multi-shot special handling).
-  const __lot1SimpleEligible = isLot1SimpleBatchEligible(spellSlug);
-  if (__lot1SimpleEligible) {
+  const __simpleBatchEligible = isSimpleBatchEligible(spellSlug);
+  if (__simpleBatchEligible) {
     if (spellSlug === "faveur-divine") {
       // Hotfix: Divine Favor is a weapon-hit rider buff, not immediate spell damage.
       // Keep cast as a clean self utility/buff setup and stop here.
