@@ -4361,16 +4361,43 @@ async function __epiApplyLot1BuffViaWrapper(item, opts0 = {}, result = null) {
 
       for (const actor of targets) {
         if (slug === "faveur-divine") {
-          // Migration-on-use: normalize older/imported Divine Favor effects to a single 1d4 source.
-          for (const ae of Array.from(actor?.effects ?? [])) {
+          // Divine Favor strategy: keep ONE active effect only.
+          // Prefer an already-applied effect (typically system/midi-applied from item template, concentration-aware),
+          // normalize it to a single +1d4 weapon bonus, and remove duplicates.
+          const divineEffects = Array.from(actor?.effects ?? []).filter((ae) => {
             const af = ae?.flags?.[MODULE_ID] ?? ae?.flags?.["encounterplus-importer"] ?? {};
-            if (String(af?.slug ?? "").toLowerCase() !== "faveur-divine") continue;
-            const ch = Array.isArray(ae?.changes) ? ae.changes : [];
-            const hasLegacy = ch.some(c => ["system.bonuses.mwak.damage", "system.bonuses.rwak.damage"].includes(String(c?.key ?? "")));
-            if (!hasLegacy) continue;
+            if (String(af?.slug ?? "").toLowerCase() === "faveur-divine") return true;
+            const nm = String(ae?.name ?? "").toLowerCase();
+            return /faveur\s+divine|divine\s+favor/.test(nm);
+          });
+
+          if (divineEffects.length) {
+            const score = (ae) => {
+              let s = 0;
+              if (String(ae?.origin ?? "") === String(item?.uuid ?? "")) s += 10;
+              if ((Number(ae?.duration?.rounds ?? 0) || Number(ae?.duration?.seconds ?? 0)) > 0) s += 5;
+              return s;
+            };
+            divineEffects.sort((a, b) => score(b) - score(a));
+            const keep = divineEffects[0];
+            const others = divineEffects.slice(1);
+
+            const ch = Array.isArray(keep?.changes) ? keep.changes : [];
             const normalized = ch.filter(c => !["system.bonuses.mwak.damage", "system.bonuses.rwak.damage", "system.bonuses.weapon.damage"].includes(String(c?.key ?? "")));
             normalized.push({ key: "system.bonuses.weapon.damage", mode: 2, value: "+1d4[radiant]", priority: 20 });
-            try { await ae.update({ changes: normalized }); } catch (_e) {}
+            try { await keep.update({ changes: normalized }); } catch (_e) {}
+
+            if (others.length) {
+              try { await actor.deleteEmbeddedDocuments("ActiveEffect", others.map(e => e.id).filter(Boolean)); } catch (_e) {}
+            }
+
+            console.log(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} wrapper AE success`, {
+              slug,
+              actor: actor?.name ?? "",
+              reconciled: true,
+              removedDuplicates: others.length
+            });
+            continue;
           }
         }
 
