@@ -2076,8 +2076,13 @@ async function __epiApplyLot1BuffEffects(workflow, hookName = "unknown") {
     if (!game.user?.isGM) return;
     const wfItem = workflow?.item ?? null;
     const earlySlug = __epiLot1BuffSlugFromItem(wfItem);
-    if (__EPI_LOT1_BUFF_DEBUG_SLUGS.has(earlySlug)) {
-      __epiLot1BuffDebug(earlySlug, `hook=${hookName} skipped (wrapper primary path)`);
+    const wfItemEffects = wfItem?.effects ? Array.from(wfItem.effects) : [];
+    const hasLot1CastTemplate = wfItemEffects.some((e) => {
+      const f = e?.flags?.[MODULE_ID] ?? e?.flags?.["encounterplus-importer"] ?? {};
+      return !!f?.simpleLot1Buff && !!f?.applyOnCast;
+    });
+    if (hasLot1CastTemplate) {
+      __epiLot1BuffDebug(earlySlug, `hook=${hookName} skipped (wrapper primary path by AE template)`);
       return;
     }
     if (__EPI_LOT1_BUFF_DEBUG_SLUGS.has(earlySlug)) {
@@ -4320,59 +4325,70 @@ function __epiResolveActorsFromUsageForLot1(opts0 = {}, item = null) {
 
 async function __epiApplyLot1BuffViaWrapper(item, opts0 = {}, result = null) {
   try {
-    const slug = __epiLot1BuffSlugFromItem(item);
-    if (!(slug === "faveur-divine" || slug === "protection-contre-le-poison")) return;
-
-    console.log(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} wrapper apply path`, {
-      slug,
-      item: item?.name ?? "",
-      hasResult: result !== undefined
-    });
-
     const itemEffects = item?.effects ? Array.from(item.effects) : [];
-    const src = itemEffects.find((e) => {
+    const templates = itemEffects.filter((e) => {
       const f = e?.flags?.[MODULE_ID] ?? e?.flags?.["encounterplus-importer"] ?? {};
-      return !!f?.simpleLot1Buff && String(f?.slug ?? "").toLowerCase() === slug;
+      return !!f?.simpleLot1Buff && !!f?.applyOnCast;
     });
-    if (!src) {
-      console.log(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} wrapper AE error`, { slug, error: "no-item-effect-template" });
+    if (!templates.length) {
       return;
     }
 
+    console.log(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} wrapper found lot1 AE template`, {
+      item: item?.name ?? "",
+      templates: templates.map((e) => {
+        const f = e?.flags?.[MODULE_ID] ?? e?.flags?.["encounterplus-importer"] ?? {};
+        return { name: e?.name ?? "", slug: String(f?.slug ?? "").toLowerCase(), targetMode: String(f?.targetMode ?? "targets") };
+      })
+    });
+
     const caster = item?.parent ?? item?.actor ?? null;
-    const targets = (slug === "faveur-divine")
-      ? [caster].filter(a => a?.documentName === "Actor")
-      : __epiResolveActorsFromUsageForLot1(opts0, item);
 
-    for (const actor of targets) {
-      const key = `${item.uuid}|${slug}|${src.name ?? ""}`;
-      const exists = Array.from(actor?.effects ?? []).some((ae) => {
-        const af = ae?.flags?.[MODULE_ID] ?? ae?.flags?.["encounterplus-importer"] ?? {};
-        return String(af?.simpleLot1BuffKey ?? "") === key;
+    for (const src of templates) {
+      const f = src?.flags?.[MODULE_ID] ?? src?.flags?.["encounterplus-importer"] ?? {};
+      const slug = String(f?.slug ?? __epiLot1BuffSlugFromItem(item) ?? "").toLowerCase();
+      const targetMode = String(f?.targetMode ?? "targets").toLowerCase();
+      const targets = (targetMode === "self")
+        ? [caster].filter(a => a?.documentName === "Actor")
+        : __epiResolveActorsFromUsageForLot1(opts0, item);
+
+      console.log(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} wrapper apply path`, {
+        item: item?.name ?? "",
+        slug,
+        targetMode,
+        targetActors: targets.map(a => a?.name ?? "")
       });
-      if (exists) continue;
 
-      const data = src.toObject ? src.toObject() : foundry.utils.deepClone(src);
-      delete data._id;
-      data.origin = item.uuid;
-      data.transfer = false;
-      data.disabled = false;
-      data.flags = data.flags ?? {};
-      data.flags[MODULE_ID] = { ...(data.flags[MODULE_ID] ?? {}), simpleLot1BuffKey: key, slug };
-      data.flags["encounterplus-importer"] = { ...(data.flags["encounterplus-importer"] ?? {}), simpleLot1Buff: true, simpleLot1BuffKey: key, slug };
+      for (const actor of targets) {
+        const key = `${item.uuid}|${slug}|${src.name ?? ""}`;
+        const exists = Array.from(actor?.effects ?? []).some((ae) => {
+          const af = ae?.flags?.[MODULE_ID] ?? ae?.flags?.["encounterplus-importer"] ?? {};
+          return String(af?.simpleLot1BuffKey ?? "") === key;
+        });
+        if (exists) continue;
 
-      try {
-        await actor.createEmbeddedDocuments("ActiveEffect", [data]);
-        if (slug === "protection-contre-le-poison") {
-          const poisoned = Array.from(actor.effects ?? []).filter((e) => {
-            const s = e?.statuses;
-            return s?.has?.("poisoned") || (Array.isArray(s) && s.includes("poisoned"));
-          });
-          if (poisoned.length) await actor.deleteEmbeddedDocuments("ActiveEffect", poisoned.map(e => e.id).filter(Boolean));
+        const data = src.toObject ? src.toObject() : foundry.utils.deepClone(src);
+        delete data._id;
+        data.origin = item.uuid;
+        data.transfer = false;
+        data.disabled = false;
+        data.flags = data.flags ?? {};
+        data.flags[MODULE_ID] = { ...(data.flags[MODULE_ID] ?? {}), simpleLot1BuffKey: key, slug };
+        data.flags["encounterplus-importer"] = { ...(data.flags["encounterplus-importer"] ?? {}), simpleLot1Buff: true, simpleLot1BuffKey: key, slug };
+
+        try {
+          await actor.createEmbeddedDocuments("ActiveEffect", [data]);
+          if (slug === "protection-contre-le-poison") {
+            const poisoned = Array.from(actor.effects ?? []).filter((e) => {
+              const s = e?.statuses;
+              return s?.has?.("poisoned") || (Array.isArray(s) && s.includes("poisoned"));
+            });
+            if (poisoned.length) await actor.deleteEmbeddedDocuments("ActiveEffect", poisoned.map(e => e.id).filter(Boolean));
+          }
+          console.log(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} wrapper AE success`, { slug, actor: actor?.name ?? "" });
+        } catch (e) {
+          console.log(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} wrapper AE error`, { slug, actor: actor?.name ?? "", error: String(e) });
         }
-        console.log(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} wrapper AE success`, { slug, actor: actor?.name ?? "" });
-      } catch (e) {
-        console.log(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} wrapper AE error`, { slug, actor: actor?.name ?? "", error: String(e) });
       }
     }
   } catch (e) {
