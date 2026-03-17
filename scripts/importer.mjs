@@ -2149,7 +2149,13 @@ const LOT2_SIMPLE_BATCH_SLUGS = new Set([
   "tempete-de-grele",
   "bouffee-de-poison",
   "catapulte",
-  "soins-de-groupe"
+  "soins-de-groupe",
+  // Next pragmatic sub-batch (ROI): additional straightforward damage/save templates.
+  "aspersion-acide",
+  "eclair-de-chaos",
+  "flambee-d-aganazzar",
+  "fleche-de-foudre",
+  "sphere-de-vitriol"
 ]);
 
 const SIMPLE_BATCH_EXCLUDED_SLUGS = new Set([
