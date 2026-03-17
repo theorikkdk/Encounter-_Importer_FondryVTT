@@ -2045,7 +2045,6 @@ const __EPI_LOT1_BUFF_DEBUG_PREFIX = "[EPI lot1 buff debug]";
 const __EPI_LOT1_BUFF_DEBUG_SLUGS = new Set(["protection-contre-le-poison", "faveur-divine"]);
 const __EPI_LOT1_WRAPPER_CAST_GUARD = new Map();
 const __EPI_LOT1_WRAPPER_CAST_GUARD_MS = 1200;
-const __EPI_LOT1_AE_CREATED_AT = new Map();
 
 console.log(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} hardproof main.mjs loaded`);
 
@@ -4451,17 +4450,6 @@ async function __epiApplyLot1BuffViaWrapper(item, opts0 = {}, result = null) {
             continue;
           }
 
-          // Let system/midi auto-apply settle first to keep concentration-linked effect when available.
-          await new Promise(resolve => setTimeout(resolve, 180));
-          const lateEffects = Array.from(actor?.effects ?? []).filter(__epiIsDivineFavorEffectData);
-          if (lateEffects.length) {
-            console.log(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} concentration cleanup`, {
-              slug,
-              actor: actor?.name ?? "",
-              reason: "system effect appeared after wrapper pass; skip wrapper create"
-            });
-            continue;
-          }
         }
 
         const key = `${item.uuid}|${slug}|${src.name ?? ""}`;
@@ -4489,18 +4477,6 @@ async function __epiApplyLot1BuffViaWrapper(item, opts0 = {}, result = null) {
 
         try {
           await actor.createEmbeddedDocuments("ActiveEffect", [data]);
-          if (slug === "faveur-divine") {
-            const created = Array.from(actor.effects ?? []).find(__epiIsDivineFavorEffectData);
-            if (created?.id) {
-              __EPI_LOT1_AE_CREATED_AT.set(created.id, Date.now());
-              console.log(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} AE created`, {
-                id: created.id,
-                actor: actor?.name ?? "",
-                origin: created?.origin ?? "",
-                duration: created?.duration ?? {}
-              });
-            }
-          }
           if (slug === "protection-contre-le-poison") {
             const poisoned = Array.from(actor.effects ?? []).filter((e) => {
               const s = e?.statuses;
@@ -5664,43 +5640,4 @@ Hooks.once('ready', async () => {
   } catch (e) {
     console.warn(`[${MODULE_ID}] hotfix271ba migration failed`, e);
   }
-});
-
-Hooks.on("preDeleteActiveEffect", (effect, options, userId) => {
-  try {
-    if (!__epiIsDivineFavorEffectData(effect)) return;
-    const actor = effect?.parent;
-    const createdAt = Number(__EPI_LOT1_AE_CREATED_AT.get(effect?.id) ?? 0);
-    const deltaMs = createdAt ? (Date.now() - createdAt) : null;
-    console.log(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} AE delete detected`, {
-      phase: "preDelete",
-      id: effect?.id,
-      actor: actor?.name ?? "",
-      origin: effect?.origin ?? "",
-      duration: effect?.duration ?? {},
-      deltaMs,
-      userId: String(userId ?? ""),
-      options: options ?? {}
-    });
-  } catch (_e) {}
-});
-
-Hooks.on("deleteActiveEffect", (effect, options, userId) => {
-  try {
-    if (!__epiIsDivineFavorEffectData(effect)) return;
-    const actor = effect?.parent;
-    const createdAt = Number(__EPI_LOT1_AE_CREATED_AT.get(effect?.id) ?? 0);
-    const deltaMs = createdAt ? (Date.now() - createdAt) : null;
-    console.log(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} AE delete detected`, {
-      phase: "delete",
-      id: effect?.id,
-      actor: actor?.name ?? "",
-      origin: effect?.origin ?? "",
-      duration: effect?.duration ?? {},
-      deltaMs,
-      userId: String(userId ?? ""),
-      options: options ?? {}
-    });
-    if (effect?.id) __EPI_LOT1_AE_CREATED_AT.delete(effect.id);
-  } catch (_e) {}
 });
