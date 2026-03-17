@@ -2174,6 +2174,32 @@ function isSimpleBatchEligible(spellSlug) {
   return (LOT1_SIMPLE_BATCH_SLUGS.has(s) || LOT2_SIMPLE_BATCH_SLUGS.has(s)) && !SIMPLE_BATCH_EXCLUDED_SLUGS.has(s);
 }
 
+const SIMPLE_FRIENDLY_HEAL_SLUGS = new Set([
+  "soins-de-groupe",
+  "guerison-de-groupe",
+  "mot-de-guerison-de-groupe",
+  "priere-de-guerison"
+]);
+
+function isSimpleFriendlyHeal(spellSlug) {
+  return SIMPLE_FRIENDLY_HEAL_SLUGS.has(String(spellSlug ?? "").toLowerCase().trim());
+}
+
+function applyFriendlyOnlyHealTarget(act, spellSlug) {
+  if (!isSimpleFriendlyHeal(spellSlug)) return;
+  const tType = String(act?.target?.template?.type ?? "").toLowerCase();
+  const hasTemplate = !!tType;
+  const hasMultiAffects = Number(act?.target?.affects?.count ?? 0) > 1;
+  if (!hasTemplate && !hasMultiAffects) return;
+
+  act.target = act.target ?? { template: {count:"", contiguous:false, type:"", size:"", width:"", height:"", units:"ft"}, affects: {count:"", type:"", choice:false, special:""}, prompt: true, override: false };
+  act.target.affects = act.target.affects ?? { count: "", type: "", choice: false, special: "" };
+  act.target.affects.type = "ally";
+  if (hasTemplate && (act.target.affects.count == null || String(act.target.affects.count) === "")) {
+    act.target.affects.count = "";
+  }
+}
+
 function parseSimpleBuffChangesFR(descText = "", spellSlug = "") {
   const t = foldKey(descText);
   const slug = String(spellSlug ?? "").toLowerCase().trim();
@@ -4801,6 +4827,8 @@ if (unlimitedTargets && (!maxTargets || Number(maxTargets) <= 1) && (!multiShotT
       act.name = isMidi ? "midi heal" : (wantsFR ? (isTemp ? "PV temporaires" : "Soigner") : (isTemp ? "Temp HP" : "Heal"));
       act.healing = act.healing ?? { number: null, denomination: null, bonus: "", types: [], custom: { enabled: false, formula: "" }, scaling: { mode: "whole", number: 1, formula: "" } };
       act.healing.types = [isTemp ? "temphp" : "healing"];
+      applyFriendlyOnlyHealTarget(act, spellSlug);
+
       if (healCandLot1.custom) {
         act.healing.custom.enabled = true;
         act.healing.custom.formula = String(healCandLot1.custom).trim();
@@ -5413,7 +5441,7 @@ const addDelayedDamageActivity = () => {
       act.target = act.target ?? { template: {count:"", contiguous:false, type:"", size:"", width:"", height:"", units:"ft"}, affects: {count:"", type:"", choice:false, special:""}, prompt: true, override: false };
       act.target.affects = act.target.affects ?? { count: "", type: "", choice: false, special: "" };
       act.target.affects.count = String(maxTargets);
-      act.target.affects.type = "creature";
+      act.target.affects.type = isSimpleFriendlyHeal(spellSlug) ? "ally" : "creature";
       // don't force prompt; let Foundry/Midi handle targets as usual
     }
 
@@ -5425,6 +5453,8 @@ const addDelayedDamageActivity = () => {
 
     act.midiProperties = act.midiProperties ?? {};
     act.midiProperties.displayActivityName = true;
+
+    applyFriendlyOnlyHealTarget(act, spellSlug);
 
     // dnd5e uses "healing" field for heal activities
     act.healing = act.healing ?? { number: null, denomination: null, bonus: "", types: [], custom: { enabled: false, formula: "" }, scaling: { mode: "whole", number: 1, formula: "" } };
