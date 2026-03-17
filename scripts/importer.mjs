@@ -2221,6 +2221,64 @@ function resolveLot1BuffTemplateSpec(spellSlug = "", spellName = "", descText = 
   return null;
 }
 
+function attachLot1BuffTemplateEffect(itemObj, sp, durationObj) {
+  const rawSlug = String(sp?.slug ?? "").toLowerCase();
+  const spellName = String(itemObj?.name ?? sp?.name ?? "");
+  const desc = stripHtmlToText(cleanEncounterLinks(sp?.descr ?? ""));
+  const spec = resolveLot1BuffTemplateSpec(rawSlug, spellName, desc);
+  if (!spec) return { attached: false, reason: "no-spec" };
+
+  itemObj.effects = Array.isArray(itemObj.effects) ? itemObj.effects : [];
+
+  const spellSlug = String(spec.slug ?? rawSlug).toLowerCase();
+  const targetMode = String(spec.targetMode ?? "targets").toLowerCase();
+  const changes = Array.isArray(spec.changes) ? spec.changes : [];
+  if (!changes.length) return { attached: false, reason: "no-changes", spellSlug };
+
+  const existing = itemObj.effects.find(e => {
+    const f = e?.flags?.["encounterplus-importer"] ?? e?.flags?.[MODULE_ID] ?? {};
+    return !!f?.simpleLot1Buff && !!f?.applyOnCast && String(f?.slug ?? "").toLowerCase() === spellSlug;
+  });
+  if (existing) return { attached: false, reason: "already-exists", spellSlug, effectName: existing?.name ?? "" };
+
+  const effectId = foundry?.utils?.randomID ? foundry.utils.randomID(16) : crypto.randomUUID().slice(0, 16);
+  const effectName = `${itemObj.name} — Buff simple`;
+  itemObj.effects.push({
+    _id: effectId,
+    name: effectName,
+    icon: itemObj.img ?? "icons/svg/aura.svg",
+    origin: null,
+    disabled: false,
+    transfer: false,
+    duration: (typeof toEffectDuration === "function") ? toEffectDuration(itemObj?.system?.duration ?? durationObj) : {},
+    changes,
+    flags: {
+      [MODULE_ID]: {
+        simpleLot1Buff: true,
+        slug: spellSlug,
+        family: "buffs-resistances",
+        applyOnCast: true,
+        targetMode
+      },
+      "encounterplus-importer": {
+        simpleLot1Buff: true,
+        slug: spellSlug,
+        family: "buffs-resistances",
+        applyOnCast: true,
+        targetMode
+      }
+    }
+  });
+
+  console.log(`[EPI lot1 buff debug] importer attached AE template`, {
+    slug: spellSlug,
+    effectName,
+    effectsCount: itemObj.effects.length
+  });
+
+  return { attached: true, spellSlug, effectName, effectId };
+}
+
 
 
 function parseMaxTargetsFR(text) {
@@ -4152,6 +4210,12 @@ async function toDnd5eSpell(sp, folderId) {
   }
   try { applySpellEffects(out, sp, duration, measurement); } catch (e) {
     console.warn("encounterplus-importer | applySpellEffects failed", name, e);
+  }
+
+  // Hard guarantee for lot-1 buff templates on imported spell items.
+  // If a template should exist (Divine Favor / Protection from Poison), ensure it is present on the final item payload.
+  try { attachLot1BuffTemplateEffect(out, sp, duration); } catch (e) {
+    console.warn("encounterplus-importer | attachLot1BuffTemplateEffect failed", name, e);
   }
 
   return out;
@@ -6404,52 +6468,8 @@ function applySpellEffects(itemObj, sp, durationObj, measurement) {
   };
 
   const addSimpleLot1BuffEffect = () => {
-    const rawSlug = String(sp?.slug ?? "").toLowerCase();
-    const spellName = String(itemObj?.name ?? sp?.name ?? "");
-    const desc = stripHtmlToText(cleanEncounterLinks(sp?.descr ?? ""));
-    const spec = resolveLot1BuffTemplateSpec(rawSlug, spellName, desc);
-    if (!spec) return;
-
-    const spellSlug = String(spec.slug ?? rawSlug).toLowerCase();
-    const targetMode = String(spec.targetMode ?? "targets").toLowerCase();
-    const changes = Array.isArray(spec.changes) ? spec.changes : [];
-    if (!changes.length) return;
-
-    // Avoid duplicates on re-import.
-    const existing = (itemObj.effects ?? []).find(e => {
-      const f = e?.flags?.["encounterplus-importer"] ?? e?.flags?.[MODULE_ID] ?? {};
-      return !!f?.simpleLot1Buff && String(f?.slug ?? "").toLowerCase() === spellSlug;
-    });
-    if (existing) return;
-
-    const effectId = foundry?.utils?.randomID ? foundry.utils.randomID(16) : crypto.randomUUID().slice(0, 16);
-    itemObj.effects.push({
-      _id: effectId,
-      name: `${itemObj.name} — Buff simple`,
-      icon: itemObj.img ?? "icons/svg/aura.svg",
-      origin: null,
-      disabled: false,
-      transfer: false,
-      duration: toEffectDuration(itemObj?.system?.duration ?? durationObj),
-      changes,
-      flags: {
-        [MODULE_ID]: {
-          simpleLot1Buff: true,
-          slug: spellSlug,
-          family: "buffs-resistances",
-          applyOnCast: true,
-          targetMode
-        },
-        "encounterplus-importer": {
-          simpleLot1Buff: true,
-          slug: spellSlug,
-          family: "buffs-resistances",
-          applyOnCast: true,
-          targetMode
-        }
-      }
-    });
-    addEffectRefToBaseActivity(effectId);
+    const res = attachLot1BuffTemplateEffect(itemObj, sp, durationObj);
+    if (res?.attached && res?.effectId) addEffectRefToBaseActivity(res.effectId);
   };
 
   // Nettoie d'éventuels anciens placeholders d'aura
