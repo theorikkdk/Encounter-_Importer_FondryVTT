@@ -2196,6 +2196,31 @@ function parseSimpleBuffChangesFR(descText = "", spellSlug = "") {
   });
 }
 
+function resolveLot1BuffTemplateSpec(spellSlug = "", spellName = "", descText = "") {
+  const slug = String(spellSlug ?? "").toLowerCase().trim();
+  const name = foldKey(String(spellName ?? ""));
+
+  const isDivineFavor = slug === "faveur-divine" || /faveur\s+divine/.test(name);
+  if (isDivineFavor) {
+    return {
+      slug: "faveur-divine",
+      targetMode: "self",
+      changes: parseSimpleBuffChangesFR(descText, "faveur-divine")
+    };
+  }
+
+  const isPoisonProtect = slug === "protection-contre-le-poison" || /protection\s+contre\s+le\s+poison/.test(name);
+  if (isPoisonProtect) {
+    return {
+      slug: "protection-contre-le-poison",
+      targetMode: "targets",
+      changes: parseSimpleBuffChangesFR(descText, "protection-contre-le-poison")
+    };
+  }
+
+  return null;
+}
+
 
 
 function parseMaxTargetsFR(text) {
@@ -6379,13 +6404,22 @@ function applySpellEffects(itemObj, sp, durationObj, measurement) {
   };
 
   const addSimpleLot1BuffEffect = () => {
-    const spellSlug = String(sp?.slug ?? "").toLowerCase();
-    if (!isLot1SimpleBatchEligible(spellSlug)) return;
-    const changes = parseSimpleBuffChangesFR(stripHtmlToText(cleanEncounterLinks(sp?.descr ?? "")), spellSlug);
+    const rawSlug = String(sp?.slug ?? "").toLowerCase();
+    const spellName = String(itemObj?.name ?? sp?.name ?? "");
+    const desc = stripHtmlToText(cleanEncounterLinks(sp?.descr ?? ""));
+    const spec = resolveLot1BuffTemplateSpec(rawSlug, spellName, desc);
+    if (!spec) return;
+
+    const spellSlug = String(spec.slug ?? rawSlug).toLowerCase();
+    const targetMode = String(spec.targetMode ?? "targets").toLowerCase();
+    const changes = Array.isArray(spec.changes) ? spec.changes : [];
     if (!changes.length) return;
 
     // Avoid duplicates on re-import.
-    const existing = (itemObj.effects ?? []).find(e => e?.flags?.["encounterplus-importer"]?.simpleLot1Buff === true);
+    const existing = (itemObj.effects ?? []).find(e => {
+      const f = e?.flags?.["encounterplus-importer"] ?? e?.flags?.[MODULE_ID] ?? {};
+      return !!f?.simpleLot1Buff && String(f?.slug ?? "").toLowerCase() === spellSlug;
+    });
     if (existing) return;
 
     const effectId = foundry?.utils?.randomID ? foundry.utils.randomID(16) : crypto.randomUUID().slice(0, 16);
@@ -6399,12 +6433,19 @@ function applySpellEffects(itemObj, sp, durationObj, measurement) {
       duration: toEffectDuration(itemObj?.system?.duration ?? durationObj),
       changes,
       flags: {
+        [MODULE_ID]: {
+          simpleLot1Buff: true,
+          slug: spellSlug,
+          family: "buffs-resistances",
+          applyOnCast: true,
+          targetMode
+        },
         "encounterplus-importer": {
           simpleLot1Buff: true,
           slug: spellSlug,
           family: "buffs-resistances",
           applyOnCast: true,
-          targetMode: (spellSlug === "faveur-divine") ? "self" : "targets"
+          targetMode
         }
       }
     });
