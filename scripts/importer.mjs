@@ -4014,6 +4014,14 @@ function toDnd5eTarget(sp, measurement) {
       : { value: 10, units: "ft", type: "cube", prompt: true };
   }
 
+  // Hard fallback for Lightning Bolt: enforce the canonical line template.
+  // Some Encounter+ exports provide incomplete/incorrect area metadata for this spell.
+  if (slug === "eclair" || slug === "lightning-bolt") {
+    return wantMetric
+      ? { value: 30, units: "m", type: "line", width: 1.5, prompt: true }
+      : { value: 100, units: "ft", type: "line", width: 5, prompt: true };
+  }
+
   // Hard fallback for Blade Barrier: Encounter+ exports may omit the template metadata.
   // RAW: straight wall up to 100 ft long and 5 ft thick OR ring up to 60 ft diameter and 5 ft thick.
   // We default the item target to the LINE form; applySpellActivities will add an alternate RING activity.
@@ -4775,7 +4783,10 @@ if (unlimitedTargets && (!maxTargets || Number(maxTargets) <= 1) && (!multiShotT
     act.midiProperties = act.midiProperties ?? {};
     act.midiProperties.displayActivityName = true;
 
-    if (healCandLot1) {
+    // Do not route mixed damage+heal descriptions (e.g. Contact glacial)
+    // to a pure heal activity; prefer offensive paths when damage is present.
+    const shouldRouteHealLot = !!(healCandLot1 && !primaryDamage && !atk && !saveAb);
+    if (shouldRouteHealLot) {
       const isTemp = healCandLot1.kind === "temp";
       act.type = "heal";
       act.name = isMidi ? "midi heal" : (wantsFR ? (isTemp ? "PV temporaires" : "Soigner") : (isTemp ? "Temp HP" : "Heal"));
