@@ -2072,6 +2072,7 @@ function __epiLot1BuffDebug(slug, msg, extra = undefined) {
   else console.debug(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} ${msg}`);
 }
 
+const __EPI_SIMPLE_FRIENDLY_HEAL_DEBUG_PREFIX = "[EPI simple friendly heal debug]";
 const __EPI_SIMPLE_FRIENDLY_HEAL_SLUGS = new Set([
   "soins-de-groupe",
   "guerison-de-groupe",
@@ -2092,10 +2093,31 @@ function __epiSimpleSlugFromItem(item) {
   return "";
 }
 
+function __epiTokenFromTargetRef(ref) {
+  try {
+    if (!ref) return null;
+    if (ref?.documentName === "Token") return ref?.object ?? ref;
+    if (ref?.document?.documentName === "Token") return ref;
+    if (ref?.token?.documentName === "Token") return ref.token?.object ?? ref.token;
+    if (ref?.token?.document?.documentName === "Token") return ref.token;
+    if (ref?.object?.document?.documentName === "Token") return ref.object;
+    const id = String(ref?.id ?? ref?._id ?? "");
+    if (id && canvas?.tokens?.get?.(id)) return canvas.tokens.get(id);
+    const uuid = String(ref?.uuid ?? ref?.document?.uuid ?? "");
+    if (uuid && uuid.includes(".Token.")) {
+      const tid = uuid.split(".").pop();
+      if (tid && canvas?.tokens?.get?.(tid)) return canvas.tokens.get(tid);
+    }
+  } catch (_e) {}
+  return null;
+}
+
 function __epiIsFriendlyTargetFor(sourceToken, targetToken) {
   try {
-    const sd = Number(sourceToken?.document?.disposition ?? sourceToken?.disposition ?? 0);
-    const td = Number(targetToken?.document?.disposition ?? targetToken?.disposition ?? 0);
+    const s = __epiTokenFromTargetRef(sourceToken);
+    const t = __epiTokenFromTargetRef(targetToken);
+    const sd = Number(s?.document?.disposition ?? s?.disposition ?? 0);
+    const td = Number(t?.document?.disposition ?? t?.disposition ?? 0);
     return Number.isFinite(sd) && Number.isFinite(td) && sd === td;
   } catch (_e) {
     return false;
@@ -2111,36 +2133,70 @@ function __epiFilterSimpleFriendlyHealTargets(workflow, hookName = "unknown") {
     const aType = String(workflow?.activity?.type ?? workflow?.activity?.actionType ?? "").toLowerCase();
     if (aType && aType !== "heal") return;
 
-    const sourceToken = workflow?.token ?? Array.from(workflow?.actor?.getActiveTokens?.() ?? [])[0] ?? null;
+    const sourceToken = __epiTokenFromTargetRef(workflow?.token)
+      ?? __epiTokenFromTargetRef(workflow?.tokenUuid ? canvas?.tokens?.get?.(String(workflow.tokenUuid).split('.').pop()) : null)
+      ?? __epiTokenFromTargetRef(Array.from(workflow?.actor?.getActiveTokens?.() ?? [])[0] ?? null);
     if (!sourceToken) return;
 
-    const rawTargets = Array.from(workflow?.targets ?? []);
-    if (!rawTargets.length) return;
+    const sourceDisp = Number(sourceToken?.document?.disposition ?? sourceToken?.disposition ?? 0);
 
-    const filtered = rawTargets.filter((t) => __epiIsFriendlyTargetFor(sourceToken, t));
-    if (filtered.length === rawTargets.length) return;
+    const primaryList = Array.from(workflow?.targets ?? []);
+    const fallbackList = primaryList.length
+      ? primaryList
+      : Array.from(workflow?.applicationTargets ?? workflow?.hitTargets ?? workflow?.failedSaves ?? []);
+    if (!fallbackList.length) {
+      console.debug(`${__EPI_SIMPLE_FRIENDLY_HEAL_DEBUG_PREFIX} hook reached`, {
+        hook: hookName,
+        slug,
+        sourceDisposition: sourceDisp,
+        targetsBefore: [],
+        targetsAfter: []
+      });
+      return;
+    }
 
-    const targetIds = filtered.map((t) => String(t?.id ?? t?._id ?? "")).filter(Boolean);
+    const beforeTokens = fallbackList.map((t) => __epiTokenFromTargetRef(t)).filter(Boolean);
+    const filteredTokens = beforeTokens.filter((t) => __epiIsFriendlyTargetFor(sourceToken, t));
+
+    const beforeNames = beforeTokens.map(t => t?.name ?? t?.id);
+    const afterNames = filteredTokens.map(t => t?.name ?? t?.id);
+
+    const setFromTokens = () => new Set(filteredTokens);
+    try { workflow.targets = setFromTokens(); } catch (_e) {}
+    try { workflow.hitTargets = setFromTokens(); } catch (_e) {}
+    try { workflow.applicationTargets = setFromTokens(); } catch (_e) {}
+    try { workflow.failedSaves = setFromTokens(); } catch (_e) {}
+    try { workflow.saves = new Set(); } catch (_e) {}
+
+    const targetIds = filteredTokens.map((t) => String(t?.id ?? t?._id ?? "")).filter(Boolean);
     try { game.user?.updateTokenTargets?.(targetIds); } catch (_e) {}
 
-    try { workflow.targets = new Set(filtered); } catch (_e) {}
-    try { workflow.hitTargets = new Set(filtered); } catch (_e) {}
-
-    const targetUuids = filtered.map((t) => String(t?.document?.uuid ?? t?.uuid ?? "")).filter(Boolean);
+    const targetUuids = filteredTokens.map((t) => String(t?.document?.uuid ?? t?.uuid ?? "")).filter(Boolean);
     try {
       workflow.options ??= {};
       workflow.options.midiOptions ??= {};
       workflow.options.midiOptions.targetUuids = targetUuids;
     } catch (_e) {}
 
-    console.debug(`[${MODULE_ID}] friendly-heal runtime filter (${hookName})`, {
-      item: workflow?.item?.name ?? "",
+    try {
+      if (Array.isArray(workflow?.damageList)) {
+        const allowed = new Set(targetIds);
+        workflow.damageList = workflow.damageList.filter((d) => {
+          const tid = String(d?.tokenId ?? d?.token?.id ?? d?.tokenUuid?.split?.('.')?.pop?.() ?? "");
+          return !tid || allowed.has(tid);
+        });
+      }
+    } catch (_e) {}
+
+    console.debug(`${__EPI_SIMPLE_FRIENDLY_HEAL_DEBUG_PREFIX} hook reached`, {
+      hook: hookName,
       slug,
-      before: rawTargets.map(t => t?.name ?? t?.id),
-      after: filtered.map(t => t?.name ?? t?.id)
+      sourceDisposition: sourceDisp,
+      targetsBefore: beforeNames,
+      targetsAfter: afterNames
     });
   } catch (e) {
-    console.warn(`[${MODULE_ID}] friendly-heal runtime filter failed`, e);
+    console.warn(`${__EPI_SIMPLE_FRIENDLY_HEAL_DEBUG_PREFIX} filter failed`, e);
   }
 }
 
@@ -2251,12 +2307,19 @@ async function __epiApplyLot1BuffEffects(workflow, hookName = "unknown") {
   }
 }
 
-Hooks.on("midi-qol.preTargeting", (workflow) => {
-  __epiFilterSimpleFriendlyHealTargets(workflow, "midi-qol.preTargeting");
-});
+for (const __evt of [
+  "midi-qol.preTargeting",
+  "midi-qol.preItemRoll",
+  "midi-qol.preCheckHits",
+  "midi-qol.preDamageRoll",
+  "midi-qol.preApplyDynamicEffects"
+]) {
+  Hooks.on(__evt, (workflow) => {
+    __epiFilterSimpleFriendlyHealTargets(workflow, __evt);
+  });
+}
 
 Hooks.on("midi-qol.preItemRoll", async (workflow) => {
-  __epiFilterSimpleFriendlyHealTargets(workflow, "midi-qol.preItemRoll");
   await __epiApplyLot1BuffEffects(workflow, "midi-qol.preItemRoll");
 });
 
@@ -2265,6 +2328,7 @@ Hooks.on("midi-qol.RollComplete", async (workflow) => {
 });
 
 console.log(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} hardproof hooks registered`, ["midi-qol.preItemRoll", "midi-qol.RollComplete", "createActiveEffect"]);
+console.log(`${__EPI_SIMPLE_FRIENDLY_HEAL_DEBUG_PREFIX} hooks registered`, ["midi-qol.preTargeting", "midi-qol.preItemRoll", "midi-qol.preCheckHits", "midi-qol.preDamageRoll", "midi-qol.preApplyDynamicEffects"]);
 
 
 function __epiIsWallOfLightCastWorkflow(workflow) {
