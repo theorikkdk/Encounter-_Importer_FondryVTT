@@ -2072,6 +2072,78 @@ function __epiLot1BuffDebug(slug, msg, extra = undefined) {
   else console.debug(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} ${msg}`);
 }
 
+const __EPI_SIMPLE_FRIENDLY_HEAL_SLUGS = new Set([
+  "soins-de-groupe",
+  "guerison-de-groupe",
+  "mot-de-guerison-de-groupe",
+  "priere-de-guerison"
+]);
+
+function __epiSimpleSlugFromItem(item) {
+  try {
+    const direct = String(item?.flags?.[MODULE_ID]?.slug ?? item?.flags?.["encounterplus-importer"]?.slug ?? item?.system?.identifier ?? "").toLowerCase().trim();
+    if (direct) return direct;
+    const nm = String(item?.name ?? "").toLowerCase();
+    if (/soins\s+de\s+groupe|mass\s+cure\s+wounds/.test(nm)) return "soins-de-groupe";
+    if (/gu[ée]rison\s+de\s+groupe|mass\s+heal/.test(nm)) return "guerison-de-groupe";
+    if (/mot\s+de\s+gu[ée]rison\s+de\s+groupe|mass\s+healing\s+word/.test(nm)) return "mot-de-guerison-de-groupe";
+    if (/pri[èe]re\s+de\s+gu[ée]rison|prayer\s+of\s+healing/.test(nm)) return "priere-de-guerison";
+  } catch (_e) {}
+  return "";
+}
+
+function __epiIsFriendlyTargetFor(sourceToken, targetToken) {
+  try {
+    const sd = Number(sourceToken?.document?.disposition ?? sourceToken?.disposition ?? 0);
+    const td = Number(targetToken?.document?.disposition ?? targetToken?.disposition ?? 0);
+    return Number.isFinite(sd) && Number.isFinite(td) && sd === td;
+  } catch (_e) {
+    return false;
+  }
+}
+
+function __epiFilterSimpleFriendlyHealTargets(workflow, hookName = "unknown") {
+  try {
+    if (!game.user?.isGM || !workflow?.item) return;
+    const slug = __epiSimpleSlugFromItem(workflow.item);
+    if (!__EPI_SIMPLE_FRIENDLY_HEAL_SLUGS.has(slug)) return;
+
+    const aType = String(workflow?.activity?.type ?? workflow?.activity?.actionType ?? "").toLowerCase();
+    if (aType && aType !== "heal") return;
+
+    const sourceToken = workflow?.token ?? Array.from(workflow?.actor?.getActiveTokens?.() ?? [])[0] ?? null;
+    if (!sourceToken) return;
+
+    const rawTargets = Array.from(workflow?.targets ?? []);
+    if (!rawTargets.length) return;
+
+    const filtered = rawTargets.filter((t) => __epiIsFriendlyTargetFor(sourceToken, t));
+    if (filtered.length === rawTargets.length) return;
+
+    const targetIds = filtered.map((t) => String(t?.id ?? t?._id ?? "")).filter(Boolean);
+    try { game.user?.updateTokenTargets?.(targetIds); } catch (_e) {}
+
+    try { workflow.targets = new Set(filtered); } catch (_e) {}
+    try { workflow.hitTargets = new Set(filtered); } catch (_e) {}
+
+    const targetUuids = filtered.map((t) => String(t?.document?.uuid ?? t?.uuid ?? "")).filter(Boolean);
+    try {
+      workflow.options ??= {};
+      workflow.options.midiOptions ??= {};
+      workflow.options.midiOptions.targetUuids = targetUuids;
+    } catch (_e) {}
+
+    console.debug(`[${MODULE_ID}] friendly-heal runtime filter (${hookName})`, {
+      item: workflow?.item?.name ?? "",
+      slug,
+      before: rawTargets.map(t => t?.name ?? t?.id),
+      after: filtered.map(t => t?.name ?? t?.id)
+    });
+  } catch (e) {
+    console.warn(`[${MODULE_ID}] friendly-heal runtime filter failed`, e);
+  }
+}
+
 async function __epiApplyLot1BuffEffects(workflow, hookName = "unknown") {
   try {
     console.debug(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} hook=${hookName} fired`, { hasWorkflow: !!workflow });
@@ -2179,7 +2251,12 @@ async function __epiApplyLot1BuffEffects(workflow, hookName = "unknown") {
   }
 }
 
+Hooks.on("midi-qol.preTargeting", (workflow) => {
+  __epiFilterSimpleFriendlyHealTargets(workflow, "midi-qol.preTargeting");
+});
+
 Hooks.on("midi-qol.preItemRoll", async (workflow) => {
+  __epiFilterSimpleFriendlyHealTargets(workflow, "midi-qol.preItemRoll");
   await __epiApplyLot1BuffEffects(workflow, "midi-qol.preItemRoll");
 });
 
