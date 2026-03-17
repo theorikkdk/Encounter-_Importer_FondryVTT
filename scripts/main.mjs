@@ -2523,7 +2523,7 @@ async function __epiPickChaosBoltDamageType() {
   return "force";
 }
 
-Hooks.on("midi-qol.preDamageRoll", async (workflow) => {
+Hooks.on("midi-qol.preItemRoll", async (workflow) => {
   try {
     if (!game.user?.isGM || !workflow?.item) return;
     const slug = __epiChaosBoltSlugFromWorkflow(workflow);
@@ -2531,22 +2531,39 @@ Hooks.on("midi-qol.preDamageRoll", async (workflow) => {
     if (workflow?.options?.[MODULE_ID]?.chaosBoltTypePicked) return;
 
     const chosen = await __epiPickChaosBoltDamageType();
+    workflow.options ??= {};
+    workflow.options[MODULE_ID] = { ...(workflow.options[MODULE_ID] ?? {}), chaosBoltTypePicked: chosen };
+    console.debug(`[${MODULE_ID}] chaos bolt damage type selected`, { chosen, stage: "preItemRoll", item: workflow?.item?.name ?? "" });
+  } catch (e) {
+    console.warn(`[${MODULE_ID}] Chaos Bolt preItemRoll type selection failed`, e);
+  }
+});
 
-    try {
-      const act = workflow?.activity;
+Hooks.on("midi-qol.preDamageRoll", (workflow) => {
+  try {
+    if (!game.user?.isGM || !workflow?.item) return;
+    const slug = __epiChaosBoltSlugFromWorkflow(workflow);
+    if (slug !== "eclair-de-chaos") return;
+
+    const chosen = String(workflow?.options?.[MODULE_ID]?.chaosBoltTypePicked ?? "").trim() || "force";
+
+    const applyType = (act) => {
+      if (!act) return;
       if (Array.isArray(act?.damage?.parts) && act.damage.parts.length) {
         act.damage.parts[0].types = [chosen];
       }
-    } catch (_e) {}
+    };
 
-    try {
-      workflow.options ??= {};
-      workflow.options[MODULE_ID] = { ...(workflow.options[MODULE_ID] ?? {}), chaosBoltTypePicked: chosen };
-    } catch (_e) {}
+    applyType(workflow?.activity);
+    const aId = String(workflow?.activity?.id ?? workflow?.activity?._id ?? workflow?.activityId ?? "");
+    if (aId) {
+      const ia = workflow?.item?.system?.activities?.[aId] ?? workflow?.item?.system?.activities?.get?.(aId) ?? null;
+      applyType(ia);
+    }
 
-    console.debug(`[${MODULE_ID}] chaos bolt damage type selected`, { chosen, item: workflow?.item?.name ?? "" });
+    console.debug(`[${MODULE_ID}] chaos bolt damage type injected`, { chosen, stage: "preDamageRoll", item: workflow?.item?.name ?? "" });
   } catch (e) {
-    console.warn(`[${MODULE_ID}] Chaos Bolt preDamageRoll type selection failed`, e);
+    console.warn(`[${MODULE_ID}] Chaos Bolt preDamageRoll type injection failed`, e);
   }
 });
 
