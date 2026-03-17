@@ -4400,8 +4400,9 @@ async function __epiApplyLot1BuffViaWrapper(item, opts0 = {}, result = null) {
 
       for (const actor of targets) {
         if (slug === "faveur-divine") {
-          // Deep rollback to the last stable behavior:
-          // keep existing Divine Favor effect if present, normalize its bonus, and avoid aggressive cleanup.
+          // Keep concentration and offensive buff separated:
+          // - concentration effect MUST NOT carry damage bonus
+          // - buff-simple effect is the only source of +1d4 radiant
           const divineEffects = Array.from(actor?.effects ?? []).filter((ae) => {
             const af = ae?.flags?.[MODULE_ID] ?? ae?.flags?.["encounterplus-importer"] ?? {};
             if (String(af?.slug ?? "").toLowerCase() === "faveur-divine") return true;
@@ -4410,20 +4411,54 @@ async function __epiApplyLot1BuffViaWrapper(item, opts0 = {}, result = null) {
           });
 
           if (divineEffects.length) {
-            const keep = divineEffects[0];
+            const isConcentrationLike = (ae) => {
+              const n = String(ae?.name ?? "").toLowerCase();
+              const hasConcStatus = ae?.statuses?.has?.("concentrating") || (Array.isArray(ae?.statuses) && ae.statuses.includes("concentrating"));
+              return hasConcStatus || /concentr[eé]|concentrating/.test(n);
+            };
 
-            const ch = Array.isArray(keep?.changes) ? keep.changes : [];
-            const normalized = ch.filter(c => !["system.bonuses.mwak.damage", "system.bonuses.rwak.damage", "system.bonuses.weapon.damage"].includes(String(c?.key ?? "")));
-            normalized.push({ key: "system.bonuses.weapon.damage", mode: 2, value: "+1d4[radiant]", priority: 20 });
-            try { await keep.update({ changes: normalized }); } catch (_e) {}
+            const rmBonus = (changes) => (Array.isArray(changes) ? changes : [])
+              .filter((c) => {
+                const key = String(c?.key ?? "");
+                return ![
+                  "system.bonuses.mwak.damage",
+                  "system.bonuses.rwak.damage",
+                  "system.bonuses.msak.damage",
+                  "system.bonuses.rsak.damage",
+                  "system.bonuses.weapon.damage",
+                  "system.bonuses.spell.damage"
+                ].includes(key);
+              });
 
-            console.log(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} wrapper AE success`, {
+            // 1) Ensure concentration-like effects do not carry the bonus.
+            for (const ae of divineEffects.filter(isConcentrationLike)) {
+              try {
+                const cleaned = rmBonus(ae?.changes);
+                if (cleaned.length !== (Array.isArray(ae?.changes) ? ae.changes.length : 0)) {
+                  await ae.update({ changes: cleaned });
+                }
+              } catch (_e) {}
+            }
+
+            // 2) Prefer an existing buff-simple effect as the only +1d4 carrier.
+            const buffSimple = divineEffects.find((ae) => {
+              const af = ae?.flags?.[MODULE_ID] ?? ae?.flags?.["encounterplus-importer"] ?? {};
+              return !!af?.simpleLot1Buff;
+            });
+
+            if (buffSimple) {
+              const normalized = rmBonus(buffSimple?.changes);
+              normalized.push({ key: "system.bonuses.weapon.damage", mode: 2, value: "+1d4[radiant]", priority: 20 });
+              try { await buffSimple.update({ changes: normalized }); } catch (_e) {}
+
+              console.log(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} wrapper AE success`, {
               slug,
               actor: actor?.name ?? "",
               reconciled: true,
               removedDuplicates: 0
             });
-            continue;
+              continue;
+            }
           }
 
         }
