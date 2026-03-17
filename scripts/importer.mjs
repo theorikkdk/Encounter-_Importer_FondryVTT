@@ -1795,11 +1795,19 @@ function parseAoeRadiusFR(text) {
 
   // --- LIGNE ---
   // "ligne de 30 mètres de long et 1,5 mètre de large"
-  m = t.match(/ligne\s+de\s+(\d+(?:[.,]\d+)?)\s*(m|m[ée]tres?|ft|feet|pieds?)(?:\s*(?:de\s+long|de\s+longueur|de\s+longue|de\s+longueur|de\s+longueur))?(?:[^\.\n]{0,60}?\bet\b\s+(\d+(?:[.,]\d+)?)\s*(m|m[ée]tres?|ft|feet|pieds?)\s*(?:de\s+large|de\s+largeur))?/);
+  m = t.match(/ligne\s+de\s+(\d+(?:[.,]\d+)?)\s*(m|m[ée]tres?|ft|feet|pieds?)(?:\s*(?:de\s+long|de\s+longueur|de\s+longue|de\s+longueur|de\s+longueur))?(?:[^\.\n]{0,80}?(?:\bet\b|sur)\s+(\d+(?:[.,]\d+)?)\s*(m|m[ée]tres?|ft|feet|pieds?)\s*(?:de\s+large|de\s+largeur))?/);
   if (m) {
     const len = num(m[1]); const u1 = unit(m[2]);
     const w = m[3] ? num(m[3]) : null;
     const uW = m[4] ? unit(m[4]) : u1;
+    return { type: "line", value: len, units: u1, width: (w != null ? w : null), widthUnits: uW };
+  }
+
+  // Alternate wording: "une ligne longue de 30 m" + "large de 1,5 m"
+  m = t.match(/ligne[^\.\n]{0,80}?long(?:ue|ueur)?\s+de\s+(\d+(?:[.,]\d+)?)\s*(m|m[ée]tres?|ft|feet|pieds?)[^\.\n]{0,80}?large(?:ur)?\s+de\s+(\d+(?:[.,]\d+)?)\s*(m|m[ée]tres?|ft|feet|pieds?)/);
+  if (m) {
+    const len = num(m[1]); const u1 = unit(m[2]);
+    const w = num(m[3]); const uW = unit(m[4]);
     return { type: "line", value: len, units: u1, width: (w != null ? w : null), widthUnits: uW };
   }
 
@@ -4153,6 +4161,10 @@ function toDnd5eTarget(sp, measurement) {
     const base = srcMetric ? Number(size) : roundTo5(size); // keep 5-ft increments for imperial exports
     const val = wantMetric ? (srcMetric ? base : feetToMeters(base)) : (srcMetric ? metersToFeet(base) : base);
     const units = wantMetric ? "m" : "ft";
+    if (type === "line") {
+      const width = (units === "m") ? 1.5 : 5;
+      return { value: val, units, type, width, prompt: true };
+    }
     return { value: val, units, type, prompt: true };
   }
 
@@ -4627,9 +4639,17 @@ if (unlimitedTargets && (!maxTargets || Number(maxTargets) <= 1) && (!multiShotT
     }
   }
 
-  // NOTE: We intentionally do not write legacy item.system.scaling formulas here.
-  // Encounter+ scaling is handled elsewhere and adding a formula can break user workflows.
-
+  // Normalize directional line templates: keep length, but guarantee sane thickness.
+  // This prevents frequent imports where line length is correct but width is missing/invalid.
+  try {
+    const tType = String(sys?.target?.type ?? "").toLowerCase();
+    if (tType === "line") {
+      const units = String(sys?.target?.units ?? "ft").toLowerCase() === "m" ? "m" : "ft";
+      const curW = Number(sys?.target?.width ?? 0);
+      const defaultW = units === "m" ? 1.5 : 5;
+      if (!Number.isFinite(curW) || curW <= 0) sys.target.width = defaultW;
+    }
+  } catch (_e) {}
 
   const isMidi = (() => { try { return !!game.modules?.get?.("midi-qol")?.active; } catch(e){ return false; } })();
   const wantsFR = (() => { try { return String(game.i18n?.lang ?? "en").toLowerCase().startsWith("fr"); } catch(e){ return true; } })();
@@ -4782,7 +4802,7 @@ if (unlimitedTargets && (!maxTargets || Number(maxTargets) <= 1) && (!multiShotT
   let __beamExtraActivityId = null;
 
   // Targeted exception: Chaos Bolt damage type is chosen at resolution time.
-  // Do not freeze a wrong fixed type in generic simple-batch damage templates.
+  // Keep full damage formula but mark variable type metadata for runtime/UX.
   if (spellSlug === "eclair-de-chaos") {
     const primaryDamage = Array.isArray(damages) && damages.length ? damages[0] : null;
     const act = makeActivity(baseId);
@@ -4796,21 +4816,31 @@ if (unlimitedTargets && (!maxTargets || Number(maxTargets) <= 1) && (!multiShotT
     act.attack.type = act.attack.type ?? { value: "ranged", classification: "spell" };
     act.attack.type.value = "ranged";
     act.attack.type.classification = "spell";
-    if (primaryDamage) {
-      act.damage = act.damage ?? { critical: { bonus: "" }, includeBase: true, parts: [] };
-      act.damage.parts = [{
-        number: primaryDamage.number,
-        denomination: primaryDamage.denom,
-        bonus: String(primaryDamage.bonus ?? ""),
-        types: [],
-        custom: { enabled: false, formula: "" },
-        scaling: { mode: "whole", number: 1, formula: "" }
-      }];
-      act.description = act.description ?? { chatFlavor: "" };
-      act.description.chatFlavor = wantsFR
-        ? "Type de dégâts variable (acide/froid/feu/force/foudre/poison/psychique/tonnerre)"
-        : "Variable damage type (acid/cold/fire/force/lightning/poison/psychic/thunder)";
-    }
+
+    const fallbackPart = { number: 2, denom: 8, bonus: "+1d6" };
+    const dmgPart = {
+      number: Number(primaryDamage?.number ?? fallbackPart.number) || fallbackPart.number,
+      denomination: Number(primaryDamage?.denom ?? fallbackPart.denom) || fallbackPart.denom,
+      bonus: String(primaryDamage?.bonus ?? fallbackPart.bonus),
+      types: ["acid", "cold", "fire", "force", "lightning", "poison", "psychic", "thunder"],
+      custom: { enabled: false, formula: "" },
+      scaling: { mode: "whole", number: 1, formula: "" }
+    };
+
+    act.damage = act.damage ?? { critical: { bonus: "" }, includeBase: true, parts: [] };
+    act.damage.parts = [dmgPart];
+    act.flags = act.flags ?? {};
+    act.flags["encounterplus-importer"] = {
+      ...(act.flags["encounterplus-importer"] ?? {}),
+      generated: true,
+      kind: "chaos-bolt-variable-type",
+      variableDamageTypes: ["acid", "cold", "fire", "force", "lightning", "poison", "psychic", "thunder"]
+    };
+    act.description = act.description ?? { chatFlavor: "" };
+    act.description.chatFlavor = wantsFR
+      ? "Type de dégâts variable : choisissez l'un des types obtenus sur les d8 du sort"
+      : "Variable damage type: choose one of the damage types rolled on the spell d8s";
+
     sys.actionType = "rsak";
     return;
   }
@@ -4818,7 +4848,9 @@ if (unlimitedTargets && (!maxTargets || Number(maxTargets) <= 1) && (!multiShotT
   // Lot 1/2 simple fast-path: keep implementation simple, deterministic, and cheap.
   // This path is intentionally limited to selected simple-batch slugs and avoids touching
   // dedicated complex systems (regions/walls/auras/multi-shot special handling).
-  const __simpleBatchEligible = isSimpleBatchEligible(spellSlug);
+  const __simpleBatchEligible = isSimpleBatchEligible(spellSlug)
+    && !delayedNextForFilter
+    && !dotEachTurnForFilter;
   if (__simpleBatchEligible) {
     if (spellSlug === "faveur-divine") {
       // Hotfix: Divine Favor is a weapon-hit rider buff, not immediate spell damage.

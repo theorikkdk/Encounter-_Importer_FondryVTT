@@ -2489,6 +2489,67 @@ Hooks.on("midi-qol.preAttackRoll", (workflow) => {
   }
 });
 
+function __epiChaosBoltSlugFromWorkflow(workflow) {
+  try {
+    const item = workflow?.item;
+    const slug = String(item?.flags?.[MODULE_ID]?.slug ?? item?.flags?.["encounterplus-importer"]?.slug ?? item?.system?.identifier ?? "").toLowerCase().trim();
+    if (slug) return slug;
+    const name = String(item?.name ?? "").toLowerCase();
+    if (/eclair\s+de\s+chaos|chaos\s+bolt/.test(name)) return "eclair-de-chaos";
+  } catch (_e) {}
+  return "";
+}
+
+async function __epiPickChaosBoltDamageType() {
+  const opts = ["acid", "cold", "fire", "force", "lightning", "poison", "psychic", "thunder"];
+  const labels = {
+    acid: "Acide", cold: "Froid", fire: "Feu", force: "Force",
+    lightning: "Foudre", poison: "Poison", psychic: "Psychique", thunder: "Tonnerre"
+  };
+  try {
+    const DialogV2 = foundry?.applications?.api?.DialogV2 ?? globalThis?.foundry?.applications?.api?.DialogV2;
+    if (DialogV2?.wait) {
+      const buttons = opts.map((k) => ({ action: k, label: labels[k] ?? k }));
+      const pick = await DialogV2.wait({
+        window: { title: "Éclair de chaos — Type de dégâts" },
+        content: "<p>Choisissez le type de dégâts à appliquer pour cette résolution.</p>",
+        buttons,
+        rejectClose: false,
+        modal: true
+      });
+      if (opts.includes(String(pick))) return String(pick);
+    }
+  } catch (_e) {}
+  return "force";
+}
+
+Hooks.on("midi-qol.preDamageRoll", async (workflow) => {
+  try {
+    if (!game.user?.isGM || !workflow?.item) return;
+    const slug = __epiChaosBoltSlugFromWorkflow(workflow);
+    if (slug !== "eclair-de-chaos") return;
+    if (workflow?.options?.[MODULE_ID]?.chaosBoltTypePicked) return;
+
+    const chosen = await __epiPickChaosBoltDamageType();
+
+    try {
+      const act = workflow?.activity;
+      if (Array.isArray(act?.damage?.parts) && act.damage.parts.length) {
+        act.damage.parts[0].types = [chosen];
+      }
+    } catch (_e) {}
+
+    try {
+      workflow.options ??= {};
+      workflow.options[MODULE_ID] = { ...(workflow.options[MODULE_ID] ?? {}), chaosBoltTypePicked: chosen };
+    } catch (_e) {}
+
+    console.debug(`[${MODULE_ID}] chaos bolt damage type selected`, { chosen, item: workflow?.item?.name ?? "" });
+  } catch (e) {
+    console.warn(`[${MODULE_ID}] Chaos Bolt preDamageRoll type selection failed`, e);
+  }
+});
+
 Hooks.on("preUpdateActor", (actor, changed) => {
   try {
     if (!game.user?.isGM || !actor || !__epiHasAuraLifeProtection(actor)) return;
