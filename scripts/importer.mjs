@@ -2140,7 +2140,16 @@ const LOT2_SIMPLE_BATCH_SLUGS = new Set([
   "trait-ensorcele",
   "gelure",
   "poigne-electrique",
-  "contact-glacial"
+  "contact-glacial",
+  // Next pragmatic sub-batch (simple/ROI): straightforward damage/save or heal.
+  "cone-de-froid",
+  "nuee-de-boules-de-neige-de-snilloc",
+  "raz-de-maree",
+  "secousse-sismique",
+  "tempete-de-grele",
+  "bouffee-de-poison",
+  "catapulte",
+  "soins-de-groupe"
 ]);
 
 const SIMPLE_BATCH_EXCLUDED_SLUGS = new Set([
