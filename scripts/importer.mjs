@@ -4828,9 +4828,9 @@ if (unlimitedTargets && (!maxTargets || Number(maxTargets) <= 1) && (!multiShotT
       // but the visible sheet formula must already be correct before any roll occurs.
       types: ["force"],
       custom: { enabled: true, formula: importedFormula },
-      // Chaos Bolt upcasts by +1d6 per slot level above 1st; keep it explicit here so
-      // the dedicated imported activity does not regress to d8-based scaling.
-      scaling: { mode: "whole", number: 1, formula: "d6" }
+      // Runtime will explicitly rebuild the final upcast formula for Chaos Bolt so the
+      // activity never accumulates an unwanted extra d8 from mixed scaling paths.
+      scaling: { mode: "", number: 0, formula: "" }
     };
 
     act.damage = act.damage ?? { critical: { bonus: "" }, includeBase: true, parts: [] };
@@ -5849,7 +5849,9 @@ const addDelayedDamageActivity = () => {
           radius: Number(around.value),
           units: String(around.units ?? "ft"),
           saveActivityId: String(saveId),
-          includePrimaryTarget: true,
+          // Lightning Arrow is handled as a main-target weapon hit plus splash around
+          // the impact point; the burst should not re-hit the primary target.
+          includePrimaryTarget: spellSlug === "fleche-de-foudre" ? false : true,
           triggerOnMiss: !!triggerOnMiss
         };
       }

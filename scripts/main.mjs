@@ -2537,6 +2537,11 @@ function __epiChaosBoltFormulaSnapshot(part) {
   return customFormula || "";
 }
 
+function __epiChaosBoltUpcastFormula(castLevel, baseLevel = 1) {
+  const extra = Math.max(0, (Number(castLevel ?? 0) || 0) - (Number(baseLevel ?? 1) || 1));
+  return extra > 0 ? `2d8 + 1d6 + ${extra}d6` : "2d8 + 1d6";
+}
+
 async function __epiRollChaosBoltType(workflow, stage = "unknown") {
   let chosen = String(workflow?.options?.[MODULE_ID]?.chaosBoltTypePicked ?? "").trim();
   if (chosen) {
@@ -2675,6 +2680,17 @@ Hooks.on("midi-qol.preDamageRoll", async (workflow) => {
       face: workflow?.options?.[MODULE_ID]?.chaosBoltTypeFace ?? null
     });
 
+    const castLevel = Number(
+      workflow?.castData?.castLevel ??
+      workflow?.spellLevel ??
+      workflow?.itemLevel ??
+      workflow?.options?.spellLevel ??
+      workflow?.options?.castLevel ??
+      workflow?.item?.system?.level ??
+      1
+    ) || 1;
+    const finalChaosBoltFormula = __epiChaosBoltUpcastFormula(castLevel, workflow?.item?.system?.level ?? 1);
+
     const debugTypes = (label, value) => {
       console.debug(`${__EPI_CHAOS_BOLT_DEBUG_PREFIX} final damage.types value`, {
         label,
@@ -2692,17 +2708,22 @@ Hooks.on("midi-qol.preDamageRoll", async (workflow) => {
       const parts = Array.isArray(act.damage.parts) ? act.damage.parts : [];
       const part = parts[0];
       if (!part) return;
-      const importedFormula = __epiChaosBoltFormulaSnapshot(part);
       debugTypes(`${label}:before`, part?.types);
       part.types = new Set([chosen]);
+      part.number = null;
+      part.denomination = null;
+      part.bonus = "";
+      part.custom = { enabled: true, formula: finalChaosBoltFormula };
+      part.scaling = { mode: "", number: 0, formula: "" };
       debugTypes(`${label}:after`, part?.types);
       console.debug(`${__EPI_CHAOS_BOLT_DEBUG_PREFIX} final runtime formula`, {
         label,
-        formula: importedFormula,
+        formula: finalChaosBoltFormula,
         custom: part?.custom ?? null,
         number: part?.number ?? null,
         denomination: part?.denomination ?? null,
-        bonus: part?.bonus ?? null
+        bonus: part?.bonus ?? null,
+        castLevel
       });
     };
 
@@ -2722,7 +2743,8 @@ Hooks.on("midi-qol.preDamageRoll", async (workflow) => {
       chosen,
       activityId: aId || null,
       face: workflow?.options?.[MODULE_ID]?.chaosBoltTypeFace ?? null,
-      formula: __epiChaosBoltFormulaSnapshot(finalPart)
+      formula: __epiChaosBoltFormulaSnapshot(finalPart),
+      castLevel
     });
   } catch (e) {
     console.debug(`${__EPI_CHAOS_BOLT_DEBUG_PREFIX} preDamageRoll injection error`, {
