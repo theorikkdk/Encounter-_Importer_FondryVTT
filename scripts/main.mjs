@@ -2543,13 +2543,14 @@ async function __epiRollChaosBoltType(workflow, stage = "unknown") {
   } catch (_e) {}
 
   try {
-    await roll.toMessage({
+    await ChatMessage.create({
+      speaker: ChatMessage.getSpeaker({ actor: workflow?.actor ?? null, token: workflow?.token ?? null }),
       flavor: `Éclair de chaos — d8 type: ${face} = ${__epiChaosBoltTypeLabel(chosen)}`,
-      speaker: ChatMessage.getSpeaker({ actor: workflow?.actor ?? null, token: workflow?.token ?? null })
+      rolls: [roll]
     });
   } catch (_e) {}
 
-  console.debug(`${__EPI_CHAOS_BOLT_DEBUG_PREFIX} type rolled`, {
+  console.debug(`${__EPI_CHAOS_BOLT_DEBUG_PREFIX} d8 type reached`, {
     stage,
     face,
     chosen,
@@ -2608,29 +2609,36 @@ Hooks.on("midi-qol.preDamageRoll", async (workflow) => {
       });
     };
 
-    const buildFinalPart = () => ({
-      number: 2,
-      denomination: 8,
-      bonus: "+1d6",
-      types: new Set([chosen]),
-      custom: { enabled: false, formula: "" },
-      scaling: { mode: "whole", number: 1, formula: "" }
-    });
-
     const applyType = (act, label) => {
       if (!act) return;
-      const finalPart = buildFinalPart();
-      debugTypes(`${label}:before`, act?.damage?.parts?.[0]?.types);
       act.damage = act.damage ?? { critical: { bonus: "" }, includeBase: true, parts: [] };
-      act.damage.parts = [finalPart];
-      debugTypes(`${label}:after`, act?.damage?.parts?.[0]?.types);
+      if (!Array.isArray(act.damage.parts) || !act.damage.parts.length) act.damage.parts = [{}];
+      const part = act.damage.parts[0];
+      debugTypes(`${label}:before`, part?.types);
+      // Restore the previously working concrete type injection shape,
+      // and only fix the final formula actually consumed by the roll.
+      part.number = 2;
+      part.denomination = 8;
+      part.bonus = "+1d6";
+      part.types = [chosen];
+      part.custom = { enabled: false, formula: "" };
+      part.scaling = part.scaling ?? { mode: "whole", number: 1, formula: "" };
+      debugTypes(`${label}:after`, part?.types);
+      console.debug(`${__EPI_CHAOS_BOLT_DEBUG_PREFIX} final damage formula`, {
+        label,
+        number: part?.number ?? null,
+        denomination: part?.denomination ?? null,
+        bonus: part?.bonus ?? null,
+        custom: part?.custom ?? null,
+        formula: `2d8 + 1d6`
+      });
       console.debug(`${__EPI_CHAOS_BOLT_DEBUG_PREFIX} final damage part`, {
         label,
-        number: act?.damage?.parts?.[0]?.number ?? null,
-        denomination: act?.damage?.parts?.[0]?.denomination ?? null,
-        bonus: act?.damage?.parts?.[0]?.bonus ?? null,
-        custom: act?.damage?.parts?.[0]?.custom ?? null,
-        formula: `2d8 + 1d6`
+        number: part?.number ?? null,
+        denomination: part?.denomination ?? null,
+        bonus: part?.bonus ?? null,
+        custom: part?.custom ?? null,
+        types: part?.types ?? null
       });
     };
 
