@@ -5347,13 +5347,32 @@ async function epiRunOnHitAoeSecondary(workflow) {
       steps
     });
 
-    if (isLightningArrow) {
-      console.log(`[EPI lightning arrow debug] secondary save auto-triggered`, {
-        activityUuid: actUuid,
-        targetCount: targetUuids.length
-      });
+    let prevTargetIds = null;
+    try {
+      prevTargetIds = await epiSetUserTargets(targets.map(t => String(t?.id ?? t?.document?.id ?? "")).filter(Boolean));
+    } catch (_e) {}
+
+    try {
+      if (isLightningArrow) {
+        console.log(`[EPI lightning arrow debug] executing secondary activity`, {
+          activityUuid: actUuid,
+          targetCount: targetUuids.length,
+          targetUuids
+        });
+      }
+      const secondaryResult = await epiUseActivityViaMidi(actUuid, usage, dialog, message);
+      if (isLightningArrow) {
+        console.log(`[EPI lightning arrow debug] secondary activity completed`, {
+          activityUuid: actUuid,
+          resultType: typeof secondaryResult,
+          hasResult: secondaryResult != null
+        });
+      }
+    } finally {
+      try {
+        if (prevTargetIds) await epiRestoreUserTargets(prevTargetIds);
+      } catch (_e) {}
     }
-    await globalThis.MidiQOL.completeActivityUse(actUuid, usage, dialog, message);
   } catch (e) {
     console.warn(`[${MODULE_ID}] onHitAoe hotfix270r failed`, e);
   }
