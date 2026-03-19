@@ -2551,8 +2551,8 @@ async function __epiRollChaosBoltType(workflow, stage = "unknown") {
 
   try {
     const roll = new Roll("1d8");
-    if (typeof roll?.evaluate === "function") await roll.evaluate({ async: true });
-    else if (typeof roll?.evaluateSync === "function") roll.evaluateSync();
+    if (typeof roll?.evaluateSync === "function") roll.evaluateSync();
+    else if (typeof roll?.evaluate === "function") await roll.evaluate();
     else throw new Error("No supported Roll evaluation method available");
 
     const face = Number(roll?.total ?? 0) || 1;
@@ -2659,13 +2659,14 @@ Hooks.on("midi-qol.preDamageRoll", async (workflow) => {
     });
 
     const debugTypes = (label, value) => {
-      console.debug(`${__EPI_CHAOS_BOLT_DEBUG_PREFIX} final damage.types`, {
+      console.debug(`${__EPI_CHAOS_BOLT_DEBUG_PREFIX} final damage.types value`, {
         label,
-        value: value instanceof Set ? Array.from(value) : value,
+        value,
         typeof: typeof value,
         constructorName: value?.constructor?.name ?? null,
         array: Array.isArray(value),
-        set: value instanceof Set
+        set: value instanceof Set,
+        exactContent: value instanceof Set ? Array.from(value) : value
       });
     };
 
@@ -2676,7 +2677,7 @@ Hooks.on("midi-qol.preDamageRoll", async (workflow) => {
       if (!part) return;
       const importedFormula = __epiChaosBoltFormulaSnapshot(part);
       debugTypes(`${label}:before`, part?.types);
-      part.types = [chosen];
+      part.types = new Set([chosen]);
       debugTypes(`${label}:after`, part?.types);
       console.debug(`${__EPI_CHAOS_BOLT_DEBUG_PREFIX} final runtime formula`, {
         label,
