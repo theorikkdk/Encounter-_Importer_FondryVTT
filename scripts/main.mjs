@@ -5259,7 +5259,8 @@ async function epiExecuteIceKnifeStyleOnHitAoe({ item, meta, primary, targets, a
 async function epiRunLightningArrowViaIceKnifeHelper(workflow, item, meta) {
   console.log(`[EPI lightning arrow debug] hard bypass old hotfix`, {
     item: item?.name,
-    saveActivityId: String(meta?.saveActivityId ?? "")
+    saveActivityId: String(meta?.saveActivityId ?? ""),
+    source: "confirmed-attack-path"
   });
 
   let primary = epiExtractPrimaryToken(workflow);
@@ -5418,12 +5419,9 @@ async function epiRunOnHitAoeSecondary(workflow) {
     }
 
     if (isLightningArrow) {
-      console.log(`[EPI lightning arrow debug] onHitAoe triggered`, {
-        item: item?.name,
-        workflowId: workflow?.id ?? workflow?.uuid ?? null,
-        saveActivityId: String(meta?.saveActivityId ?? "")
-      });
-      return await epiRunLightningArrowViaIceKnifeHelper(workflow, item, meta);
+      // Lightning Arrow is triggered from the confirmed attack path (AttackRollComplete)
+      // in this setup; do not let it fall back to the generic RollComplete follow-up path.
+      return;
     }
 
     try {
@@ -6141,6 +6139,38 @@ async function epiAutoApplyOnHitAoeBuffMarker(workflow) {
 }
 
 
+async function epiTriggerLightningArrowFromConfirmedAttack(workflow) {
+  try {
+    if (!workflow?.item) return;
+    const item = workflow.item;
+    const slug = String(
+      item?.getFlag?.(MODULE_ID, "slug")
+      ?? item?.getFlag?.("encounterplus-importer", "slug")
+      ?? item?.flags?.[MODULE_ID]?.slug
+      ?? item?.flags?.["encounterplus-importer"]?.slug
+      ?? ""
+    ).toLowerCase();
+    if (slug !== "fleche-de-foudre") return;
+
+    console.log(`[EPI lightning arrow debug] primary attack confirmed`, {
+      item: item?.name,
+      workflowId: workflow?.id ?? workflow?.uuid ?? null
+    });
+
+    let meta =
+      item?.getFlag?.(MODULE_ID, "onHitAoe")
+      ?? item?.getFlag?.("encounterplus-importer", "onHitAoe")
+      ?? item?.flags?.[MODULE_ID]?.onHitAoe
+      ?? item?.flags?.["encounterplus-importer"]?.onHitAoe;
+    if (!meta?.radius || !meta?.saveActivityId) meta = inferOnHitAoeFromItemHotfix270k(item);
+    if (!meta?.radius || !meta?.saveActivityId) return;
+
+    await epiRunLightningArrowViaIceKnifeHelper(workflow, item, meta);
+  } catch (e) {
+    console.warn(`[EPI lightning arrow debug] confirmed attack path failed`, e);
+  }
+}
+
 // Main trigger
 // We intentionally only listen to RollComplete here.
 // DamageRollComplete can fire in addition (and sometimes before RollComplete), which led to duplicate
@@ -6154,6 +6184,7 @@ Hooks.on("midi-qol.RollComplete", (workflow) => {
 });
 
 Hooks.on("midi-qol.AttackRollComplete", (workflow) => {
+  void epiTriggerLightningArrowFromConfirmedAttack(workflow);
   void epiRunBuffOnHitAoeSecondary(workflow);
 });
 });
