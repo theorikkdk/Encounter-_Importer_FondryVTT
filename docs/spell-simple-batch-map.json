@@ -1308,11 +1308,9 @@
   {
     "name": "Eclair de chaos",
     "slug": "eclair-de-chaos",
-    "lot": "lot-2",
-    "reason": "simple + cas particulier",
-    "families": [
-      "degats-directs"
-    ]
+    "lot": "lot-3",
+    "reason": "exception dediee",
+    "families": []
   },
   {
     "name": "Eclat du soleil",

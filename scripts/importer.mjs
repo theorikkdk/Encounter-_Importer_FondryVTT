@@ -2169,6 +2169,7 @@ const SIMPLE_BATCH_EXCLUDED_SLUGS = new Set([
   "aura-de-purete",
   "cercle-de-pouvoir",
   "croissance-d-epines",
+  "eclair-de-chaos",
   "mur-d-eau",
   "nuee-de-dagues",
   "tentacules-noirs-d-evard",
@@ -4801,10 +4802,10 @@ if (unlimitedTargets && (!maxTargets || Number(maxTargets) <= 1) && (!multiShotT
   }
   let __beamExtraActivityId = null;
 
-  // Targeted exception: Chaos Bolt damage type is chosen at resolution time.
-  // Keep full damage formula but mark variable type metadata for runtime/UX.
+  // Dedicated exception: rebuild Chaos Bolt from a fixed explicit activity shape.
+  // We do not reuse the simple batch or parsed primary damage here because the item
+  // must visibly carry the canonical 2d8 + 1d6 formula before runtime type injection.
   if (spellSlug === "eclair-de-chaos") {
-    const primaryDamage = Array.isArray(damages) && damages.length ? damages[0] : null;
     const act = makeActivity(baseId);
     act.sort = 0;
     setCommonFromSpell(act);
@@ -4817,36 +4818,40 @@ if (unlimitedTargets && (!maxTargets || Number(maxTargets) <= 1) && (!multiShotT
     act.attack.type.value = "ranged";
     act.attack.type.classification = "spell";
 
-    const formula = (() => {
-      const n = Number(primaryDamage?.number ?? 2) || 2;
-      const d = Number(primaryDamage?.denom ?? 8) || 8;
-      const b = String(primaryDamage?.bonus ?? "+1d6").trim() || "+1d6";
-      return `${n}d${d}${b.startsWith("-") || b.startsWith("+") ? b : ` + ${b}`}`;
-    })();
-    const dmgPart = {
+    const importedFormula = "2d8 + 1d6";
+    const importedDamagePart = {
       number: null,
       denomination: null,
       bonus: "",
-      // Keep a single safe placeholder type on the imported activity.
-      // The real chosen type is injected at runtime before damage roll.
+      // Placeholder imported type only. Runtime replaces the type after the d8 choice,
+      // but the visible sheet formula must already be correct before any roll occurs.
       types: ["force"],
-      custom: { enabled: true, formula },
+      custom: { enabled: true, formula: importedFormula },
       scaling: { mode: "whole", number: 1, formula: "" }
     };
 
     act.damage = act.damage ?? { critical: { bonus: "" }, includeBase: true, parts: [] };
-    act.damage.parts = [dmgPart];
+    act.damage.includeBase = true;
+    act.damage.parts = [importedDamagePart];
     act.flags = act.flags ?? {};
     act.flags["encounterplus-importer"] = {
       ...(act.flags["encounterplus-importer"] ?? {}),
       generated: true,
-      kind: "chaos-bolt-variable-type",
+      kind: "chaos-bolt-dedicated",
+      importedFormula,
       variableDamageTypes: ["acid", "cold", "fire", "force", "lightning", "poison", "psychic", "thunder"]
     };
     act.description = act.description ?? { chatFlavor: "" };
     act.description.chatFlavor = wantsFR
-      ? "Type de dégâts variable : choisissez l'un des types obtenus sur les d8 du sort"
-      : "Variable damage type: choose one of the damage types rolled on the spell d8s";
+      ? "Éclair de chaos — formule importée fixe : 2d8 + 1d6. Le type est déterminé par un d8 avant l'attaque."
+      : "Chaos Bolt — fixed imported formula: 2d8 + 1d6. Damage type is determined by a d8 before the attack.";
+
+    console.debug(`[EPI chaos bolt debug] imported formula`, {
+      spellSlug,
+      formula: importedFormula,
+      custom: importedDamagePart.custom,
+      types: importedDamagePart.types
+    });
 
     sys.actionType = "rsak";
     return;

@@ -22,6 +22,8 @@ const complexRx = [
   /simulacre|wish|souhait|metamorphose veritable|true polymorph|clone|demiplane|time stop|arret du temps/ // très spéciaux
 ];
 
+const DEDICATED_EXCEPTION_SLUGS = new Set(["eclair-de-chaos"]);
+
 const simpleFamilies = {
   "degats-directs": {
     label: "Dégâts simples (attaque ou dégâts directs)",
@@ -43,6 +45,8 @@ const simpleFamilies = {
 
 function classifySpell(spell) {
   const text = fold(`${spell.name ?? ""}\n${spell.slug ?? ""}\n${spell.descr ?? ""}`);
+  const slug = fold(spell.slug ?? "");
+  if (DEDICATED_EXCEPTION_SLUGS.has(slug)) return { lot: "lot-3", reason: "exception dediee", families: [] };
   const isComplex = complexRx.some((rx) => rx.test(text));
   if (isComplex) return { lot: "lot-3", reason: "complexe/exclu", families: [] };
 

@@ -7,7 +7,7 @@ _Généré automatiquement via `node scripts/spell-simple-audit.mjs`._
 - Exclusions prioritaires appliquées: invocations/convocations, téléportation, création d'objets/structures, anti-magie, logiques très spéciales.
 
 ## Familles simples identifiées (réutilisables)
-- **Dégâts simples directs**: 101 sorts
+- **Dégâts simples directs**: 100 sorts
 - **Dégâts + jet de sauvegarde simple**: 70 sorts
 - **Soins simples**: 17 sorts
 - **Buffs/résistances simples**: 58 sorts
@@ -24,8 +24,8 @@ _Généré automatiquement via `node scripts/spell-simple-audit.mjs`._
 
 ## Classement rentabilité / facilité
 - **Lot 1 (très simple, très rentable)**: 47 sorts
-- **Lot 2 (simple + quelques cas particuliers)**: 102 sorts
-- **Lot 3 (à remettre plus tard / exclu)**: 335 sorts
+- **Lot 2 (simple + quelques cas particuliers)**: 101 sorts
+- **Lot 3 (à remettre plus tard / exclu)**: 336 sorts
 
 ### Lot 1 — exemples prioritaires
 - Croissance d’épines
