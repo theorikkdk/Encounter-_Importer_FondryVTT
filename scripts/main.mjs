@@ -3641,15 +3641,33 @@ function epiIsAutomationOnlyActivity(act) {
 function epiShouldPromptActivityChoice(item) {
   if (!item || item.type !== "spell") return false;
 
-  // If importer explicitly marked it, trust the flag.
   const epi = item?.flags?.[MODULE_ID] ?? item?.flags?.["encounterplus-importer"] ?? {};
   if (epi?.forceActivityChooser) return true;
   if (epi?.beamCantrip?.enabled) return false;
 
+  const onHitAoe =
+    item?.getFlag?.(MODULE_ID, "onHitAoe")
+    ?? item?.getFlag?.("encounterplus-importer", "onHitAoe")
+    ?? item?.flags?.[MODULE_ID]?.onHitAoe
+    ?? item?.flags?.["encounterplus-importer"]?.onHitAoe
+    ?? null;
+  const hiddenOnLaunchId = String(onHitAoe?.saveActivityId ?? "");
+  const isLightningArrow = String(epi?.slug ?? "").toLowerCase() === "fleche-de-foudre";
+
   const list = epiListActivities(item);
-  const visible = list.filter(a => !epiIsAutomationOnlyActivity(a));
-  // Do NOT rely on canUse here: some sheets mark follow-up activities as "not usable"
-  // until the parent effect/region exists, which would incorrectly bypass the chooser.
+  const visible = list.filter(a => {
+    const actId = String(a?._id ?? a?.id ?? "");
+    if (hiddenOnLaunchId && actId === hiddenOnLaunchId) {
+      if (isLightningArrow) {
+        console.log(`[EPI lightning arrow debug] secondary activity hidden from choice`, {
+          item: item?.name,
+          activityId: actId
+        });
+      }
+      return false;
+    }
+    return !epiIsAutomationOnlyActivity(a);
+  });
   if ((visible?.length ?? 0) < 2) return false;
 
   const hasCast = visible.some(a => epiActivityConsumesSpellSlot(a));
@@ -5072,6 +5090,20 @@ function epiDisableOtherActivityForOnHitAoe(workflow) {
     if (!actType.includes('attack')) return;
 
     const item = workflow.item;
+    const spellSlug = String(
+      item?.getFlag?.(MODULE_ID, "slug")
+      ?? item?.getFlag?.("encounterplus-importer", "slug")
+      ?? item?.flags?.[MODULE_ID]?.slug
+      ?? item?.flags?.["encounterplus-importer"]?.slug
+      ?? ""
+    ).toLowerCase();
+
+    if (spellSlug === "fleche-de-foudre") {
+      console.log(`[EPI lightning arrow debug] attack activity launched`, {
+        item: item?.name,
+        activityId: String(workflow?.activity?.id ?? workflow?.activity?._id ?? "")
+      });
+    }
 
     let meta =
       item?.getFlag?.(MODULE_ID, "onHitAoe")
@@ -5306,6 +5338,12 @@ async function epiRunOnHitAoeSecondary(workflow) {
       steps
     });
 
+    if (isLightningArrow) {
+      console.log(`[EPI lightning arrow debug] secondary save auto-triggered`, {
+        activityUuid: actUuid,
+        targetCount: targetUuids.length
+      });
+    }
     await globalThis.MidiQOL.completeActivityUse(actUuid, usage, dialog, message);
   } catch (e) {
     console.warn(`[${MODULE_ID}] onHitAoe hotfix270r failed`, e);
