@@ -6006,7 +6006,7 @@ async function epiAutoApplyOnHitAoeBuffMarker(workflow) {
 }
 
 
-async function epiLaunchLightningArrowSecondaryFromConfirmedAttack(workflow) {
+async function epiLaunchLightningArrowSecondaryFromConfirmedHit(workflow) {
   try {
     if (!workflow?.item) return;
     const item = workflow.item;
@@ -6018,6 +6018,11 @@ async function epiLaunchLightningArrowSecondaryFromConfirmedAttack(workflow) {
       ?? ""
     ).toLowerCase();
     if (slug !== "fleche-de-foudre") return;
+
+    console.log(`[EPI lightning arrow debug] confirmed hit hook entered`, {
+      item: item?.name,
+      workflowId: workflow?.id ?? workflow?.uuid ?? null
+    });
 
     let meta =
       item?.getFlag?.(MODULE_ID, "onHitAoe")
@@ -6039,7 +6044,7 @@ async function epiLaunchLightningArrowSecondaryFromConfirmedAttack(workflow) {
     }
     if (!primary) return;
 
-    console.log(`[EPI lightning arrow debug] primary target for activity 1`, {
+    console.log(`[EPI lightning arrow debug] hit target resolved`, {
       target: primary?.name ?? primary?.id ?? null,
       targetId: primary?.id ?? null,
       targetUuid: primary?.document?.uuid ?? primary?.uuid ?? null
@@ -6059,7 +6064,7 @@ async function epiLaunchLightningArrowSecondaryFromConfirmedAttack(workflow) {
 
     const targetUuids = adj.map(t => String(t?.document?.uuid ?? t?.uuid ?? "")).filter(Boolean);
     if (!targetUuids.length) return;
-    console.log(`[EPI lightning arrow debug] explicit adjacent targetUuids for activity 2`, targetUuids);
+    console.log(`[EPI lightning arrow debug] adjacent target uuids built`, targetUuids);
 
     const act = epiGetActivityById(item, String(meta.saveActivityId));
     const actUuid = String(act?.uuid ?? act?.document?.uuid ?? "") || (item?.uuid ? `${item.uuid}.Activity.${String(meta.saveActivityId)}` : "");
@@ -6094,7 +6099,7 @@ async function epiLaunchLightningArrowSecondaryFromConfirmedAttack(workflow) {
     epiMarkDone(doneKey);
     const prevTargetIds = await epiSetUserTargets(adj.map(t => String(t?.id ?? t?.document?.id ?? "")).filter(Boolean)).catch(() => null);
     try {
-      console.log(`[EPI lightning arrow debug] forcing explicit activity 2 launch`, {
+      console.log(`[EPI lightning arrow debug] launching activity 2 directly from confirmed hit hook`, {
         activityUuid: actUuid,
         targetUuids
       });
@@ -6112,7 +6117,7 @@ async function epiLaunchLightningArrowSecondaryFromConfirmedAttack(workflow) {
       try { if (prevTargetIds) await epiRestoreUserTargets(prevTargetIds); } catch (_e) {}
     }
   } catch (e) {
-    console.warn(`[EPI lightning arrow debug] explicit secondary launch failed`, e);
+    console.warn(`[EPI lightning arrow debug] confirmed hit hook failed`, e);
   }
 }
 
@@ -6129,8 +6134,11 @@ Hooks.on("midi-qol.RollComplete", (workflow) => {
 });
 
 Hooks.on("midi-qol.AttackRollComplete", (workflow) => {
-  void epiLaunchLightningArrowSecondaryFromConfirmedAttack(workflow);
   void epiRunBuffOnHitAoeSecondary(workflow);
+});
+
+Hooks.on("midi-qol.preDamageRoll", (workflow) => {
+  void epiLaunchLightningArrowSecondaryFromConfirmedHit(workflow);
 });
 });
 
