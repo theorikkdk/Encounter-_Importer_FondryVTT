@@ -2170,6 +2170,7 @@ const SIMPLE_BATCH_EXCLUDED_SLUGS = new Set([
   "cercle-de-pouvoir",
   "croissance-d-epines",
   "eclair-de-chaos",
+  "fleche-de-foudre",
   "mur-d-eau",
   "nuee-de-dagues",
   "tentacules-noirs-d-evard",
@@ -4827,7 +4828,9 @@ if (unlimitedTargets && (!maxTargets || Number(maxTargets) <= 1) && (!multiShotT
       // but the visible sheet formula must already be correct before any roll occurs.
       types: ["force"],
       custom: { enabled: true, formula: importedFormula },
-      scaling: { mode: "whole", number: 1, formula: "" }
+      // Chaos Bolt upcasts by +1d6 per slot level above 1st; keep it explicit here so
+      // the dedicated imported activity does not regress to d8-based scaling.
+      scaling: { mode: "whole", number: 1, formula: "d6" }
     };
 
     act.damage = act.damage ?? { critical: { bonus: "" }, includeBase: true, parts: [] };
