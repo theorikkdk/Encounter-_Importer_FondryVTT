@@ -5722,6 +5722,13 @@ const addDelayedDamageActivity = () => {
   // plus a secondary AoE save around the impact target (no concentration, no cast-time template,
   // no next-shot buff state).
   if (spellSlug === "fleche-de-foudre") {
+    console.debug(`[EPI lightning arrow debug] dedicated path reached`, {
+      spellSlug,
+      itemName: itemObj?.name ?? sp?.name ?? "",
+      initialDuration: sys.duration ?? null,
+      initialTarget: sys.target ?? null,
+      initialProperties: sys.properties ?? null
+    });
     const hitDmg = damages[0] ?? null;
     const splashDmg = damages[1] ?? damages[0] ?? null;
     const around = parseAoeAroundTargetFR(descText) ?? (aoe?.value ? { value: aoe.value, units: aoe.units } : null);
@@ -5812,12 +5819,40 @@ const addDelayedDamageActivity = () => {
     sys.duration.value = null;
     sys.duration.units = "inst";
     sys.duration.concentration = false;
-    sys.target = sys.target ?? { value: 1, units: "", type: "creature", prompt: true };
+    sys.target = sys.target ?? { value: 1, units: "", type: "creature", prompt: false };
     sys.target.value = 1;
     sys.target.type = "creature";
     sys.target.units = "";
-    sys.target.prompt = true;
+    sys.target.prompt = false;
+    try { delete sys.target.width; } catch (_e) { sys.target.width = ""; }
+    try { delete sys.target.height; } catch (_e) { sys.target.height = ""; }
+    sys.properties = Array.isArray(sys.properties) ? sys.properties.filter(p => String(p ?? "") !== "concentration") : [];
+    a1.duration = { concentration: false, value: "", units: "inst", special: "", override: true };
+    a1.target.template = { count:"", contiguous:false, type:"", size:"", width:"", height:"", units:"ft" };
+    a1.target.prompt = false;
+    a1.target.override = true;
+    a2.duration = { concentration: false, value: "", units: "inst", special: "", override: true };
+    a2.target.prompt = false;
+    a2.target.template = { count: "", contiguous: false, type: "", size: "", width: "", height: "", units: "ft" };
     sys.actionType = "rsak";
+    console.debug(`[EPI lightning arrow debug] before final return`, {
+      spellSlug,
+      duration: sys.duration ?? null,
+      properties: sys.properties ?? null,
+      target: sys.target ?? null,
+      onHitAoe: itemObj?.flags?.["encounterplus-importer"]?.onHitAoe ?? null
+    });
+    console.debug(`[EPI lightning arrow debug] final payload concentration`, {
+      itemDurationConcentration: sys.duration?.concentration ?? null,
+      hasConcentrationProperty: Array.isArray(sys.properties) ? sys.properties.includes("concentration") : false,
+      activity1Duration: a1.duration ?? null,
+      activity2Duration: a2.duration ?? null
+    });
+    console.debug(`[EPI lightning arrow debug] final activity target/template`, {
+      itemTarget: sys.target ?? null,
+      attackTarget: a1.target ?? null,
+      saveTarget: a2.target ?? null
+    });
     forceCasterSaveDC();
     return;
   }
