@@ -2539,7 +2539,15 @@ function __epiChaosBoltFormulaSnapshot(part) {
 
 async function __epiRollChaosBoltType(workflow, stage = "unknown") {
   let chosen = String(workflow?.options?.[MODULE_ID]?.chaosBoltTypePicked ?? "").trim();
-  if (chosen) return chosen;
+  if (chosen) {
+    console.debug(`${__EPI_CHAOS_BOLT_DEBUG_PREFIX} stored chosen type`, {
+      stage,
+      item: workflow?.item?.name ?? "",
+      chosen,
+      face: workflow?.options?.[MODULE_ID]?.chaosBoltTypeFace ?? null
+    });
+    return chosen;
+  }
 
   console.debug(`${__EPI_CHAOS_BOLT_DEBUG_PREFIX} type roll start`, {
     stage,
@@ -2551,9 +2559,8 @@ async function __epiRollChaosBoltType(workflow, stage = "unknown") {
 
   try {
     const roll = new Roll("1d8");
-    if (typeof roll?.evaluateSync === "function") roll.evaluateSync();
-    else if (typeof roll?.evaluate === "function") await roll.evaluate();
-    else throw new Error("No supported Roll evaluation method available");
+    if (typeof roll?.evaluate === "function") await roll.evaluate();
+    else throw new Error("No async Roll evaluation method available for Chaos Bolt type roll");
 
     const face = Number(roll?.total ?? 0) || 1;
     chosen = __EPI_CHAOS_BOLT_TYPE_BY_D8[face] ?? "force";
@@ -2651,7 +2658,17 @@ Hooks.on("midi-qol.preDamageRoll", async (workflow) => {
       hasPicked: !!workflow?.options?.[MODULE_ID]?.chaosBoltTypePicked
     });
 
-    const chosen = await __epiRollChaosBoltType(workflow, "preDamageRoll");
+    const hadStoredType = !!workflow?.options?.[MODULE_ID]?.chaosBoltTypePicked;
+    const chosen = hadStoredType
+      ? String(workflow?.options?.[MODULE_ID]?.chaosBoltTypePicked ?? "").trim()
+      : await __epiRollChaosBoltType(workflow, "preDamageRoll");
+    if (hadStoredType) {
+      console.debug(`${__EPI_CHAOS_BOLT_DEBUG_PREFIX} preDamageRoll using stored type`, {
+        item: workflow?.item?.name ?? "",
+        chosen,
+        face: workflow?.options?.[MODULE_ID]?.chaosBoltTypeFace ?? null
+      });
+    }
     console.debug(`${__EPI_CHAOS_BOLT_DEBUG_PREFIX} preDamageRoll chosen type`, {
       item: workflow?.item?.name ?? "",
       chosen,
