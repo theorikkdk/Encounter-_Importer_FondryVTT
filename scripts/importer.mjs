@@ -4827,7 +4827,9 @@ if (unlimitedTargets && (!maxTargets || Number(maxTargets) <= 1) && (!multiShotT
       number: null,
       denomination: null,
       bonus: "",
-      types: ["acid", "cold", "fire", "force", "lightning", "poison", "psychic", "thunder"],
+      // Keep a single safe placeholder type on the imported activity.
+      // The real chosen type is injected at runtime before damage roll.
+      types: ["force"],
       custom: { enabled: true, formula },
       scaling: { mode: "whole", number: 1, formula: "" }
     };

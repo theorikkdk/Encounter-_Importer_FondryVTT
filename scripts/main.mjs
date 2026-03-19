@@ -2597,19 +2597,40 @@ Hooks.on("midi-qol.preDamageRoll", async (workflow) => {
 
     const chosen = await __epiRollChaosBoltType(workflow, "preDamageRoll");
 
-    const applyType = (act) => {
+    const debugTypes = (label, value) => {
+      console.debug(`${__EPI_CHAOS_BOLT_DEBUG_PREFIX} final damage.types value`, {
+        label,
+        value: value instanceof Set ? Array.from(value) : value,
+        typeof: typeof value,
+        constructorName: value?.constructor?.name ?? null,
+        array: Array.isArray(value),
+        set: value instanceof Set
+      });
+    };
+
+    const applyType = (act, label) => {
       if (!act) return;
       if (Array.isArray(act?.damage?.parts) && act.damage.parts.length) {
-        // Runtime path: dnd5e/midi expects a Set-like collection here in some flows.
-        act.damage.parts[0].types = new Set([chosen]);
+        const part = act.damage.parts[0];
+        debugTypes(`${label}:before`, part?.types);
+        // Runtime path: keep a single concrete type in the same array shape used by imported activities.
+        part.types = [chosen];
+        debugTypes(`${label}:after`, part?.types);
+        console.debug(`${__EPI_CHAOS_BOLT_DEBUG_PREFIX} final damage part`, {
+          label,
+          number: part?.number ?? null,
+          denomination: part?.denomination ?? null,
+          bonus: part?.bonus ?? null,
+          custom: part?.custom ?? null
+        });
       }
     };
 
-    applyType(workflow?.activity);
+    applyType(workflow?.activity, 'workflow.activity');
     const aId = String(workflow?.activity?.id ?? workflow?.activity?._id ?? workflow?.activityId ?? "");
     if (aId) {
       const ia = workflow?.item?.system?.activities?.[aId] ?? workflow?.item?.system?.activities?.get?.(aId) ?? null;
-      applyType(ia);
+      applyType(ia, 'item.activity');
     }
 
     console.debug(`${__EPI_CHAOS_BOLT_DEBUG_PREFIX} damage roll continuing`, {
