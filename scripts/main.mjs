@@ -5160,6 +5160,69 @@ for (const ev of [
   });
 }
 
+async function epiExecuteIceKnifeStyleOnHitAoe({ item, meta, primary, targets, actUuid, usage, dialog, message, debugLabel = "generic" }) {
+  const targetUuids = targets
+    .map(t => String(t?.document?.uuid ?? t?.uuid ?? ""))
+    .filter(Boolean);
+  if (!targetUuids.length) return null;
+
+  if (debugLabel === "lightning-arrow") {
+    console.log(`[EPI lightning arrow debug] ice-knife-style path entered`, {
+      item: item?.name,
+      saveActivityId: String(meta?.saveActivityId ?? ""),
+      targetCount: targetUuids.length
+    });
+    console.log(`[EPI lightning arrow debug] adjacent targets selected`, {
+      targets: targets.map(t => ({ id: t?.id ?? null, name: t?.name ?? null })),
+      targetUuids
+    });
+  } else {
+    console.debug(`[${MODULE_ID}] onHitAoeBuff hotfix271d targetUuids`, targetUuids);
+    console.log(`[${MODULE_ID}] onHitAoe hotfix270r`, {
+      item: item?.name,
+      primary: primary?.name ?? primary?.id,
+      targets: targets.map(t => t?.name ?? t?.id),
+      radius: meta?.radius,
+      units: meta?.units
+    });
+  }
+
+  const nextUsage = foundry.utils.mergeObject(usage, { midiOptions: { targetUuids } }, { inplace: false });
+
+  let prevTargetIds = null;
+  try {
+    prevTargetIds = await epiSetUserTargets(targets.map(t => String(t?.id ?? t?.document?.id ?? "")).filter(Boolean));
+  } catch (_e) {}
+
+  try {
+    if (debugLabel === "lightning-arrow") {
+      console.log(`[EPI lightning arrow debug] executing secondary activity`, {
+        activityUuid: actUuid,
+        targetCount: targetUuids.length,
+        targetUuids
+      });
+    }
+    const secondaryResult = await epiUseActivityViaMidi(actUuid, nextUsage, dialog, message);
+    if (debugLabel === "lightning-arrow") {
+      console.log(`[EPI lightning arrow debug] secondary activity executed`, {
+        activityUuid: actUuid,
+        hasResult: secondaryResult != null,
+        resultType: typeof secondaryResult
+      });
+      console.log(`[EPI lightning arrow debug] secondary activity completed`, {
+        activityUuid: actUuid,
+        hasResult: secondaryResult != null,
+        resultType: typeof secondaryResult
+      });
+    }
+    return secondaryResult;
+  } finally {
+    try {
+      if (prevTargetIds) await epiRestoreUserTargets(prevTargetIds);
+    } catch (_e) {}
+  }
+}
+
 async function epiRunOnHitAoeSecondary(workflow) {
   try {
     if (!workflow) return;
@@ -5337,42 +5400,17 @@ async function epiRunOnHitAoeSecondary(workflow) {
       || (item?.uuid ? `${item.uuid}.Activity.${String(meta.saveActivityId)}` : "");
     if (!actUuid) return;
 
-    console.debug(`[${MODULE_ID}] onHitAoeBuff hotfix271d targetUuids`, targetUuids);
-    console.log(`[${MODULE_ID}] onHitAoe hotfix270r`, {
-      item: item?.name,
-      primary: primary?.name ?? primary?.id,
-      targets: targets.map(t => t?.name ?? t?.id),
-      radius: meta.radius,
-      units: meta.units,
-      steps
+    await epiExecuteIceKnifeStyleOnHitAoe({
+      item,
+      meta,
+      primary,
+      targets,
+      actUuid,
+      usage,
+      dialog,
+      message,
+      debugLabel: isLightningArrow ? "lightning-arrow" : "generic"
     });
-
-    let prevTargetIds = null;
-    try {
-      prevTargetIds = await epiSetUserTargets(targets.map(t => String(t?.id ?? t?.document?.id ?? "")).filter(Boolean));
-    } catch (_e) {}
-
-    try {
-      if (isLightningArrow) {
-        console.log(`[EPI lightning arrow debug] executing secondary activity`, {
-          activityUuid: actUuid,
-          targetCount: targetUuids.length,
-          targetUuids
-        });
-      }
-      const secondaryResult = await epiUseActivityViaMidi(actUuid, usage, dialog, message);
-      if (isLightningArrow) {
-        console.log(`[EPI lightning arrow debug] secondary activity completed`, {
-          activityUuid: actUuid,
-          resultType: typeof secondaryResult,
-          hasResult: secondaryResult != null
-        });
-      }
-    } finally {
-      try {
-        if (prevTargetIds) await epiRestoreUserTargets(prevTargetIds);
-      } catch (_e) {}
-    }
   } catch (e) {
     console.warn(`[${MODULE_ID}] onHitAoe hotfix270r failed`, e);
   }
