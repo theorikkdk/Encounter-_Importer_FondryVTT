@@ -5160,6 +5160,24 @@ for (const ev of [
   });
 }
 
+function epiReplaceWorkflowTargetsForSecondary(workflow, targets) {
+  const arr = Array.isArray(targets) ? targets.filter(Boolean) : [];
+  const tokenIds = arr.map(t => String(t?.id ?? t?.document?.id ?? "")).filter(Boolean);
+  const tokenUuids = arr.map(t => String(t?.document?.uuid ?? t?.uuid ?? "")).filter(Boolean);
+  const targetSet = new Set(arr);
+  try { workflow.targets = targetSet; } catch (_e) {}
+  try { workflow.hitTargets = targetSet; } catch (_e) {}
+  try { workflow.applicationTargets = targetSet; } catch (_e) {}
+  try { workflow.saves = new Set(); } catch (_e) {}
+  try { workflow.failedSaves = new Set(); } catch (_e) {}
+  try { workflow.hitTargetUuids = tokenUuids; } catch (_e) {}
+  try { workflow.targetUuids = tokenUuids; } catch (_e) {}
+  try { workflow.tokenIds = tokenIds; } catch (_e) {}
+  try { if (workflow.options && typeof workflow.options === 'object') workflow.options.targetUuids = tokenUuids; } catch (_e) {}
+  try { if (workflow.workflowOptions && typeof workflow.workflowOptions === 'object') workflow.workflowOptions.targetUuids = tokenUuids; } catch (_e) {}
+  return { tokenIds, tokenUuids, count: arr.length };
+}
+
 async function epiExecuteIceKnifeStyleOnHitAoe({ item, meta, primary, targets, actUuid, usage, dialog, message, debugLabel = "generic" }) {
   const targetUuids = targets
     .map(t => String(t?.document?.uuid ?? t?.uuid ?? ""))
@@ -5196,7 +5214,7 @@ async function epiExecuteIceKnifeStyleOnHitAoe({ item, meta, primary, targets, a
 
   try {
     if (debugLabel === "lightning-arrow") {
-      console.log(`[EPI lightning arrow debug] executing secondary activity`, {
+      console.log(`[EPI lightning arrow debug] secondary midi save launched`, {
         activityUuid: actUuid,
         targetCount: targetUuids.length,
         targetUuids
@@ -5205,6 +5223,11 @@ async function epiExecuteIceKnifeStyleOnHitAoe({ item, meta, primary, targets, a
     const secondaryResult = await epiUseActivityViaMidi(actUuid, nextUsage, dialog, message);
     if (debugLabel === "lightning-arrow") {
       console.log(`[EPI lightning arrow debug] secondary activity executed`, {
+        activityUuid: actUuid,
+        hasResult: secondaryResult != null,
+        resultType: typeof secondaryResult
+      });
+      console.log(`[EPI lightning arrow debug] secondary midi save completed`, {
         activityUuid: actUuid,
         hasResult: secondaryResult != null,
         resultType: typeof secondaryResult
@@ -5236,6 +5259,11 @@ async function epiRunLightningArrowViaIceKnifeHelper(workflow, item, meta) {
   }
   if (!primary) return;
 
+  console.log(`[EPI lightning arrow debug] primary hit resolved`, {
+    target: primary?.name ?? primary?.id ?? null,
+    targetId: primary?.id ?? null,
+    targetUuid: primary?.document?.uuid ?? primary?.uuid ?? null
+  });
   console.log(`[EPI lightning arrow debug] impact target resolved`, {
     target: primary?.name ?? primary?.id ?? null,
     targetId: primary?.id ?? null,
@@ -5254,6 +5282,12 @@ async function epiRunLightningArrowViaIceKnifeHelper(workflow, item, meta) {
   let targets = epiTokensInGridBurst(primary, tokens, steps);
   if (!meta?.includePrimaryTarget) targets = targets.filter(t => String(t?.id ?? "") !== String(primary?.id ?? ""));
   if (!targets.length) return;
+
+  console.log(`[EPI lightning arrow debug] adjacent targets computed`, {
+    targets: targets.map(t => ({ id: t?.id ?? null, name: t?.name ?? null }))
+  });
+  const replacement = epiReplaceWorkflowTargetsForSecondary(workflow, targets);
+  console.log(`[EPI lightning arrow debug] targets replaced for secondary save`, replacement);
 
   const act = epiGetActivityById(item, String(meta.saveActivityId));
   console.log(`[EPI lightning arrow debug] secondary save activity found`, {
