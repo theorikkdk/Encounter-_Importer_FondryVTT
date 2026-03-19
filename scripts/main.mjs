@@ -5222,6 +5222,104 @@ async function epiExecuteIceKnifeStyleOnHitAoe({ item, meta, primary, targets, a
     } catch (_e) {}
   }
 }
+async function epiRunLightningArrowViaIceKnifeHelper(workflow, item, meta) {
+  console.log(`[EPI lightning arrow debug] hard bypass old hotfix`, {
+    item: item?.name,
+    saveActivityId: String(meta?.saveActivityId ?? "")
+  });
+
+  let primary = epiExtractPrimaryToken(workflow);
+  if (!primary) {
+    const k = epiWorkflowKey(workflow);
+    const cached = k ? __epiOnHitAoeCache.get(k) : null;
+    if (cached?.primaryId) primary = epiResolveTokenById(cached.primaryId);
+  }
+  if (!primary) return;
+
+  console.log(`[EPI lightning arrow debug] impact target resolved`, {
+    target: primary?.name ?? primary?.id ?? null,
+    targetId: primary?.id ?? null,
+    targetUuid: primary?.document?.uuid ?? primary?.uuid ?? null
+  });
+
+  const doneKey = epiDoneKey(workflow, String(primary.id ?? ""));
+  if (epiDoneRecently(doneKey)) return;
+
+  const gridDist = Number(canvas?.scene?.grid?.distance ?? 5) || 5;
+  const rScene = epiUnitsToSceneDistance(meta.radius, meta.units);
+  if (!rScene) return;
+
+  const steps = Math.max(1, Math.round(rScene / gridDist));
+  const tokens = (canvas?.tokens?.placeables ?? []).filter(t => t?.actor);
+  let targets = epiTokensInGridBurst(primary, tokens, steps);
+  if (!meta?.includePrimaryTarget) targets = targets.filter(t => String(t?.id ?? "") !== String(primary?.id ?? ""));
+  if (!targets.length) return;
+
+  const act = epiGetActivityById(item, String(meta.saveActivityId));
+  console.log(`[EPI lightning arrow debug] secondary save activity found`, {
+    found: !!act,
+    id: String(act?._id ?? act?.id ?? meta?.saveActivityId ?? ""),
+    uuid: String(act?.uuid ?? act?.document?.uuid ?? ""),
+    type: act?.type ?? null,
+    save: act?.save ?? act?.system?.save ?? null
+  });
+
+  const baseLevel = Number(item?.system?.level ?? 0) || 0;
+  const castLevel = Number(
+    workflow?.castData?.castLevel ??
+    workflow?.spellLevel ??
+    workflow?.itemLevel ??
+    workflow?.workflowOptions?.castLevel ??
+    workflow?.options?.spellLevel ??
+    workflow?.options?.castLevel ??
+    baseLevel
+  ) || baseLevel;
+  const scaling = Math.max(0, castLevel - baseLevel);
+
+  const targetUuids = targets.map(t => String(t?.document?.uuid ?? t?.uuid ?? "")).filter(Boolean);
+  if (!targetUuids.length) return;
+
+  const usage = {
+    consume: { spellSlot: false },
+    scaling,
+    spell: { slot: castLevel ? `spell${castLevel}` : undefined },
+    midiOptions: {
+      targetUuids,
+      proceedChecks: { checkTargets: false },
+      workflowOptions: {
+        __epiSecondaryOnHitAoe: true,
+        targetConfirmation: "none",
+        noProvokeReaction: true,
+        fastForward: true,
+        fastForwardDamage: true
+      }
+    },
+    __epiBypassActivityChooser: true,
+    __epiActivityChoiceDone: true
+  };
+  const dialog = { configure: false, options: { display: { all: false } } };
+  const message = { create: true };
+
+  epiMarkDone(doneKey);
+
+  const actUuid =
+    String(act?.uuid ?? act?.document?.uuid ?? "")
+    || (item?.uuid ? `${item.uuid}.Activity.${String(meta.saveActivityId)}` : "");
+  if (!actUuid) return;
+
+  await epiExecuteIceKnifeStyleOnHitAoe({
+    item,
+    meta,
+    primary,
+    targets,
+    actUuid,
+    usage,
+    dialog,
+    message,
+    debugLabel: "lightning-arrow"
+  });
+}
+
 
 async function epiRunOnHitAoeSecondary(workflow) {
   try {
@@ -5279,6 +5377,7 @@ async function epiRunOnHitAoeSecondary(workflow) {
         workflowId: workflow?.id ?? workflow?.uuid ?? null,
         saveActivityId: String(meta?.saveActivityId ?? "")
       });
+      return await epiRunLightningArrowViaIceKnifeHelper(workflow, item, meta);
     }
 
     try {
