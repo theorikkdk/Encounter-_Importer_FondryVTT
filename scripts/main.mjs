@@ -2501,30 +2501,88 @@ function __epiChaosBoltSlugFromWorkflow(workflow) {
 }
 
 const __EPI_CHAOS_BOLT_DEBUG_PREFIX = "[EPI chaos bolt debug]";
+const __EPI_CHAOS_BOLT_TYPE_BY_D8 = {
+  1: "acid",
+  2: "cold",
+  3: "fire",
+  4: "force",
+  5: "lightning",
+  6: "poison",
+  7: "psychic",
+  8: "thunder"
+};
 
-async function __epiPickChaosBoltDamageType() {
-  const opts = ["acid", "cold", "fire", "force", "lightning", "poison", "psychic", "thunder"];
-  const labels = {
-    acid: "Acide", cold: "Froid", fire: "Feu", force: "Force",
-    lightning: "Foudre", poison: "Poison", psychic: "Psychique", thunder: "Tonnerre"
-  };
-  try {
-    const DialogV2 = foundry?.applications?.api?.DialogV2 ?? globalThis?.foundry?.applications?.api?.DialogV2;
-    if (DialogV2?.wait) {
-      console.debug(`${__EPI_CHAOS_BOLT_DEBUG_PREFIX} prompt shown`);
-      const buttons = opts.map((k) => ({ action: k, label: labels[k] ?? k }));
-      const pick = await DialogV2.wait({
-        window: { title: "Éclair de chaos — Type de dégâts" },
-        content: "<p>Choisissez le type de dégâts à appliquer pour cette résolution.</p>",
-        buttons,
-        rejectClose: false,
-        modal: true
-      });
-      if (opts.includes(String(pick))) return String(pick);
-    }
-  } catch (_e) {}
-  return "force";
+function __epiChaosBoltTypeLabel(type) {
+  return {
+    acid: "Acide",
+    cold: "Froid",
+    fire: "Feu",
+    force: "Force",
+    lightning: "Foudre",
+    poison: "Poison",
+    psychic: "Psychique",
+    thunder: "Tonnerre"
+  }[String(type ?? "")] ?? String(type ?? "");
 }
+
+async function __epiRollChaosBoltType(workflow, stage = "unknown") {
+  let chosen = String(workflow?.options?.[MODULE_ID]?.chaosBoltTypePicked ?? "").trim();
+  if (chosen) return chosen;
+
+  const roll = await (new Roll("1d8")).evaluate({ async: true });
+  const face = Number(roll?.total ?? 0) || 1;
+  chosen = __EPI_CHAOS_BOLT_TYPE_BY_D8[face] ?? "force";
+
+  try {
+    workflow.options ??= {};
+    workflow.options[MODULE_ID] = {
+      ...(workflow.options[MODULE_ID] ?? {}),
+      chaosBoltTypePicked: chosen,
+      chaosBoltTypeFace: face
+    };
+  } catch (_e) {}
+
+  try {
+    await roll.toMessage({
+      flavor: `Éclair de chaos — d8 type: ${face} = ${__epiChaosBoltTypeLabel(chosen)}`,
+      speaker: ChatMessage.getSpeaker({ actor: workflow?.actor ?? null, token: workflow?.token ?? null })
+    });
+  } catch (_e) {}
+
+  console.debug(`${__EPI_CHAOS_BOLT_DEBUG_PREFIX} type rolled`, {
+    stage,
+    face,
+    chosen,
+    item: workflow?.item?.name ?? ""
+  });
+  return chosen;
+}
+
+Hooks.on("midi-qol.preItemRoll", (workflow) => {
+  try {
+    if (!game.user?.isGM || !workflow?.item) return;
+    const slug = __epiChaosBoltSlugFromWorkflow(workflow);
+    if (slug !== "eclair-de-chaos") return;
+    console.debug(`${__EPI_CHAOS_BOLT_DEBUG_PREFIX} preItemRoll reached`, { item: workflow?.item?.name ?? "" });
+  } catch (_e) {}
+});
+
+Hooks.on("midi-qol.preAttackRoll", async (workflow) => {
+  try {
+    if (!game.user?.isGM || !workflow?.item) return;
+    const slug = __epiChaosBoltSlugFromWorkflow(workflow);
+    if (slug !== "eclair-de-chaos") return;
+
+    console.debug(`${__EPI_CHAOS_BOLT_DEBUG_PREFIX} preAttackRoll reached`, {
+      item: workflow?.item?.name ?? "",
+      hasPicked: !!workflow?.options?.[MODULE_ID]?.chaosBoltTypePicked
+    });
+
+    await __epiRollChaosBoltType(workflow, "preAttackRoll");
+  } catch (e) {
+    console.warn(`[${MODULE_ID}] Chaos Bolt preAttackRoll type roll failed`, e);
+  }
+});
 
 Hooks.on("midi-qol.preDamageRoll", async (workflow) => {
   try {
@@ -2537,18 +2595,13 @@ Hooks.on("midi-qol.preDamageRoll", async (workflow) => {
       hasPicked: !!workflow?.options?.[MODULE_ID]?.chaosBoltTypePicked
     });
 
-    let chosen = String(workflow?.options?.[MODULE_ID]?.chaosBoltTypePicked ?? "").trim();
-    if (!chosen) {
-      chosen = await __epiPickChaosBoltDamageType();
-      workflow.options ??= {};
-      workflow.options[MODULE_ID] = { ...(workflow.options[MODULE_ID] ?? {}), chaosBoltTypePicked: chosen };
-      console.debug(`${__EPI_CHAOS_BOLT_DEBUG_PREFIX} type chosen`, { chosen });
-    }
+    const chosen = await __epiRollChaosBoltType(workflow, "preDamageRoll");
 
     const applyType = (act) => {
       if (!act) return;
       if (Array.isArray(act?.damage?.parts) && act.damage.parts.length) {
-        act.damage.parts[0].types = [chosen];
+        // Runtime path: dnd5e/midi expects a Set-like collection here in some flows.
+        act.damage.parts[0].types = new Set([chosen]);
       }
     };
 
@@ -2559,19 +2612,14 @@ Hooks.on("midi-qol.preDamageRoll", async (workflow) => {
       applyType(ia);
     }
 
-    console.debug(`${__EPI_CHAOS_BOLT_DEBUG_PREFIX} damage roll continuing`, { chosen, activityId: aId || null });
+    console.debug(`${__EPI_CHAOS_BOLT_DEBUG_PREFIX} damage roll continuing`, {
+      chosen,
+      activityId: aId || null,
+      face: workflow?.options?.[MODULE_ID]?.chaosBoltTypeFace ?? null
+    });
   } catch (e) {
     console.warn(`[${MODULE_ID}] Chaos Bolt preDamageRoll type injection failed`, e);
   }
-});
-
-Hooks.on("midi-qol.preItemRoll", (workflow) => {
-  try {
-    if (!game.user?.isGM || !workflow?.item) return;
-    const slug = __epiChaosBoltSlugFromWorkflow(workflow);
-    if (slug !== "eclair-de-chaos") return;
-    console.debug(`${__EPI_CHAOS_BOLT_DEBUG_PREFIX} preItemRoll reached`, { item: workflow?.item?.name ?? "" });
-  } catch (_e) {}
 });
 
 Hooks.on("preUpdateActor", (actor, changed) => {
