@@ -2541,39 +2541,71 @@ async function __epiRollChaosBoltType(workflow, stage = "unknown") {
   let chosen = String(workflow?.options?.[MODULE_ID]?.chaosBoltTypePicked ?? "").trim();
   if (chosen) return chosen;
 
-  const roll = (new Roll("1d8")).evaluateSync();
-  const face = Number(roll?.total ?? 0) || 1;
-  chosen = __EPI_CHAOS_BOLT_TYPE_BY_D8[face] ?? "force";
+  console.debug(`${__EPI_CHAOS_BOLT_DEBUG_PREFIX} type roll start`, {
+    stage,
+    item: workflow?.item?.name ?? "",
+    hasRollClass: typeof Roll !== "undefined",
+    hasEvaluateSync: typeof Roll !== "undefined" && typeof Roll?.prototype?.evaluateSync === "function",
+    hasEvaluate: typeof Roll !== "undefined" && typeof Roll?.prototype?.evaluate === "function"
+  });
 
   try {
+    const roll = new Roll("1d8");
+    if (typeof roll?.evaluate === "function") await roll.evaluate({ async: true });
+    else if (typeof roll?.evaluateSync === "function") roll.evaluateSync();
+    else throw new Error("No supported Roll evaluation method available");
+
+    const face = Number(roll?.total ?? 0) || 1;
+    chosen = __EPI_CHAOS_BOLT_TYPE_BY_D8[face] ?? "force";
+
     workflow.options ??= {};
     workflow.options[MODULE_ID] = {
       ...(workflow.options[MODULE_ID] ?? {}),
       chaosBoltTypePicked: chosen,
       chaosBoltTypeFace: face
     };
-  } catch (_e) {}
 
-  try {
-    await ChatMessage.create({
-      speaker: ChatMessage.getSpeaker({ actor: workflow?.actor ?? null, token: workflow?.token ?? null }),
-      flavor: `Éclair de chaos — d8 type: ${face} = ${__epiChaosBoltTypeLabel(chosen)}`,
-      rolls: [roll]
+    console.debug(`${__EPI_CHAOS_BOLT_DEBUG_PREFIX} type roll result`, {
+      stage,
+      face,
+      chosen,
+      item: workflow?.item?.name ?? ""
     });
-  } catch (_e) {}
 
-  console.debug(`${__EPI_CHAOS_BOLT_DEBUG_PREFIX} d8 type reached`, {
-    stage,
-    face,
-    item: workflow?.item?.name ?? ""
-  });
-  console.debug(`${__EPI_CHAOS_BOLT_DEBUG_PREFIX} type chosen`, {
-    stage,
-    face,
-    chosen,
-    item: workflow?.item?.name ?? ""
-  });
-  return chosen;
+    try {
+      await ChatMessage.create({
+        speaker: ChatMessage.getSpeaker({ actor: workflow?.actor ?? null, token: workflow?.token ?? null }),
+        flavor: `Éclair de chaos — d8 type: ${face} = ${__epiChaosBoltTypeLabel(chosen)}`,
+        rolls: [roll]
+      });
+    } catch (chatError) {
+      console.debug(`${__EPI_CHAOS_BOLT_DEBUG_PREFIX} type roll chat publish error`, {
+        stage,
+        message: chatError?.message ?? String(chatError ?? "")
+      });
+    }
+
+    console.debug(`${__EPI_CHAOS_BOLT_DEBUG_PREFIX} d8 type reached`, {
+      stage,
+      face,
+      item: workflow?.item?.name ?? ""
+    });
+    console.debug(`${__EPI_CHAOS_BOLT_DEBUG_PREFIX} type chosen`, {
+      stage,
+      face,
+      chosen,
+      item: workflow?.item?.name ?? ""
+    });
+    return chosen;
+  } catch (e) {
+    console.debug(`${__EPI_CHAOS_BOLT_DEBUG_PREFIX} type roll error`, {
+      stage,
+      item: workflow?.item?.name ?? "",
+      message: e?.message ?? String(e ?? ""),
+      stack: e?.stack ?? null
+    });
+    throw e;
+  }
 }
 
 Hooks.on("midi-qol.preItemRoll", (workflow) => {
@@ -2598,6 +2630,12 @@ Hooks.on("midi-qol.preAttackRoll", async (workflow) => {
 
     await __epiRollChaosBoltType(workflow, "preAttackRoll");
   } catch (e) {
+    console.debug(`${__EPI_CHAOS_BOLT_DEBUG_PREFIX} type roll error`, {
+      stage: "preAttackRoll",
+      item: workflow?.item?.name ?? "",
+      message: e?.message ?? String(e ?? ""),
+      stack: e?.stack ?? null
+    });
     console.warn(`[${MODULE_ID}] Chaos Bolt preAttackRoll type roll failed`, e);
   }
 });
@@ -2614,6 +2652,11 @@ Hooks.on("midi-qol.preDamageRoll", async (workflow) => {
     });
 
     const chosen = await __epiRollChaosBoltType(workflow, "preDamageRoll");
+    console.debug(`${__EPI_CHAOS_BOLT_DEBUG_PREFIX} preDamageRoll chosen type`, {
+      item: workflow?.item?.name ?? "",
+      chosen,
+      face: workflow?.options?.[MODULE_ID]?.chaosBoltTypeFace ?? null
+    });
 
     const debugTypes = (label, value) => {
       console.debug(`${__EPI_CHAOS_BOLT_DEBUG_PREFIX} final damage.types`, {
@@ -2664,6 +2707,11 @@ Hooks.on("midi-qol.preDamageRoll", async (workflow) => {
       formula: __epiChaosBoltFormulaSnapshot(finalPart)
     });
   } catch (e) {
+    console.debug(`${__EPI_CHAOS_BOLT_DEBUG_PREFIX} preDamageRoll injection error`, {
+      item: workflow?.item?.name ?? "",
+      message: e?.message ?? String(e ?? ""),
+      stack: e?.stack ?? null
+    });
     console.warn(`[${MODULE_ID}] Chaos Bolt preDamageRoll type injection failed`, e);
   }
 });
