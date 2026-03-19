@@ -4817,13 +4817,18 @@ if (unlimitedTargets && (!maxTargets || Number(maxTargets) <= 1) && (!multiShotT
     act.attack.type.value = "ranged";
     act.attack.type.classification = "spell";
 
-    const fallbackPart = { number: 2, denom: 8, bonus: "+1d6" };
+    const formula = (() => {
+      const n = Number(primaryDamage?.number ?? 2) || 2;
+      const d = Number(primaryDamage?.denom ?? 8) || 8;
+      const b = String(primaryDamage?.bonus ?? "+1d6").trim() || "+1d6";
+      return `${n}d${d}${b.startsWith("-") || b.startsWith("+") ? b : ` + ${b}`}`;
+    })();
     const dmgPart = {
-      number: Number(primaryDamage?.number ?? fallbackPart.number) || fallbackPart.number,
-      denomination: Number(primaryDamage?.denom ?? fallbackPart.denom) || fallbackPart.denom,
-      bonus: String(primaryDamage?.bonus ?? fallbackPart.bonus),
+      number: null,
+      denomination: null,
+      bonus: "",
       types: ["acid", "cold", "fire", "force", "lightning", "poison", "psychic", "thunder"],
-      custom: { enabled: false, formula: "" },
+      custom: { enabled: true, formula },
       scaling: { mode: "whole", number: 1, formula: "" }
     };
 
