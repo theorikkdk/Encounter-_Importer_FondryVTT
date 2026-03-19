@@ -2529,7 +2529,7 @@ async function __epiRollChaosBoltType(workflow, stage = "unknown") {
   let chosen = String(workflow?.options?.[MODULE_ID]?.chaosBoltTypePicked ?? "").trim();
   if (chosen) return chosen;
 
-  const roll = await (new Roll("1d8")).evaluate({ async: true });
+  const roll = (new Roll("1d8")).evaluateSync();
   const face = Number(roll?.total ?? 0) || 1;
   chosen = __EPI_CHAOS_BOLT_TYPE_BY_D8[face] ?? "force";
 
@@ -2608,22 +2608,30 @@ Hooks.on("midi-qol.preDamageRoll", async (workflow) => {
       });
     };
 
+    const buildFinalPart = () => ({
+      number: 2,
+      denomination: 8,
+      bonus: "+1d6",
+      types: new Set([chosen]),
+      custom: { enabled: false, formula: "" },
+      scaling: { mode: "whole", number: 1, formula: "" }
+    });
+
     const applyType = (act, label) => {
       if (!act) return;
-      if (Array.isArray(act?.damage?.parts) && act.damage.parts.length) {
-        const part = act.damage.parts[0];
-        debugTypes(`${label}:before`, part?.types);
-        // Runtime path: keep a single concrete type in the same array shape used by imported activities.
-        part.types = [chosen];
-        debugTypes(`${label}:after`, part?.types);
-        console.debug(`${__EPI_CHAOS_BOLT_DEBUG_PREFIX} final damage part`, {
-          label,
-          number: part?.number ?? null,
-          denomination: part?.denomination ?? null,
-          bonus: part?.bonus ?? null,
-          custom: part?.custom ?? null
-        });
-      }
+      const finalPart = buildFinalPart();
+      debugTypes(`${label}:before`, act?.damage?.parts?.[0]?.types);
+      act.damage = act.damage ?? { critical: { bonus: "" }, includeBase: true, parts: [] };
+      act.damage.parts = [finalPart];
+      debugTypes(`${label}:after`, act?.damage?.parts?.[0]?.types);
+      console.debug(`${__EPI_CHAOS_BOLT_DEBUG_PREFIX} final damage part`, {
+        label,
+        number: act?.damage?.parts?.[0]?.number ?? null,
+        denomination: act?.damage?.parts?.[0]?.denomination ?? null,
+        bonus: act?.damage?.parts?.[0]?.bonus ?? null,
+        custom: act?.damage?.parts?.[0]?.custom ?? null,
+        formula: `2d8 + 1d6`
+      });
     };
 
     applyType(workflow?.activity, 'workflow.activity');
@@ -2631,12 +2639,17 @@ Hooks.on("midi-qol.preDamageRoll", async (workflow) => {
     if (aId) {
       const ia = workflow?.item?.system?.activities?.[aId] ?? workflow?.item?.system?.activities?.get?.(aId) ?? null;
       applyType(ia, 'item.activity');
+      try {
+        const srcAct = workflow?.item?._source?.system?.activities?.[aId] ?? null;
+        applyType(srcAct, 'item._source.activity');
+      } catch (_e) {}
     }
 
     console.debug(`${__EPI_CHAOS_BOLT_DEBUG_PREFIX} damage roll continuing`, {
       chosen,
       activityId: aId || null,
-      face: workflow?.options?.[MODULE_ID]?.chaosBoltTypeFace ?? null
+      face: workflow?.options?.[MODULE_ID]?.chaosBoltTypeFace ?? null,
+      formula: '2d8 + 1d6'
     });
   } catch (e) {
     console.warn(`[${MODULE_ID}] Chaos Bolt preDamageRoll type injection failed`, e);
