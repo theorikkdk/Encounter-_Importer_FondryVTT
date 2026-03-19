@@ -5133,6 +5133,7 @@ function epiDisableOtherActivityForOnHitAoe(workflow) {
           resolvedId: String(saveAct?._id ?? saveAct?.id ?? ""),
           uuid: String(saveAct?.uuid ?? saveAct?.document?.uuid ?? "")
         });
+        if (saveAct?.midiProperties) saveAct.midiProperties.otherActivityCompatible = false;
       } else if (saveAct?.midiProperties) {
         saveAct.midiProperties.otherActivityCompatible = false;
       }
@@ -5263,10 +5264,7 @@ async function epiRunOnHitAoeSecondary(workflow) {
     }
 
     if (isLightningArrow) {
-      console.log(`[EPI lightning arrow debug] using exact ice knife runtime clone`, {
-        item: item?.name,
-        saveActivityId: String(meta?.saveActivityId ?? "")
-      });
+      return;
     }
 
     try {
@@ -5982,6 +5980,116 @@ async function epiAutoApplyOnHitAoeBuffMarker(workflow) {
 }
 
 
+async function epiLaunchLightningArrowSecondaryFromConfirmedAttack(workflow) {
+  try {
+    if (!workflow?.item) return;
+    const item = workflow.item;
+    const slug = String(
+      item?.getFlag?.(MODULE_ID, "slug")
+      ?? item?.getFlag?.("encounterplus-importer", "slug")
+      ?? item?.flags?.[MODULE_ID]?.slug
+      ?? item?.flags?.["encounterplus-importer"]?.slug
+      ?? ""
+    ).toLowerCase();
+    if (slug !== "fleche-de-foudre") return;
+
+    let meta =
+      item?.getFlag?.(MODULE_ID, "onHitAoe")
+      ?? item?.getFlag?.("encounterplus-importer", "onHitAoe")
+      ?? item?.flags?.[MODULE_ID]?.onHitAoe
+      ?? item?.flags?.["encounterplus-importer"]?.onHitAoe;
+    if (!meta?.radius || !meta?.saveActivityId) meta = inferOnHitAoeFromItemHotfix270k(item);
+    if (!meta?.radius || !meta?.saveActivityId) return;
+
+    let primary = null;
+    try { primary = Array.from(workflow?.hitTargets ?? [])[0] ?? null; } catch (_e) {}
+    if (!primary) {
+      try { primary = Array.from(workflow?.targets ?? [])[0] ?? null; } catch (_e) {}
+    }
+    if (!primary) {
+      const k = epiWorkflowKey(workflow);
+      const cached = k ? __epiOnHitAoeCache.get(k) : null;
+      if (cached?.primaryId) primary = epiResolveTokenById(cached.primaryId);
+    }
+    if (!primary) return;
+
+    console.log(`[EPI lightning arrow debug] primary target for activity 1`, {
+      target: primary?.name ?? primary?.id ?? null,
+      targetId: primary?.id ?? null,
+      targetUuid: primary?.document?.uuid ?? primary?.uuid ?? null
+    });
+
+    const doneKey = epiDoneKey(workflow, String(primary?.id ?? ""));
+    if (epiDoneRecently(doneKey)) return;
+
+    const gridDist = Number(canvas?.scene?.grid?.distance ?? 5) || 5;
+    const rScene = epiUnitsToSceneDistance(meta.radius, meta.units);
+    if (!rScene) return;
+    const steps = Math.max(1, Math.round(rScene / gridDist));
+    const tokens = (canvas?.tokens?.placeables ?? []).filter(t => t?.actor);
+    let adj = epiTokensInGridBurst(primary, tokens, steps);
+    adj = adj.filter(t => String(t?.id ?? "") !== String(primary?.id ?? ""));
+    if (!adj.length) return;
+
+    const targetUuids = adj.map(t => String(t?.document?.uuid ?? t?.uuid ?? "")).filter(Boolean);
+    if (!targetUuids.length) return;
+    console.log(`[EPI lightning arrow debug] explicit adjacent targetUuids for activity 2`, targetUuids);
+
+    const act = epiGetActivityById(item, String(meta.saveActivityId));
+    const actUuid = String(act?.uuid ?? act?.document?.uuid ?? "") || (item?.uuid ? `${item.uuid}.Activity.${String(meta.saveActivityId)}` : "");
+    if (!actUuid) return;
+
+    const baseLevel = Number(item?.system?.level ?? 0) || 0;
+    const castLevel = Number(
+      workflow?.castData?.castLevel ?? workflow?.spellLevel ?? workflow?.itemLevel ?? workflow?.workflowOptions?.castLevel ?? workflow?.options?.spellLevel ?? workflow?.options?.castLevel ?? baseLevel
+    ) || baseLevel;
+    const scaling = Math.max(0, castLevel - baseLevel);
+    const usage = {
+      consume: { spellSlot: false },
+      scaling,
+      spell: { slot: castLevel ? `spell${castLevel}` : undefined },
+      midiOptions: {
+        targetUuids,
+        proceedChecks: { checkTargets: false },
+        workflowOptions: {
+          __epiSecondaryOnHitAoe: true,
+          targetConfirmation: "none",
+          noProvokeReaction: true,
+          fastForward: true,
+          fastForwardDamage: true
+        }
+      },
+      __epiBypassActivityChooser: true,
+      __epiActivityChoiceDone: true
+    };
+    const dialog = { configure: false, options: { display: { all: false } } };
+    const message = { create: true };
+
+    epiMarkDone(doneKey);
+    const prevTargetIds = await epiSetUserTargets(adj.map(t => String(t?.id ?? t?.document?.id ?? "")).filter(Boolean)).catch(() => null);
+    try {
+      console.log(`[EPI lightning arrow debug] forcing explicit activity 2 launch`, {
+        activityUuid: actUuid,
+        targetUuids
+      });
+      const result = await epiUseActivityViaMidi(act ?? actUuid, usage, dialog, message);
+      console.log(`[EPI lightning arrow debug] activity 2 launched with explicit targets`, {
+        activityUuid: actUuid,
+        targetUuids
+      });
+      console.log(`[EPI lightning arrow debug] activity 2 completed`, {
+        activityUuid: actUuid,
+        hasResult: result != null,
+        resultType: typeof result
+      });
+    } finally {
+      try { if (prevTargetIds) await epiRestoreUserTargets(prevTargetIds); } catch (_e) {}
+    }
+  } catch (e) {
+    console.warn(`[EPI lightning arrow debug] explicit secondary launch failed`, e);
+  }
+}
+
 // Main trigger
 // We intentionally only listen to RollComplete here.
 // DamageRollComplete can fire in addition (and sometimes before RollComplete), which led to duplicate
@@ -5995,6 +6103,7 @@ Hooks.on("midi-qol.RollComplete", (workflow) => {
 });
 
 Hooks.on("midi-qol.AttackRollComplete", (workflow) => {
+  void epiLaunchLightningArrowSecondaryFromConfirmedAttack(workflow);
   void epiRunBuffOnHitAoeSecondary(workflow);
 });
 });
