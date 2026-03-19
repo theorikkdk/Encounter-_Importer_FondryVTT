@@ -5149,21 +5149,19 @@ function epiDisableOtherActivityForOnHitAoe(workflow) {
       if (workflow.activity && ("_otherActivity" in workflow.activity)) workflow.activity._otherActivity = null;
     } catch (_e) {}
 
-    // Keep Lightning Arrow aligned with the working Ice Knife-style runtime shape:
-    // hide the secondary save only in our chooser layer, without mutating its compatibility.
-    try {
-      const saveAct = epiGetActivityById(item, String(meta.saveActivityId));
-      if (spellSlug === "fleche-de-foudre") {
+    // Keep Lightning Arrow aligned with the dedicated import/runtime flow:
+    // block Midi-QOL's auto-pick on the active attack workflow only, without mutating the
+    // secondary activity object at runtime.
+    if (spellSlug === "fleche-de-foudre") {
+      try {
+        const saveAct = epiGetActivityById(item, String(meta.saveActivityId));
         console.log(`[EPI lightning arrow debug] saveActivityId resolved`, {
           saveActivityId: String(meta.saveActivityId ?? ""),
           resolvedId: String(saveAct?._id ?? saveAct?.id ?? ""),
           uuid: String(saveAct?.uuid ?? saveAct?.document?.uuid ?? "")
         });
-        if (saveAct?.midiProperties) saveAct.midiProperties.otherActivityCompatible = false;
-      } else if (saveAct?.midiProperties) {
-        saveAct.midiProperties.otherActivityCompatible = false;
-      }
-    } catch (_e) {}
+      } catch (_e) {}
+    }
 
   } catch (_e) {}
 }
@@ -5193,22 +5191,14 @@ async function epiExecuteIceKnifeStyleOnHitAoe({ item, meta, primary, targets, a
     .filter(Boolean);
   if (!targetUuids.length) return null;
 
-  const isLightningArrow = String(item?.getFlag?.(MODULE_ID, "slug") ?? item?.getFlag?.("encounterplus-importer", "slug") ?? item?.flags?.[MODULE_ID]?.slug ?? item?.flags?.["encounterplus-importer"]?.slug ?? "").toLowerCase() === "fleche-de-foudre";
-  if (isLightningArrow) {
-    console.log(`[EPI lightning arrow debug] adjacent targets selected`, {
-      targets: targets.map(t => ({ id: t?.id ?? null, name: t?.name ?? null })),
-      targetUuids
-    });
-  } else {
-    console.debug(`[${MODULE_ID}] onHitAoeBuff hotfix271d targetUuids`, targetUuids);
-    console.log(`[${MODULE_ID}] onHitAoe hotfix270r`, {
-      item: item?.name,
-      primary: primary?.name ?? primary?.id,
-      targets: targets.map(t => t?.name ?? t?.id),
-      radius: meta?.radius,
-      units: meta?.units
-    });
-  }
+  console.debug(`[${MODULE_ID}] onHitAoeBuff hotfix271d targetUuids`, targetUuids);
+  console.log(`[${MODULE_ID}] onHitAoe hotfix270r`, {
+    item: item?.name,
+    primary: primary?.name ?? primary?.id,
+    targets: targets.map(t => t?.name ?? t?.id),
+    radius: meta?.radius,
+    units: meta?.units
+  });
 
   const nextUsage = foundry.utils.mergeObject(usage, { midiOptions: { targetUuids } }, { inplace: false });
 
@@ -5218,20 +5208,7 @@ async function epiExecuteIceKnifeStyleOnHitAoe({ item, meta, primary, targets, a
   } catch (_e) {}
 
   try {
-    if (isLightningArrow) {
-      console.log(`[EPI lightning arrow debug] activity 2 launched`, {
-        activityUuid: actUuid,
-        targetUuids: nextUsage?.midiOptions?.targetUuids ?? []
-      });
-    }
     const secondaryResult = await epiUseActivityViaMidi(actUuid, nextUsage, dialog, message);
-    if (isLightningArrow) {
-      console.log(`[EPI lightning arrow debug] activity 2 completed`, {
-        activityUuid: actUuid,
-        hasResult: secondaryResult != null,
-        resultType: typeof secondaryResult
-      });
-    }
     return secondaryResult;
   } finally {
     try {
@@ -5265,8 +5242,6 @@ async function epiRunOnHitAoeSecondary(workflow) {
       ?? item?.flags?.["encounterplus-importer"]?.slug
       ?? ""
     ).toLowerCase();
-    const isLightningArrow = spellSlug === "fleche-de-foudre";
-
     let meta =
       item?.getFlag?.(MODULE_ID, "onHitAoe")
       ?? item?.getFlag?.("encounterplus-importer", "onHitAoe")
@@ -5289,9 +5264,7 @@ async function epiRunOnHitAoeSecondary(workflow) {
       return;
     }
 
-    if (isLightningArrow) {
-      return;
-    }
+    if (spellSlug === "fleche-de-foudre") return;
 
     try {
       const wActId = String(
@@ -5316,13 +5289,6 @@ async function epiRunOnHitAoeSecondary(workflow) {
     }
     if (!primary) return;
 
-    if (isLightningArrow) {
-      console.log(`[EPI lightning arrow debug] activity 1 complete`, {
-        item: item?.name,
-        workflowId: workflow?.id ?? workflow?.uuid ?? null
-      });
-    }
-
     const doneKey = epiDoneKey(workflow, String(primary.id ?? ""));
     if (epiDoneRecently(doneKey)) return;
 
@@ -5337,26 +5303,7 @@ async function epiRunOnHitAoeSecondary(workflow) {
     if (!meta?.includePrimaryTarget) targets = targets.filter(t => String(t?.id ?? "") !== String(primary?.id ?? ""));
     if (!targets.length) return;
 
-    if (isLightningArrow) {
-      console.log(`[EPI lightning arrow debug] adjacent targets selected`, {
-        primary: primary?.name ?? primary?.id ?? null,
-        targets: targets.map(t => ({ id: t?.id ?? null, name: t?.name ?? null })),
-        radius: meta?.radius ?? null,
-        units: meta?.units ?? null,
-        includePrimaryTarget: !!meta?.includePrimaryTarget
-      });
-    }
-
     const act = epiGetActivityById(item, String(meta.saveActivityId));
-    if (isLightningArrow) {
-      console.log(`[EPI lightning arrow debug] secondary save activity found`, {
-        found: !!act,
-        id: String(act?._id ?? act?.id ?? meta?.saveActivityId ?? ""),
-        uuid: String(act?.uuid ?? act?.document?.uuid ?? ""),
-        type: act?.type ?? null,
-        save: act?.save ?? act?.system?.save ?? null
-      });
-    }
 
     const baseLevel = Number(item?.system?.level ?? 0) || 0;
     const castLevel = Number(
@@ -5397,14 +5344,6 @@ async function epiRunOnHitAoeSecondary(workflow) {
     const message = { create: true };
 
     epiMarkDone(doneKey);
-
-    if (isLightningArrow) {
-      console.log(`[EPI lightning arrow debug] aoe save triggered`, {
-        mode: "ice-knife-style-secondary-activity",
-        targetCount: targets.length,
-        saveActivityId: String(meta?.saveActivityId ?? "")
-      });
-    }
 
     const actUuid =
       String(act?.uuid ?? act?.document?.uuid ?? "")
