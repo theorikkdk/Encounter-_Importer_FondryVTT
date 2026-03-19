@@ -5178,7 +5178,7 @@ function epiReplaceWorkflowTargetsForSecondary(workflow, targets) {
   return { tokenIds, tokenUuids, count: arr.length };
 }
 
-async function epiExecuteIceKnifeStyleOnHitAoe({ item, meta, primary, targets, actUuid, usage, dialog, message, debugLabel = "generic" }) {
+async function epiExecuteIceKnifeStyleOnHitAoe({ item, meta, primary, targets, actUuid, activityRef = null, usage, dialog, message, debugLabel = "generic" }) {
   const targetUuids = targets
     .map(t => String(t?.document?.uuid ?? t?.uuid ?? ""))
     .filter(Boolean);
@@ -5194,6 +5194,7 @@ async function epiExecuteIceKnifeStyleOnHitAoe({ item, meta, primary, targets, a
       targets: targets.map(t => ({ id: t?.id ?? null, name: t?.name ?? null })),
       targetUuids
     });
+    console.log(`[EPI lightning arrow debug] adjacent target uuids`, targetUuids);
   } else {
     console.debug(`[${MODULE_ID}] onHitAoeBuff hotfix271d targetUuids`, targetUuids);
     console.log(`[${MODULE_ID}] onHitAoe hotfix270r`, {
@@ -5214,18 +5215,28 @@ async function epiExecuteIceKnifeStyleOnHitAoe({ item, meta, primary, targets, a
 
   try {
     if (debugLabel === "lightning-arrow") {
+      console.log(`[EPI lightning arrow debug] launching secondary save with explicit targets`, {
+        activityUuid: actUuid,
+        targetCount: targetUuids.length,
+        targetUuids,
+        explicitTargetUuids: nextUsage?.midiOptions?.targetUuids ?? []
+      });
       console.log(`[EPI lightning arrow debug] secondary midi save launched`, {
         activityUuid: actUuid,
         targetCount: targetUuids.length,
         targetUuids
       });
     }
-    const secondaryResult = await epiUseActivityViaMidi(actUuid, nextUsage, dialog, message);
+    const secondaryResult = await epiUseActivityViaMidi(activityRef ?? actUuid, nextUsage, dialog, message);
     if (debugLabel === "lightning-arrow") {
       console.log(`[EPI lightning arrow debug] secondary activity executed`, {
         activityUuid: actUuid,
         hasResult: secondaryResult != null,
         resultType: typeof secondaryResult
+      });
+      console.log(`[EPI lightning arrow debug] secondary save effective targets`, {
+        activityUuid: actUuid,
+        effectiveTargetUuids: nextUsage?.midiOptions?.targetUuids ?? []
       });
       console.log(`[EPI lightning arrow debug] secondary midi save completed`, {
         activityUuid: actUuid,
@@ -5347,6 +5358,7 @@ async function epiRunLightningArrowViaIceKnifeHelper(workflow, item, meta) {
     primary,
     targets,
     actUuid,
+    activityRef: act ?? actUuid,
     usage,
     dialog,
     message,
@@ -5539,6 +5551,7 @@ async function epiRunOnHitAoeSecondary(workflow) {
       primary,
       targets,
       actUuid,
+      activityRef: act ?? actUuid,
       usage,
       dialog,
       message,
