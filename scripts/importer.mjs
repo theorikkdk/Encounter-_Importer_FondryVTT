@@ -7751,6 +7751,23 @@ export async function runImport({ sourcePath, prefix = "Encounter+ Import", dest
   }
 
 
+function __epiLightningArrowFinalPayloadSnapshot(data) {
+  try {
+    const sys = data?.system ?? {};
+    const acts = sys?.activities ?? {};
+    const entries = (acts?.entries && typeof acts.entries === "function") ? Array.from(acts.entries()) : Object.entries(acts);
+    return entries.map(([id, a]) => ({
+      id: String(id ?? a?._id ?? ""),
+      type: a?.type ?? null,
+      target: a?.target ?? null,
+      template: a?.target?.template ?? null,
+      prompt: a?.target?.prompt ?? null
+    }));
+  } catch (_e) {
+    return [];
+  }
+}
+
   // Import Spells
   if (Array.isArray(spells) && spells.length) {
     notify("info", `Import des sorts (${spells.length})…`);
@@ -7759,6 +7776,15 @@ export async function runImport({ sourcePath, prefix = "Encounter+ Import", dest
         const lvl = Number(sp?.data?.level ?? 0);
         const folder = spellFolders?.[lvl]?.id ?? fSpell.id;
         const data = await toDnd5eSpell(sp, folder);
+        if (String(sp?.slug ?? "").toLowerCase() === "fleche-de-foudre") {
+          console.debug(`[EPI lightning arrow debug] final payload before Item.create`, {
+            slug: String(sp?.slug ?? "").toLowerCase(),
+            duration: data?.system?.duration ?? null,
+            target: data?.system?.target ?? null,
+            properties: data?.system?.properties ?? null,
+            activities: __epiLightningArrowFinalPayloadSnapshot(data)
+          });
+        }
         await Item.create(data);
         summary.spells++;
       } catch (e) {
@@ -7919,6 +7945,7 @@ export async function repairSpellDistances({ sourcePath, prefix = "Encounter+ Im
       obj.system = obj.system ?? {};
       obj.system.range = range;
       obj.system.target = target;
+      obj.system.duration = { value: duration.value, units: duration.units, concentration: !!duration.concentration };
 
       // Avoid stacking duplicated aura placeholder effects
       if (Array.isArray(obj.effects)) {
@@ -7928,9 +7955,25 @@ export async function repairSpellDistances({ sourcePath, prefix = "Encounter+ Im
       try { applySpellActivities(obj, sp, duration, measurement); } catch (e) { log("applySpellActivities failed", obj?.name, e); }
       try { applySpellEffects(obj, sp, duration, measurement); } catch (e) { log("applySpellEffects failed", obj?.name, e); }
 
+      if (String(sp?.slug ?? "").toLowerCase() === "fleche-de-foudre") {
+        obj.system.duration = { value: null, units: "inst", concentration: false };
+        obj.system.target = { value: 1, units: "", type: "creature", prompt: false };
+        obj.system.properties = Array.isArray(obj.system.properties) ? obj.system.properties.filter(p => String(p ?? "") !== "concentration") : [];
+        console.debug(`[EPI lightning arrow debug] final payload before Item.update`, {
+          slug: String(sp?.slug ?? "").toLowerCase(),
+          itemId: it?.id ?? null,
+          duration: obj.system.duration ?? null,
+          target: obj.system.target ?? null,
+          properties: obj.system.properties ?? null,
+          activities: __epiLightningArrowFinalPayloadSnapshot(obj)
+        });
+      }
+
       await it.update({
         "system.range": obj.system.range,
         "system.target": obj.system.target,
+        "system.duration": obj.system.duration,
+        "system.properties": obj.system.properties,
         "system.activities": obj.system.activities,
         "effects": obj.effects
       });
