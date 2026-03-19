@@ -5121,10 +5121,7 @@ for (const ev of [
 
 async function epiRunOnHitAoeSecondary(workflow) {
   try {
-    // Skip secondary workflows created by this feature to avoid recursion.
     if (!workflow) return;
-    // Skip secondary workflows created by this feature to avoid recursion.
-    // Midi-QOL stores flags in slightly different places depending on call path.
     if (
       workflow?.workflowOptions?.__epiSecondaryOnHitAoe ||
       workflow?.options?.__epiSecondaryOnHitAoe ||
@@ -5132,9 +5129,6 @@ async function epiRunOnHitAoeSecondary(workflow) {
       workflow?.workflowOptions?.workflowOptions?.__epiSecondaryOnHitAoe
     ) return;
 
-    // Any workflow created via MidiQOL.completeActivityUse() will have forceCompletion=true.
-    // We use completeActivityUse() for the follow-up AoE activity; skip those workflows entirely
-    // to prevent re-triggering on their RollComplete events (extra JdS/dégâts).
     if (
       workflow?.workflowOptions?.forceCompletion === true ||
       workflow?.options?.workflowOptions?.forceCompletion === true ||
@@ -5143,6 +5137,15 @@ async function epiRunOnHitAoeSecondary(workflow) {
 
     const item = workflow?.item ?? null;
     if (!item) return;
+
+    const spellSlug = String(
+      item?.getFlag?.(MODULE_ID, "slug")
+      ?? item?.getFlag?.("encounterplus-importer", "slug")
+      ?? item?.flags?.[MODULE_ID]?.slug
+      ?? item?.flags?.["encounterplus-importer"]?.slug
+      ?? ""
+    ).toLowerCase();
+    const isLightningArrow = spellSlug === "fleche-de-foudre";
 
     let meta =
       item?.getFlag?.(MODULE_ID, "onHitAoe")
@@ -5166,8 +5169,14 @@ async function epiRunOnHitAoeSecondary(workflow) {
       return;
     }
 
-    // If this workflow IS already the secondary SAVE activity, do nothing
-    // (prevents double application if user clicks it, or if hooks fire from the follow-up workflow).
+    if (isLightningArrow) {
+      console.log(`[EPI lightning arrow debug] onHitAoe triggered`, {
+        item: item?.name,
+        workflowId: workflow?.id ?? workflow?.uuid ?? null,
+        saveActivityId: String(meta?.saveActivityId ?? "")
+      });
+    }
+
     try {
       const wActId = String(
         workflow?.activity?.id ??
@@ -5183,7 +5192,6 @@ async function epiRunOnHitAoeSecondary(workflow) {
       if (wActId && wActId === String(meta.saveActivityId)) return;
     } catch (_e) {}
 
-    // Resolve primary target (may be cleared by RollComplete)
     let primary = epiExtractPrimaryToken(workflow);
     if (!primary) {
       const k = epiWorkflowKey(workflow);
@@ -5192,6 +5200,14 @@ async function epiRunOnHitAoeSecondary(workflow) {
     }
     if (!primary) return;
 
+    if (isLightningArrow) {
+      console.log(`[EPI lightning arrow debug] impact target resolved`, {
+        target: primary?.name ?? primary?.id ?? null,
+        targetId: primary?.id ?? null,
+        targetUuid: primary?.document?.uuid ?? primary?.uuid ?? null
+      });
+    }
+
     const doneKey = epiDoneKey(workflow, String(primary.id ?? ""));
     if (epiDoneRecently(doneKey)) return;
 
@@ -5199,41 +5215,34 @@ async function epiRunOnHitAoeSecondary(workflow) {
     const rScene = epiUnitsToSceneDistance(meta.radius, meta.units);
     if (!rScene) return;
 
-    const steps = Math.max(1, Math.round(rScene / gridDist)); // 1 for 5ft / 1.5m
+    const steps = Math.max(1, Math.round(rScene / gridDist));
     const tokens = (canvas?.tokens?.placeables ?? []).filter(t => t?.actor);
     let targets = epiTokensInGridBurst(primary, tokens, steps);
 
     if (!meta?.includePrimaryTarget) targets = targets.filter(t => String(t?.id ?? "") !== String(primary?.id ?? ""));
     if (!targets.length) return;
 
+    if (isLightningArrow) {
+      console.log(`[EPI lightning arrow debug] aoe targets resolved`, {
+        primary: primary?.name ?? primary?.id ?? null,
+        targets: targets.map(t => ({ id: t?.id ?? null, name: t?.name ?? null })),
+        radius: meta?.radius ?? null,
+        units: meta?.units ?? null,
+        includePrimaryTarget: !!meta?.includePrimaryTarget
+      });
+    }
+
     const act = epiGetActivityById(item, String(meta.saveActivityId));
-    // Prefer passing a UUID string to Midi-QOL (more robust than passing an Activity object which might be a plain data object).
-    const actUuid =
-      String(act?.uuid ?? act?.document?.uuid ?? "")
-      || (item?.uuid ? `${item.uuid}.Activity.${String(meta.saveActivityId)}` : "");
+    if (isLightningArrow) {
+      console.log(`[EPI lightning arrow debug] secondary save activity found`, {
+        found: !!act,
+        id: String(act?._id ?? act?.id ?? meta?.saveActivityId ?? ""),
+        uuid: String(act?.uuid ?? act?.document?.uuid ?? ""),
+        type: act?.type ?? null,
+        save: act?.save ?? act?.system?.save ?? null
+      });
+    }
 
-    if (!actUuid) return;
-
-    const targetUuids = targets
-      .map(t => String(t?.document?.uuid ?? t?.uuid ?? ""))
-      .filter(Boolean);
-    // Debug: show resolved target UUIDs (useful for V13 token/document differences)
-    // Note: use Scene Token UUIDs explicitly; some modules/contexts can yield token.document.uuid variants.
-    console.debug(`[${MODULE_ID}] onHitAoeBuff hotfix271d targetUuids`, targetUuids);
-
-    if (!targetUuids.length) return;
-
-    // Debug (always visible in console logs)
-    console.log(`[${MODULE_ID}] onHitAoe hotfix270r`, {
-      item: item?.name,
-      primary: primary?.name ?? primary?.id,
-      targets: targets.map(t => t?.name ?? t?.id),
-      radius: meta.radius,
-      units: meta.units,
-      steps
-    });
-
-    // Preserve upcast scaling when re-running the secondary save activity.
     const baseLevel = Number(item?.system?.level ?? 0) || 0;
     const castLevel = Number(
       workflow?.castData?.castLevel ??
@@ -5246,19 +5255,21 @@ async function epiRunOnHitAoeSecondary(workflow) {
     ) || baseLevel;
     const scaling = Math.max(0, castLevel - baseLevel);
 
+    const targetUuids = targets
+      .map(t => String(t?.document?.uuid ?? t?.uuid ?? ""))
+      .filter(Boolean);
+    if (!targetUuids.length) return;
+
     const usage = {
       consume: { spellSlot: false },
       scaling,
       spell: { slot: castLevel ? `spell${castLevel}` : undefined },
       midiOptions: {
         targetUuids,
-        // Secondary on-hit bursts (Ice Knife, etc.) are multi-target but may not be recognized as AoE by Midi-QOL.
-        // Disable target-count enforcement for this follow-up activity to prevent workflow abortion.
         proceedChecks: { checkTargets: false },
         workflowOptions: {
           __epiSecondaryOnHitAoe: true,
           targetConfirmation: "none",
-          // Avoid side-effects (reactions/confirm dialogs) on the follow-up AoE roll.
           noProvokeReaction: true,
           fastForward: true,
           fastForwardDamage: true
@@ -5272,7 +5283,97 @@ async function epiRunOnHitAoeSecondary(workflow) {
 
     epiMarkDone(doneKey);
 
-    // Run the secondary SAVE activity through Midi-QOL.
+    if (isLightningArrow) {
+      const saveAbility = String(act?.save?.ability?.[0] ?? act?.system?.save?.ability?.[0] ?? "dex").toLowerCase() || "dex";
+      const dc = Number(
+        act?.save?.dc?.value ??
+        act?.save?.dc?.formula ??
+        act?.system?.save?.dc?.value ??
+        item?.system?.save?.dc ??
+        item?.actor?.system?.attributes?.spell?.dc ??
+        workflow?.actor?.system?.attributes?.spell?.dc ??
+        0
+      ) || Number(item?.actor?.system?.attributes?.spell?.dc ?? workflow?.actor?.system?.attributes?.spell?.dc ?? 0) || 0;
+      const dmgParts = act?.damage?.parts ?? act?.system?.damage?.parts ?? [];
+      const firstPart = dmgParts?.[0] ?? null;
+      let formula = String(firstPart?.formula ?? firstPart?.[0] ?? "").trim();
+      const dmgType = String(firstPart?.types?.[0] ?? firstPart?.type ?? firstPart?.[1] ?? "lightning") || "lightning";
+      if (!formula) {
+        const den = Number(firstPart?.denomination ?? 0) || 8;
+        const num = Number(firstPart?.number ?? 0) || 2;
+        const bonus = String(firstPart?.bonus ?? "").trim();
+        formula = `${num}d${den}${bonus ? ` + ${bonus}` : ""}`;
+      }
+      if (scaling > 0) formula = [formula, ...Array.from({ length: scaling }, () => formula)].join(" + ");
+
+      const saveTargets = new Set();
+      console.log(`[EPI lightning arrow debug] aoe save triggered`, {
+        mode: "manual-lightning-arrow-fallback",
+        ability: saveAbility,
+        dc,
+        formula,
+        damageType: dmgType,
+        targetCount: targets.length
+      });
+      for (const t of targets) {
+        const a = t?.actor;
+        if (!a?.rollAbilitySave) continue;
+        try {
+          const roll = await a.rollAbilitySave(saveAbility, {
+            chatMessage: true,
+            fastForward: true,
+            flavor: `${item?.name ?? "Flèche de foudre"} — JS secondaire`
+          });
+          const total = Number(roll?.total ?? roll?.result ?? 0);
+          if (dc > 0 && total >= dc) saveTargets.add(t);
+        } catch (_e) {}
+      }
+
+      let dmgRoll = null;
+      try {
+        const DR = CONFIG?.Dice?.DamageRoll ?? globalThis?.CONFIG?.Dice?.DamageRoll;
+        dmgRoll = DR ? await (new DR(formula, {}, { type: dmgType })).evaluate() : await (new Roll(formula)).evaluate();
+      } catch (e) {
+        console.warn(`[EPI lightning arrow debug] manual fallback damage roll failed`, e);
+        return;
+      }
+      const totalDamage = Number(dmgRoll?.total ?? 0) || 0;
+      const damageDetail = [{ damage: totalDamage, value: totalDamage, type: dmgType, formula: String(dmgRoll?.formula ?? formula) }];
+      try {
+        if (globalThis?.MidiQOL?.applyTokenDamage) {
+          await globalThis.MidiQOL.applyTokenDamage(damageDetail, totalDamage, targets, item, saveTargets, {
+            label: "defaultDamage",
+            updateOptions: { awaitDamageApplication: true }
+          });
+        } else {
+          for (const t of targets) {
+            const a = t?.actor;
+            if (!a) continue;
+            const amt = Math.floor(totalDamage * (saveTargets.has(t) ? 0.5 : 1));
+            await a.applyDamage?.(amt);
+          }
+        }
+      } catch (e) {
+        console.warn(`[EPI lightning arrow debug] manual fallback apply damage failed`, e);
+      }
+      return;
+    }
+
+    const actUuid =
+      String(act?.uuid ?? act?.document?.uuid ?? "")
+      || (item?.uuid ? `${item.uuid}.Activity.${String(meta.saveActivityId)}` : "");
+    if (!actUuid) return;
+
+    console.debug(`[${MODULE_ID}] onHitAoeBuff hotfix271d targetUuids`, targetUuids);
+    console.log(`[${MODULE_ID}] onHitAoe hotfix270r`, {
+      item: item?.name,
+      primary: primary?.name ?? primary?.id,
+      targets: targets.map(t => t?.name ?? t?.id),
+      radius: meta.radius,
+      units: meta.units,
+      steps
+    });
+
     await globalThis.MidiQOL.completeActivityUse(actUuid, usage, dialog, message);
   } catch (e) {
     console.warn(`[${MODULE_ID}] onHitAoe hotfix270r failed`, e);
