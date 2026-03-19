@@ -5284,79 +5284,11 @@ async function epiRunOnHitAoeSecondary(workflow) {
     epiMarkDone(doneKey);
 
     if (isLightningArrow) {
-      const saveAbility = String(act?.save?.ability?.[0] ?? act?.system?.save?.ability?.[0] ?? "dex").toLowerCase() || "dex";
-      const dc = Number(
-        act?.save?.dc?.value ??
-        act?.save?.dc?.formula ??
-        act?.system?.save?.dc?.value ??
-        item?.system?.save?.dc ??
-        item?.actor?.system?.attributes?.spell?.dc ??
-        workflow?.actor?.system?.attributes?.spell?.dc ??
-        0
-      ) || Number(item?.actor?.system?.attributes?.spell?.dc ?? workflow?.actor?.system?.attributes?.spell?.dc ?? 0) || 0;
-      const dmgParts = act?.damage?.parts ?? act?.system?.damage?.parts ?? [];
-      const firstPart = dmgParts?.[0] ?? null;
-      let formula = String(firstPart?.formula ?? firstPart?.[0] ?? "").trim();
-      const dmgType = String(firstPart?.types?.[0] ?? firstPart?.type ?? firstPart?.[1] ?? "lightning") || "lightning";
-      if (!formula) {
-        const den = Number(firstPart?.denomination ?? 0) || 8;
-        const num = Number(firstPart?.number ?? 0) || 2;
-        const bonus = String(firstPart?.bonus ?? "").trim();
-        formula = `${num}d${den}${bonus ? ` + ${bonus}` : ""}`;
-      }
-      if (scaling > 0) formula = [formula, ...Array.from({ length: scaling }, () => formula)].join(" + ");
-
-      const saveTargets = new Set();
       console.log(`[EPI lightning arrow debug] aoe save triggered`, {
-        mode: "manual-lightning-arrow-fallback",
-        ability: saveAbility,
-        dc,
-        formula,
-        damageType: dmgType,
-        targetCount: targets.length
+        mode: "ice-knife-style-secondary-activity",
+        targetCount: targets.length,
+        saveActivityId: String(meta?.saveActivityId ?? "")
       });
-      for (const t of targets) {
-        const a = t?.actor;
-        if (!a?.rollAbilitySave) continue;
-        try {
-          const roll = await a.rollAbilitySave(saveAbility, {
-            chatMessage: true,
-            fastForward: true,
-            flavor: `${item?.name ?? "Flèche de foudre"} — JS secondaire`
-          });
-          const total = Number(roll?.total ?? roll?.result ?? 0);
-          if (dc > 0 && total >= dc) saveTargets.add(t);
-        } catch (_e) {}
-      }
-
-      let dmgRoll = null;
-      try {
-        const DR = CONFIG?.Dice?.DamageRoll ?? globalThis?.CONFIG?.Dice?.DamageRoll;
-        dmgRoll = DR ? await (new DR(formula, {}, { type: dmgType })).evaluate() : await (new Roll(formula)).evaluate();
-      } catch (e) {
-        console.warn(`[EPI lightning arrow debug] manual fallback damage roll failed`, e);
-        return;
-      }
-      const totalDamage = Number(dmgRoll?.total ?? 0) || 0;
-      const damageDetail = [{ damage: totalDamage, value: totalDamage, type: dmgType, formula: String(dmgRoll?.formula ?? formula) }];
-      try {
-        if (globalThis?.MidiQOL?.applyTokenDamage) {
-          await globalThis.MidiQOL.applyTokenDamage(damageDetail, totalDamage, targets, item, saveTargets, {
-            label: "defaultDamage",
-            updateOptions: { awaitDamageApplication: true }
-          });
-        } else {
-          for (const t of targets) {
-            const a = t?.actor;
-            if (!a) continue;
-            const amt = Math.floor(totalDamage * (saveTargets.has(t) ? 0.5 : 1));
-            await a.applyDamage?.(amt);
-          }
-        }
-      } catch (e) {
-        console.warn(`[EPI lightning arrow debug] manual fallback apply damage failed`, e);
-      }
-      return;
     }
 
     const actUuid =

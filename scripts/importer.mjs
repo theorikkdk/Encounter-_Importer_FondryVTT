@@ -5767,8 +5767,17 @@ const addDelayedDamageActivity = () => {
       applyScalingToActivityDamage(a1, scaling);
     }
 
-    let a2id = deriveSiblingId(baseId, ["x","y","z","1","2","3","4","5","6","7","8","9","a","b","c","d"]);
-    while (sys.activities[a2id]) a2id = deriveSiblingId(baseId);
+    let a2id;
+    const genId = () => {
+      try {
+        if (foundry?.utils?.randomID) return foundry.utils.randomID(16);
+      } catch (e) {}
+      const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+      let s = "";
+      for (let i = 0; i < 16; i++) s += chars[Math.floor(Math.random() * chars.length)];
+      return s;
+    };
+    do { a2id = genId(); } while (sys.activities[a2id]);
     const a2 = makeActivity(a2id);
     a2.sort = 1;
     setCommonFromSpell(a2);
@@ -5776,14 +5785,13 @@ const addDelayedDamageActivity = () => {
     a2.name = isMidi ? "midi save" : (wantsFR ? "Sauvegarde" : "Save");
     a2.midiProperties = a2.midiProperties ?? (isMidi ? midiDefaults() : { displayActivityName: false });
     a2.midiProperties.displayActivityName = true;
-    a2.midiProperties.automationOnly = true;
     a2.midiProperties.otherActivityCompatible = false;
     a2.consumption = a2.consumption ?? { targets: [], scaling: { allowed: false, max: "" }, spellSlot: false };
     a2.consumption.spellSlot = false;
     a2.target = a2.target ?? {};
     a2.target.prompt = false;
     a2.target.template = { count: "", contiguous: false, type: "", size: "", width: "", height: "", units: "ft" };
-    a2.target.affects = { count: "99", type: "creature", choice: false, special: "" };
+    a2.target.affects = { count: "", type: "creature", choice: false, special: "" };
     a2.save = a2.save ?? { ability: [saveAb], dc: { calculation: "", formula: CASTER_DC_FORMULA } };
     a2.save.ability = [saveAb];
     a2.save.dc = a2.save.dc ?? { calculation: "", formula: CASTER_DC_FORMULA };
@@ -7776,9 +7784,9 @@ function __epiForceLightningArrowFinalPayload(data) {
       act.midiProperties = act.midiProperties ?? {};
       act.midiProperties.automationOnly = false;
     } else if (act.type === "save") {
-      act.target.affects = { count: "99", type: "creature", choice: false, special: "" };
+      act.target.affects = { count: "", type: "creature", choice: false, special: "" };
       act.midiProperties = act.midiProperties ?? {};
-      act.midiProperties.automationOnly = true;
+      act.midiProperties.automationOnly = false;
       act.midiProperties.otherActivityCompatible = false;
     }
   }
