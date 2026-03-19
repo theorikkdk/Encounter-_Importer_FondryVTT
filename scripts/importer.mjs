@@ -7751,6 +7751,65 @@ export async function runImport({ sourcePath, prefix = "Encounter+ Import", dest
   }
 
 
+function __epiForceLightningArrowFinalPayload(data) {
+  if (String(data?.flags?.["encounterplus-importer"]?.slug ?? "").toLowerCase() !== "fleche-de-foudre") return data;
+  data.system ??= {};
+  const sys = data.system;
+  sys.duration = { value: null, units: "inst", concentration: false };
+  sys.target = { value: 1, units: "", type: "creature", prompt: false };
+  sys.actionType = "rsak";
+  sys.properties = Array.isArray(sys.properties) ? sys.properties.filter(p => String(p ?? "") !== "concentration") : [];
+  try { delete sys.target.width; } catch (_e) { sys.target.width = ""; }
+  try { delete sys.target.height; } catch (_e) { sys.target.height = ""; }
+
+  const acts = sys.activities ?? {};
+  const entries = (acts?.entries && typeof acts.entries === "function") ? Array.from(acts.entries()) : Object.entries(acts);
+  for (const [, act] of entries) {
+    if (!act || typeof act !== "object") continue;
+    act.duration = { concentration: false, value: "", units: "inst", special: "", override: true };
+    act.target = act.target ?? {};
+    act.target.template = { count: "", contiguous: false, type: "", size: "", width: "", height: "", units: "ft" };
+    act.target.prompt = false;
+    act.target.override = true;
+    if (act.type === "attack") {
+      act.target.affects = { count: "1", type: "creature", choice: false, special: "" };
+      act.midiProperties = act.midiProperties ?? {};
+      act.midiProperties.automationOnly = false;
+    } else if (act.type === "save") {
+      act.target.affects = { count: "99", type: "creature", choice: false, special: "" };
+      act.midiProperties = act.midiProperties ?? {};
+      act.midiProperties.automationOnly = true;
+      act.midiProperties.otherActivityCompatible = false;
+    }
+  }
+  return data;
+}
+
+async function __epiPostFixLightningArrowDocument(doc) {
+  try {
+    const slug = String(doc?.flags?.["encounterplus-importer"]?.slug ?? "").toLowerCase();
+    if (slug !== "fleche-de-foudre") return;
+    const obj = doc.toObject();
+    __epiForceLightningArrowFinalPayload(obj);
+    console.debug(`[EPI lightning arrow debug] post-fix document payload`, {
+      itemId: doc?.id ?? null,
+      duration: obj?.system?.duration ?? null,
+      target: obj?.system?.target ?? null,
+      properties: obj?.system?.properties ?? null,
+      activities: __epiLightningArrowFinalPayloadSnapshot(obj)
+    });
+    await doc.update({
+      "system.duration": obj.system.duration,
+      "system.target": obj.system.target,
+      "system.properties": obj.system.properties,
+      "system.actionType": obj.system.actionType,
+      "system.activities": obj.system.activities
+    });
+  } catch (e) {
+    console.warn(`[EPI lightning arrow debug] post-fix failed`, e);
+  }
+}
+
 function __epiLightningArrowFinalPayloadSnapshot(data) {
   try {
     const sys = data?.system ?? {};
@@ -7776,6 +7835,7 @@ function __epiLightningArrowFinalPayloadSnapshot(data) {
         const lvl = Number(sp?.data?.level ?? 0);
         const folder = spellFolders?.[lvl]?.id ?? fSpell.id;
         const data = await toDnd5eSpell(sp, folder);
+        __epiForceLightningArrowFinalPayload(data);
         if (String(sp?.slug ?? "").toLowerCase() === "fleche-de-foudre") {
           console.debug(`[EPI lightning arrow debug] final payload before Item.create`, {
             slug: String(sp?.slug ?? "").toLowerCase(),
@@ -7785,7 +7845,8 @@ function __epiLightningArrowFinalPayloadSnapshot(data) {
             activities: __epiLightningArrowFinalPayloadSnapshot(data)
           });
         }
-        await Item.create(data);
+        const createdSpell = await Item.create(data);
+        await __epiPostFixLightningArrowDocument(createdSpell);
         summary.spells++;
       } catch (e) {
         failed.spells++;
@@ -7955,10 +8016,8 @@ export async function repairSpellDistances({ sourcePath, prefix = "Encounter+ Im
       try { applySpellActivities(obj, sp, duration, measurement); } catch (e) { log("applySpellActivities failed", obj?.name, e); }
       try { applySpellEffects(obj, sp, duration, measurement); } catch (e) { log("applySpellEffects failed", obj?.name, e); }
 
+      __epiForceLightningArrowFinalPayload(obj);
       if (String(sp?.slug ?? "").toLowerCase() === "fleche-de-foudre") {
-        obj.system.duration = { value: null, units: "inst", concentration: false };
-        obj.system.target = { value: 1, units: "", type: "creature", prompt: false };
-        obj.system.properties = Array.isArray(obj.system.properties) ? obj.system.properties.filter(p => String(p ?? "") !== "concentration") : [];
         console.debug(`[EPI lightning arrow debug] final payload before Item.update`, {
           slug: String(sp?.slug ?? "").toLowerCase(),
           itemId: it?.id ?? null,
@@ -7974,9 +8033,11 @@ export async function repairSpellDistances({ sourcePath, prefix = "Encounter+ Im
         "system.target": obj.system.target,
         "system.duration": obj.system.duration,
         "system.properties": obj.system.properties,
+        "system.actionType": obj.system.actionType,
         "system.activities": obj.system.activities,
         "effects": obj.effects
       });
+      await __epiPostFixLightningArrowDocument(it);
 
       updated++;
     }
