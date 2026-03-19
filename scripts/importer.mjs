@@ -5718,6 +5718,110 @@ const addDelayedDamageActivity = () => {
   }
 
 
+  // Dedicated simplification: Lightning Arrow is imported as a direct primary-target attack
+  // plus a secondary AoE save around the impact target (no concentration, no cast-time template,
+  // no next-shot buff state).
+  if (spellSlug === "fleche-de-foudre") {
+    const hitDmg = damages[0] ?? null;
+    const splashDmg = damages[1] ?? damages[0] ?? null;
+    const around = parseAoeAroundTargetFR(descText) ?? (aoe?.value ? { value: aoe.value, units: aoe.units } : null);
+
+    const a1 = makeActivity(baseId);
+    a1.sort = 0;
+    setCommonFromSpell(a1);
+    a1.type = "attack";
+    a1.name = isMidi ? "midi attack" : (wantsFR ? "Attaque" : "Attack");
+    a1.attack = a1.attack ?? { ability: "", bonus: "", critical: { threshold: null }, flat: false, type: { value: "ranged", classification: "spell" } };
+    a1.attack.type = a1.attack.type ?? { value: "ranged", classification: "spell" };
+    a1.attack.type.value = "ranged";
+    a1.attack.type.classification = "spell";
+    a1.target = a1.target ?? {
+      template: { count:"", contiguous:false, type:"", size:"", width:"", height:"", units:"ft" },
+      affects: { count:"1", type:"creature", choice:false, special:"" },
+      prompt: true,
+      override: true
+    };
+    a1.target.template = { count:"", contiguous:false, type:"", size:"", width:"", height:"", units:"ft" };
+    a1.target.affects = { count:"1", type:"creature", choice:false, special:"" };
+    a1.target.prompt = true;
+    a1.target.override = true;
+    a1.midiProperties = a1.midiProperties ?? (isMidi ? midiDefaults() : { displayActivityName: false });
+    a1.midiProperties.displayActivityName = true;
+    if (hitDmg) {
+      a1.damage = a1.damage ?? { critical: { bonus: "" }, includeBase: true, parts: [] };
+      a1.damage.parts = [{
+        number: hitDmg.number,
+        denomination: hitDmg.denom,
+        bonus: String(hitDmg.bonus ?? ""),
+        types: [hitDmg.dtype || ""],
+        custom: { enabled: false, formula: "" },
+        scaling: { mode: "whole", number: 1, formula: "" }
+      }];
+      applyScalingToActivityDamage(a1, scaling);
+    }
+
+    let a2id = deriveSiblingId(baseId, ["x","y","z","1","2","3","4","5","6","7","8","9","a","b","c","d"]);
+    while (sys.activities[a2id]) a2id = deriveSiblingId(baseId);
+    const a2 = makeActivity(a2id);
+    a2.sort = 1;
+    setCommonFromSpell(a2);
+    a2.type = "save";
+    a2.name = isMidi ? "midi save" : (wantsFR ? "Sauvegarde" : "Save");
+    a2.midiProperties = a2.midiProperties ?? (isMidi ? midiDefaults() : { displayActivityName: false });
+    a2.midiProperties.displayActivityName = true;
+    a2.midiProperties.automationOnly = true;
+    a2.midiProperties.otherActivityCompatible = false;
+    a2.consumption = a2.consumption ?? { targets: [], scaling: { allowed: false, max: "" }, spellSlot: false };
+    a2.consumption.spellSlot = false;
+    a2.target = a2.target ?? {};
+    a2.target.prompt = false;
+    a2.target.template = { count: "", contiguous: false, type: "", size: "", width: "", height: "", units: "ft" };
+    a2.target.affects = { count: "99", type: "creature", choice: false, special: "" };
+    a2.save = a2.save ?? { ability: [saveAb], dc: { calculation: "", formula: CASTER_DC_FORMULA } };
+    a2.save.ability = [saveAb];
+    a2.save.dc = a2.save.dc ?? { calculation: "", formula: CASTER_DC_FORMULA };
+    a2.save.dc.calculation = "";
+    a2.save.dc.formula = CASTER_DC_FORMULA;
+    try { delete a2.save.dc.value; } catch (e) { a2.save.dc.value = null; }
+    if (splashDmg) {
+      a2.damage = a2.damage ?? { onSave: halfOnSave ? "half" : "none", critical: { bonus: "" }, includeBase: true, parts: [] };
+      a2.damage.onSave = halfOnSave ? "half" : "none";
+      a2.damage.parts = [{
+        number: splashDmg.number,
+        denomination: splashDmg.denom,
+        bonus: String(splashDmg.bonus ?? ""),
+        types: [splashDmg.dtype || ""],
+        custom: { enabled: false, formula: "" },
+        scaling: { mode: "whole", number: 1, formula: "" }
+      }];
+      applyScalingToActivityDamage(a2, scaling);
+    }
+
+    if (around?.value) {
+      itemObj.flags ??= {};
+      itemObj.flags["encounterplus-importer"] ??= {};
+      itemObj.flags["encounterplus-importer"].onHitAoe = {
+        radius: Number(around.value),
+        units: String(around.units ?? "ft"),
+        saveActivityId: String(a2id),
+        includePrimaryTarget: false
+      };
+    }
+
+    sys.duration = sys.duration ?? { value: null, units: "inst", concentration: false };
+    sys.duration.value = null;
+    sys.duration.units = "inst";
+    sys.duration.concentration = false;
+    sys.target = sys.target ?? { value: 1, units: "", type: "creature", prompt: true };
+    sys.target.value = 1;
+    sys.target.type = "creature";
+    sys.target.units = "";
+    sys.target.prompt = true;
+    sys.actionType = "rsak";
+    forceCasterSaveDC();
+    return;
+  }
+
   // Buff spells that trigger a secondary AoE SAVE when you next hit with a ranged weapon attack (e.g. Grêle d'épines).
   // These should behave as a SELF buff at cast time (no template, no save, no damage),
   // and then auto-run a hidden SAVE activity on the hit target + adjacent creatures.
