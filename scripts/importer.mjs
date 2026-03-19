@@ -5785,22 +5785,22 @@ const addDelayedDamageActivity = () => {
     a2.name = isMidi ? "midi save" : (wantsFR ? "Sauvegarde" : "Save");
     a2.midiProperties = a2.midiProperties ?? (isMidi ? midiDefaults() : { displayActivityName: false });
     a2.midiProperties.displayActivityName = true;
-    a2.midiProperties.automationOnly = false;
-    a2.midiProperties.otherActivityCompatible = true;
     a2.consumption = a2.consumption ?? { targets: [], scaling: { allowed: false, max: "" }, spellSlot: false };
     a2.consumption.spellSlot = false;
     a2.target = a2.target ?? {};
-    a2.target.prompt = true;
-    a2.target.template = {
-      count: "",
-      contiguous: false,
-      type: String(around?.type ?? "sphere"),
-      size: String(around?.value ?? ""),
-      width: "",
-      height: "",
-      units: String(around?.units ?? "ft")
-    };
-    a2.target.affects = { count: "", type: "", choice: false, special: "" };
+    if (around?.value) {
+      a2.target.template = {
+        count: "",
+        contiguous: false,
+        type: "sphere",
+        size: String(around.value),
+        width: "",
+        height: "",
+        units: String(around.units ?? "ft")
+      };
+      a2.target.affects = { count: "", type: "", choice: false, special: "" };
+      a2.target.prompt = true;
+    }
     a2.save = a2.save ?? { ability: [saveAb], dc: { calculation: "", formula: CASTER_DC_FORMULA } };
     a2.save.ability = [saveAb];
     a2.save.dc = a2.save.dc ?? { calculation: "", formula: CASTER_DC_FORMULA };
@@ -5830,6 +5830,20 @@ const addDelayedDamageActivity = () => {
         saveActivityId: String(a2id),
         includePrimaryTarget: false
       };
+      try {
+        a2.target ??= {};
+        a2.target.affects ??= { count: "", type: "creature", choice: false, special: "" };
+        a2.target.affects.count = "";
+        a2.target.affects.type = a2.target.affects.type || "creature";
+        a2.target.prompt = false;
+        a2.target.template ??= { count: "", contiguous: false, type: "", size: "", width: "", height: "", units: "ft" };
+        a2.target.template.type = "";
+        a2.target.template.size = "";
+        a2.target.template.width = "";
+        a2.target.template.height = "";
+        a2.midiProperties ??= midiDefaults();
+        a2.midiProperties.otherActivityCompatible = false;
+      } catch (_e) {}
     }
 
     sys.duration = sys.duration ?? { value: null, units: "inst", concentration: false };
@@ -7802,14 +7816,12 @@ function __epiForceLightningArrowFinalPayload(data) {
       act.midiProperties = act.midiProperties ?? {};
       act.midiProperties.automationOnly = false;
     } else if (act.type === "save") {
-      const radius = Number(data?.flags?.["encounterplus-importer"]?.onHitAoe?.radius ?? "") || "";
-      const units = String(data?.flags?.["encounterplus-importer"]?.onHitAoe?.units ?? "ft");
-      act.target.affects = { count: "", type: "", choice: false, special: "" };
-      act.target.prompt = true;
-      act.target.template = { count: "", contiguous: false, type: "sphere", size: String(radius), width: "", height: "", units };
+      act.target.affects = { count: "", type: "creature", choice: false, special: "" };
+      act.target.prompt = false;
+      act.target.template = { count: "", contiguous: false, type: "", size: "", width: "", height: "", units: "ft" };
       act.midiProperties = act.midiProperties ?? {};
       act.midiProperties.automationOnly = false;
-      act.midiProperties.otherActivityCompatible = true;
+      act.midiProperties.otherActivityCompatible = false;
     }
   }
   return data;

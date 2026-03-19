@@ -5160,41 +5160,18 @@ for (const ev of [
   });
 }
 
-function epiReplaceWorkflowTargetsForSecondary(workflow, targets) {
-  const arr = Array.isArray(targets) ? targets.filter(Boolean) : [];
-  const tokenIds = arr.map(t => String(t?.id ?? t?.document?.id ?? "")).filter(Boolean);
-  const tokenUuids = arr.map(t => String(t?.document?.uuid ?? t?.uuid ?? "")).filter(Boolean);
-  const targetSet = new Set(arr);
-  try { workflow.targets = targetSet; } catch (_e) {}
-  try { workflow.hitTargets = targetSet; } catch (_e) {}
-  try { workflow.applicationTargets = targetSet; } catch (_e) {}
-  try { workflow.saves = new Set(); } catch (_e) {}
-  try { workflow.failedSaves = new Set(); } catch (_e) {}
-  try { workflow.hitTargetUuids = tokenUuids; } catch (_e) {}
-  try { workflow.targetUuids = tokenUuids; } catch (_e) {}
-  try { workflow.tokenIds = tokenIds; } catch (_e) {}
-  try { if (workflow.options && typeof workflow.options === 'object') workflow.options.targetUuids = tokenUuids; } catch (_e) {}
-  try { if (workflow.workflowOptions && typeof workflow.workflowOptions === 'object') workflow.workflowOptions.targetUuids = tokenUuids; } catch (_e) {}
-  return { tokenIds, tokenUuids, count: arr.length };
-}
-
-async function epiExecuteIceKnifeStyleOnHitAoe({ item, meta, primary, targets, actUuid, activityRef = null, usage, dialog, message, debugLabel = "generic" }) {
+async function epiExecuteIceKnifeStyleOnHitAoe({ item, meta, primary, targets, actUuid, usage, dialog, message }) {
   const targetUuids = targets
     .map(t => String(t?.document?.uuid ?? t?.uuid ?? ""))
     .filter(Boolean);
   if (!targetUuids.length) return null;
 
-  if (debugLabel === "lightning-arrow") {
-    console.log(`[EPI lightning arrow debug] ice-knife-style path entered`, {
-      item: item?.name,
-      saveActivityId: String(meta?.saveActivityId ?? ""),
-      targetCount: targetUuids.length
-    });
+  const isLightningArrow = String(item?.getFlag?.(MODULE_ID, "slug") ?? item?.getFlag?.("encounterplus-importer", "slug") ?? item?.flags?.[MODULE_ID]?.slug ?? item?.flags?.["encounterplus-importer"]?.slug ?? "").toLowerCase() === "fleche-de-foudre";
+  if (isLightningArrow) {
     console.log(`[EPI lightning arrow debug] adjacent targets selected`, {
       targets: targets.map(t => ({ id: t?.id ?? null, name: t?.name ?? null })),
       targetUuids
     });
-    console.log(`[EPI lightning arrow debug] adjacent target uuids`, targetUuids);
   } else {
     console.debug(`[${MODULE_ID}] onHitAoeBuff hotfix271d targetUuids`, targetUuids);
     console.log(`[${MODULE_ID}] onHitAoe hotfix270r`, {
@@ -5214,36 +5191,15 @@ async function epiExecuteIceKnifeStyleOnHitAoe({ item, meta, primary, targets, a
   } catch (_e) {}
 
   try {
-    if (debugLabel === "lightning-arrow") {
-      console.log(`[EPI lightning arrow debug] launching secondary save with explicit targets`, {
+    if (isLightningArrow) {
+      console.log(`[EPI lightning arrow debug] activity 2 launched`, {
         activityUuid: actUuid,
-        targetCount: targetUuids.length,
-        targetUuids,
-        explicitTargetUuids: nextUsage?.midiOptions?.targetUuids ?? []
-      });
-      console.log(`[EPI lightning arrow debug] secondary midi save launched`, {
-        activityUuid: actUuid,
-        targetCount: targetUuids.length,
-        targetUuids
+        targetUuids: nextUsage?.midiOptions?.targetUuids ?? []
       });
     }
-    const secondaryResult = await epiUseActivityViaMidi(activityRef ?? actUuid, nextUsage, dialog, message);
-    if (debugLabel === "lightning-arrow") {
-      console.log(`[EPI lightning arrow debug] secondary activity executed`, {
-        activityUuid: actUuid,
-        hasResult: secondaryResult != null,
-        resultType: typeof secondaryResult
-      });
-      console.log(`[EPI lightning arrow debug] secondary save effective targets`, {
-        activityUuid: actUuid,
-        effectiveTargetUuids: nextUsage?.midiOptions?.targetUuids ?? []
-      });
-      console.log(`[EPI lightning arrow debug] secondary midi save completed`, {
-        activityUuid: actUuid,
-        hasResult: secondaryResult != null,
-        resultType: typeof secondaryResult
-      });
-      console.log(`[EPI lightning arrow debug] secondary activity completed`, {
+    const secondaryResult = await epiUseActivityViaMidi(actUuid, nextUsage, dialog, message);
+    if (isLightningArrow) {
+      console.log(`[EPI lightning arrow debug] activity 2 completed`, {
         activityUuid: actUuid,
         hasResult: secondaryResult != null,
         resultType: typeof secondaryResult
@@ -5256,118 +5212,6 @@ async function epiExecuteIceKnifeStyleOnHitAoe({ item, meta, primary, targets, a
     } catch (_e) {}
   }
 }
-async function epiRunLightningArrowViaIceKnifeHelper(workflow, item, meta) {
-  console.log(`[EPI lightning arrow debug] hard bypass old hotfix`, {
-    item: item?.name,
-    saveActivityId: String(meta?.saveActivityId ?? ""),
-    source: "confirmed-attack-path"
-  });
-
-  let primary = epiExtractPrimaryToken(workflow);
-  if (!primary) {
-    const k = epiWorkflowKey(workflow);
-    const cached = k ? __epiOnHitAoeCache.get(k) : null;
-    if (cached?.primaryId) primary = epiResolveTokenById(cached.primaryId);
-  }
-  if (!primary) return;
-
-  console.log(`[EPI lightning arrow debug] primary hit resolved`, {
-    target: primary?.name ?? primary?.id ?? null,
-    targetId: primary?.id ?? null,
-    targetUuid: primary?.document?.uuid ?? primary?.uuid ?? null
-  });
-  console.log(`[EPI lightning arrow debug] impact target resolved`, {
-    target: primary?.name ?? primary?.id ?? null,
-    targetId: primary?.id ?? null,
-    targetUuid: primary?.document?.uuid ?? primary?.uuid ?? null
-  });
-
-  const doneKey = epiDoneKey(workflow, String(primary.id ?? ""));
-  if (epiDoneRecently(doneKey)) return;
-
-  const gridDist = Number(canvas?.scene?.grid?.distance ?? 5) || 5;
-  const rScene = epiUnitsToSceneDistance(meta.radius, meta.units);
-  if (!rScene) return;
-
-  const steps = Math.max(1, Math.round(rScene / gridDist));
-  const tokens = (canvas?.tokens?.placeables ?? []).filter(t => t?.actor);
-  let targets = epiTokensInGridBurst(primary, tokens, steps);
-  if (!meta?.includePrimaryTarget) targets = targets.filter(t => String(t?.id ?? "") !== String(primary?.id ?? ""));
-  if (!targets.length) return;
-
-  console.log(`[EPI lightning arrow debug] adjacent targets computed`, {
-    targets: targets.map(t => ({ id: t?.id ?? null, name: t?.name ?? null }))
-  });
-  const replacement = epiReplaceWorkflowTargetsForSecondary(workflow, targets);
-  console.log(`[EPI lightning arrow debug] targets replaced for secondary save`, replacement);
-
-  const act = epiGetActivityById(item, String(meta.saveActivityId));
-  console.log(`[EPI lightning arrow debug] secondary save activity found`, {
-    found: !!act,
-    id: String(act?._id ?? act?.id ?? meta?.saveActivityId ?? ""),
-    uuid: String(act?.uuid ?? act?.document?.uuid ?? ""),
-    type: act?.type ?? null,
-    save: act?.save ?? act?.system?.save ?? null
-  });
-
-  const baseLevel = Number(item?.system?.level ?? 0) || 0;
-  const castLevel = Number(
-    workflow?.castData?.castLevel ??
-    workflow?.spellLevel ??
-    workflow?.itemLevel ??
-    workflow?.workflowOptions?.castLevel ??
-    workflow?.options?.spellLevel ??
-    workflow?.options?.castLevel ??
-    baseLevel
-  ) || baseLevel;
-  const scaling = Math.max(0, castLevel - baseLevel);
-
-  const targetUuids = targets.map(t => String(t?.document?.uuid ?? t?.uuid ?? "")).filter(Boolean);
-  if (!targetUuids.length) return;
-
-  const usage = {
-    consume: { spellSlot: false },
-    scaling,
-    spell: { slot: castLevel ? `spell${castLevel}` : undefined },
-    midiOptions: {
-      targetUuids,
-      proceedChecks: { checkTargets: false },
-      workflowOptions: {
-        __epiSecondaryOnHitAoe: true,
-        targetConfirmation: "none",
-        noProvokeReaction: true,
-        fastForward: true,
-        fastForwardDamage: true
-      }
-    },
-    __epiBypassActivityChooser: true,
-    __epiActivityChoiceDone: true
-  };
-  const dialog = { configure: false, options: { display: { all: false } } };
-  const message = { create: true };
-
-  epiMarkDone(doneKey);
-
-  const actUuid =
-    String(act?.uuid ?? act?.document?.uuid ?? "")
-    || (item?.uuid ? `${item.uuid}.Activity.${String(meta.saveActivityId)}` : "");
-  if (!actUuid) return;
-
-  await epiExecuteIceKnifeStyleOnHitAoe({
-    item,
-    meta,
-    primary,
-    targets,
-    actUuid,
-    activityRef: act ?? actUuid,
-    usage,
-    dialog,
-    message,
-    debugLabel: "lightning-arrow"
-  });
-}
-
-
 async function epiRunOnHitAoeSecondary(workflow) {
   try {
     if (!workflow) return;
@@ -5419,9 +5263,10 @@ async function epiRunOnHitAoeSecondary(workflow) {
     }
 
     if (isLightningArrow) {
-      // Lightning Arrow is triggered from the confirmed attack path (AttackRollComplete)
-      // in this setup; do not let it fall back to the generic RollComplete follow-up path.
-      return;
+      console.log(`[EPI lightning arrow debug] using exact ice knife runtime clone`, {
+        item: item?.name,
+        saveActivityId: String(meta?.saveActivityId ?? "")
+      });
     }
 
     try {
@@ -5448,10 +5293,9 @@ async function epiRunOnHitAoeSecondary(workflow) {
     if (!primary) return;
 
     if (isLightningArrow) {
-      console.log(`[EPI lightning arrow debug] impact target resolved`, {
-        target: primary?.name ?? primary?.id ?? null,
-        targetId: primary?.id ?? null,
-        targetUuid: primary?.document?.uuid ?? primary?.uuid ?? null
+      console.log(`[EPI lightning arrow debug] activity 1 complete`, {
+        item: item?.name,
+        workflowId: workflow?.id ?? workflow?.uuid ?? null
       });
     }
 
@@ -5470,7 +5314,7 @@ async function epiRunOnHitAoeSecondary(workflow) {
     if (!targets.length) return;
 
     if (isLightningArrow) {
-      console.log(`[EPI lightning arrow debug] aoe targets resolved`, {
+      console.log(`[EPI lightning arrow debug] adjacent targets selected`, {
         primary: primary?.name ?? primary?.id ?? null,
         targets: targets.map(t => ({ id: t?.id ?? null, name: t?.name ?? null })),
         radius: meta?.radius ?? null,
@@ -5549,7 +5393,6 @@ async function epiRunOnHitAoeSecondary(workflow) {
       primary,
       targets,
       actUuid,
-      activityRef: act ?? actUuid,
       usage,
       dialog,
       message,
@@ -6139,38 +5982,6 @@ async function epiAutoApplyOnHitAoeBuffMarker(workflow) {
 }
 
 
-async function epiTriggerLightningArrowFromConfirmedAttack(workflow) {
-  try {
-    if (!workflow?.item) return;
-    const item = workflow.item;
-    const slug = String(
-      item?.getFlag?.(MODULE_ID, "slug")
-      ?? item?.getFlag?.("encounterplus-importer", "slug")
-      ?? item?.flags?.[MODULE_ID]?.slug
-      ?? item?.flags?.["encounterplus-importer"]?.slug
-      ?? ""
-    ).toLowerCase();
-    if (slug !== "fleche-de-foudre") return;
-
-    console.log(`[EPI lightning arrow debug] primary attack confirmed`, {
-      item: item?.name,
-      workflowId: workflow?.id ?? workflow?.uuid ?? null
-    });
-
-    let meta =
-      item?.getFlag?.(MODULE_ID, "onHitAoe")
-      ?? item?.getFlag?.("encounterplus-importer", "onHitAoe")
-      ?? item?.flags?.[MODULE_ID]?.onHitAoe
-      ?? item?.flags?.["encounterplus-importer"]?.onHitAoe;
-    if (!meta?.radius || !meta?.saveActivityId) meta = inferOnHitAoeFromItemHotfix270k(item);
-    if (!meta?.radius || !meta?.saveActivityId) return;
-
-    await epiRunLightningArrowViaIceKnifeHelper(workflow, item, meta);
-  } catch (e) {
-    console.warn(`[EPI lightning arrow debug] confirmed attack path failed`, e);
-  }
-}
-
 // Main trigger
 // We intentionally only listen to RollComplete here.
 // DamageRollComplete can fire in addition (and sometimes before RollComplete), which led to duplicate
@@ -6184,7 +5995,6 @@ Hooks.on("midi-qol.RollComplete", (workflow) => {
 });
 
 Hooks.on("midi-qol.AttackRollComplete", (workflow) => {
-  void epiTriggerLightningArrowFromConfirmedAttack(workflow);
   void epiRunBuffOnHitAoeSecondary(workflow);
 });
 });
