@@ -3638,12 +3638,12 @@ function epiIsAutomationOnlyActivity(act) {
   return f?.kind === "multi-attack-extra" || f?.kind === "multi-attack-focus";
 }
 
-function epiShouldPromptActivityChoice(item) {
-  if (!item || item.type !== "spell") return false;
-
-  const epi = item?.flags?.[MODULE_ID] ?? item?.flags?.["encounterplus-importer"] ?? {};
-  if (epi?.forceActivityChooser) return true;
-  if (epi?.beamCantrip?.enabled) return false;
+function epiGetChooserHiddenActivityIds(item) {
+  const hidden = new Set();
+  const add = (id) => {
+    const s = String(id ?? "");
+    if (s) hidden.add(s);
+  };
 
   const onHitAoe =
     item?.getFlag?.(MODULE_ID, "onHitAoe")
@@ -3651,13 +3651,39 @@ function epiShouldPromptActivityChoice(item) {
     ?? item?.flags?.[MODULE_ID]?.onHitAoe
     ?? item?.flags?.["encounterplus-importer"]?.onHitAoe
     ?? null;
-  const hiddenOnLaunchId = String(onHitAoe?.saveActivityId ?? "");
+  add(onHitAoe?.saveActivityId);
+
+  const onHitAoeBuff =
+    item?.getFlag?.(MODULE_ID, "onHitAoeBuff")
+    ?? item?.getFlag?.("encounterplus-importer", "onHitAoeBuff")
+    ?? item?.flags?.[MODULE_ID]?.onHitAoeBuff
+    ?? item?.flags?.["encounterplus-importer"]?.onHitAoeBuff
+    ?? null;
+  add(onHitAoeBuff?.saveActivityId);
+
+  const epi = item?.flags?.[MODULE_ID] ?? item?.flags?.["encounterplus-importer"] ?? {};
+  add(epi?.repeatActivityIds?.follow);
+  add(epi?.beamCantrip?.extraActivityId);
+  add(epi?.multiAttackChain?.followActivityId);
+  add(epi?.multiAttackChain?.extraActivityId);
+
+  return hidden;
+}
+
+function epiShouldPromptActivityChoice(item) {
+  if (!item || item.type !== "spell") return false;
+
+  const epi = item?.flags?.[MODULE_ID] ?? item?.flags?.["encounterplus-importer"] ?? {};
+  if (epi?.forceActivityChooser) return true;
+  if (epi?.beamCantrip?.enabled) return false;
+
+  const hiddenIds = epiGetChooserHiddenActivityIds(item);
   const isLightningArrow = String(epi?.slug ?? "").toLowerCase() === "fleche-de-foudre";
 
   const list = epiListActivities(item);
   const visible = list.filter(a => {
     const actId = String(a?._id ?? a?.id ?? "");
-    if (hiddenOnLaunchId && actId === hiddenOnLaunchId) {
+    if (hiddenIds.has(actId)) {
       if (isLightningArrow) {
         console.log(`[EPI lightning arrow debug] secondary activity hidden from choice`, {
           item: item?.name,
