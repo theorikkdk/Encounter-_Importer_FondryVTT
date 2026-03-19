@@ -5785,13 +5785,22 @@ const addDelayedDamageActivity = () => {
     a2.name = isMidi ? "midi save" : (wantsFR ? "Sauvegarde" : "Save");
     a2.midiProperties = a2.midiProperties ?? (isMidi ? midiDefaults() : { displayActivityName: false });
     a2.midiProperties.displayActivityName = true;
-    a2.midiProperties.otherActivityCompatible = false;
+    a2.midiProperties.automationOnly = false;
+    a2.midiProperties.otherActivityCompatible = true;
     a2.consumption = a2.consumption ?? { targets: [], scaling: { allowed: false, max: "" }, spellSlot: false };
     a2.consumption.spellSlot = false;
     a2.target = a2.target ?? {};
-    a2.target.prompt = false;
-    a2.target.template = { count: "", contiguous: false, type: "", size: "", width: "", height: "", units: "ft" };
-    a2.target.affects = { count: "", type: "creature", choice: false, special: "" };
+    a2.target.prompt = true;
+    a2.target.template = {
+      count: "",
+      contiguous: false,
+      type: String(around?.type ?? "sphere"),
+      size: String(around?.value ?? ""),
+      width: "",
+      height: "",
+      units: String(around?.units ?? "ft")
+    };
+    a2.target.affects = { count: "", type: "", choice: false, special: "" };
     a2.save = a2.save ?? { ability: [saveAb], dc: { calculation: "", formula: CASTER_DC_FORMULA } };
     a2.save.ability = [saveAb];
     a2.save.dc = a2.save.dc ?? { calculation: "", formula: CASTER_DC_FORMULA };
@@ -5840,9 +5849,17 @@ const addDelayedDamageActivity = () => {
     a1.target.prompt = false;
     a1.target.override = true;
     a2.duration = { concentration: false, value: "", units: "inst", special: "", override: true };
-    a2.target.prompt = false;
-    a2.target.template = { count: "", contiguous: false, type: "", size: "", width: "", height: "", units: "ft" };
     sys.actionType = "rsak";
+    console.debug(`[EPI lightning arrow debug] primary activity onHitAoe payload`, {
+      attackActivityId: String(a1?._id ?? baseId ?? ""),
+      onHitAoe: itemObj?.flags?.["encounterplus-importer"]?.onHitAoe ?? null
+    });
+    console.debug(`[EPI lightning arrow debug] secondary activity final shape`, {
+      saveActivityId: String(a2id),
+      target: a2.target ?? null,
+      midiProperties: a2.midiProperties ?? null,
+      consumption: a2.consumption ?? null
+    });
     console.debug(`[EPI lightning arrow debug] before final return`, {
       spellSlug,
       duration: sys.duration ?? null,
@@ -7781,13 +7798,18 @@ function __epiForceLightningArrowFinalPayload(data) {
     act.target.override = true;
     if (act.type === "attack") {
       act.target.affects = { count: "1", type: "creature", choice: false, special: "" };
+      act.target.template = { count: "", contiguous: false, type: "", size: "", width: "", height: "", units: "ft" };
       act.midiProperties = act.midiProperties ?? {};
       act.midiProperties.automationOnly = false;
     } else if (act.type === "save") {
-      act.target.affects = { count: "", type: "creature", choice: false, special: "" };
+      const radius = Number(data?.flags?.["encounterplus-importer"]?.onHitAoe?.radius ?? "") || "";
+      const units = String(data?.flags?.["encounterplus-importer"]?.onHitAoe?.units ?? "ft");
+      act.target.affects = { count: "", type: "", choice: false, special: "" };
+      act.target.prompt = true;
+      act.target.template = { count: "", contiguous: false, type: "sphere", size: String(radius), width: "", height: "", units };
       act.midiProperties = act.midiProperties ?? {};
       act.midiProperties.automationOnly = false;
-      act.midiProperties.otherActivityCompatible = false;
+      act.midiProperties.otherActivityCompatible = true;
     }
   }
   return data;

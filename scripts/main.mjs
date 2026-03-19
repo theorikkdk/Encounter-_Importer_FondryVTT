@@ -5123,10 +5123,19 @@ function epiDisableOtherActivityForOnHitAoe(workflow) {
       if (workflow.activity && ("_otherActivity" in workflow.activity)) workflow.activity._otherActivity = null;
     } catch (_e) {}
 
-    // Also mark the save activity as not compatible as an "other activity" (best-effort, runtime-only).
+    // Keep Lightning Arrow aligned with the working Ice Knife-style runtime shape:
+    // hide the secondary save only in our chooser layer, without mutating its compatibility.
     try {
       const saveAct = epiGetActivityById(item, String(meta.saveActivityId));
-      if (saveAct?.midiProperties) saveAct.midiProperties.otherActivityCompatible = false;
+      if (spellSlug === "fleche-de-foudre") {
+        console.log(`[EPI lightning arrow debug] saveActivityId resolved`, {
+          saveActivityId: String(meta.saveActivityId ?? ""),
+          resolvedId: String(saveAct?._id ?? saveAct?.id ?? ""),
+          uuid: String(saveAct?.uuid ?? saveAct?.document?.uuid ?? "")
+        });
+      } else if (saveAct?.midiProperties) {
+        saveAct.midiProperties.otherActivityCompatible = false;
+      }
     } catch (_e) {}
 
   } catch (_e) {}
