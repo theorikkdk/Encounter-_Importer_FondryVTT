@@ -6116,28 +6116,60 @@ async function epiLaunchLightningArrowSecondaryFromConfirmedHit(workflow) {
 	      item?.getFlag?.(MODULE_ID, "onHitAoe")
 	      ?? item?.getFlag?.("encounterplus-importer", "onHitAoe")
 	      ?? item?.flags?.[MODULE_ID]?.onHitAoe
-	      ?? item?.flags?.["encounterplus-importer"]?.onHitAoe;
-	    if (!meta?.radius || !meta?.saveActivityId) meta = inferOnHitAoeFromItemHotfix270k(item);
-	    if (!meta?.radius || !meta?.saveActivityId) return;
+	      ?? item?.flags?.["encounterplus-importer"]?.onHitAoe
+	      ?? null;
+	    if (!meta?.radius || !meta?.saveActivityId) meta = meta ?? inferOnHitAoeFromItemHotfix270k(item) ?? {};
+	    console.log(`[EPI lightning arrow debug] follow-up meta payload`, meta ?? null);
 
-	    const actId = String(meta?.saveActivityId ?? "");
-	    console.log(`[EPI lightning arrow debug] activity 2 id resolved`, {
-	      item: item?.name,
-	      activityId: actId || null
-	    });
+	    const rawSaveActivityId = meta?.saveActivityId ?? null;
+	    console.log(`[EPI lightning arrow debug] saveActivityId raw value`, rawSaveActivityId);
+
+	    const primaryActivityId = String(
+	      workflow?.activity?.id
+	      ?? workflow?.activity?._id
+	      ?? workflow?.activityId
+	      ?? workflow?.options?.activityId
+	      ?? ""
+	    );
+
+	    let actId = String(rawSaveActivityId ?? "");
+	    let act = actId ? epiGetActivityById(item, actId) : null;
+	    if (act) {
+	      console.log(`[EPI lightning arrow debug] activity 2 resolved by id`, {
+	        item: item?.name,
+	        activityId: actId
+	      });
+	    }
+	    if (!act) {
+	      const fallbackAct = epiListActivities(item).find(a => {
+	        const id = String(a?._id ?? a?.id ?? "");
+	        const type = String(a?.type ?? "").toLowerCase();
+	        return type === "save" && id && id !== primaryActivityId;
+	      }) ?? null;
+	      if (fallbackAct) {
+	        act = fallbackAct;
+	        actId = String(fallbackAct?._id ?? fallbackAct?.id ?? "");
+	        console.log(`[EPI lightning arrow debug] activity 2 resolved by fallback search`, {
+	          item: item?.name,
+	          activityId: actId,
+	          primaryActivityId: primaryActivityId || null
+	        });
+	      }
+	    }
 	    if (!actId) {
 	      console.warn(`[EPI lightning arrow debug] activity 2 launch failed`, {
 	        reason: "id absent",
-	        item: item?.name
+	        item: item?.name,
+	        saveActivityId: rawSaveActivityId
 	      });
 	      return;
 	    }
-	    const act = epiGetActivityById(item, actId);
 	    if (!act) {
 	      console.warn(`[EPI lightning arrow debug] activity 2 launch failed`, {
 	        reason: "activité introuvable",
 	        item: item?.name,
-	        activityId: actId
+	        activityId: actId,
+	        saveActivityId: rawSaveActivityId
 	      });
 	      return;
 	    }
@@ -6189,7 +6221,7 @@ async function epiLaunchLightningArrowSecondaryFromConfirmedHit(workflow) {
 	    let targetTokens = [];
 	    if (primary) {
 	      const gridDist = Number(canvas?.scene?.grid?.distance ?? 5) || 5;
-	      const rScene = epiUnitsToSceneDistance(meta.radius, meta.units);
+	      const rScene = epiUnitsToSceneDistance(meta?.radius, meta?.units);
 	      if (rScene) {
 	        const steps = Math.max(1, Math.round(rScene / gridDist));
 	        const tokens = (canvas?.tokens?.placeables ?? []).filter(t => t?.actor);
