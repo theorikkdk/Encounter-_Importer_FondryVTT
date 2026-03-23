@@ -4523,41 +4523,19 @@ Hooks.once("ready", () => {
 	      ?? ""
 	    ).toLowerCase();
 	    if (!explicitActivityId && lightningArrowSlug === "fleche-de-foudre") {
-	      const primaryDoc =
-	        ((typeof epiGetLightningArrowPrimaryActivity === "function")
-	          ? epiGetLightningArrowPrimaryActivity(item)
-	          : null)
-	        ?? (() => {
-	          const hiddenIds = epiGetChooserHiddenActivityIds(item);
-	          return epiListActivities(item).find(a => {
-	            const actId = String(a?._id ?? a?.id ?? "");
-	            if (!actId || hiddenIds.has(actId)) return false;
-	            if (epiIsAutomationOnlyActivity(a)) return false;
-	            return epiActivityConsumesSpellSlot(a) || String(a?.type ?? "").toLowerCase() === "attack";
-	          }) ?? null;
-	        })();
-	      if (primaryDoc) {
-	        const primaryId = String(primaryDoc?._id ?? primaryDoc?.id ?? "");
-	        console.log(`[EPI lightning arrow debug] chooser forced to primary only`, {
-	          item: item?.name,
-	          activityId: primaryId
-	        });
-	        console.log(`[EPI lightning arrow debug] activity 1 launched`, {
-	          item: item?.name,
-	          activityId: primaryId
-	        });
-	        const usage = foundry.utils.mergeObject(opts0, {
-	          __epiActivityChoiceDone: true,
-	          __epiBypassActivityChooser: true,
-	          activityId: primaryId,
-	          activity: primaryDoc ?? primaryId
-	        }, { inplace: false });
-	        try {
-	          if (primaryDoc?.use) return await __epiMaybeApplyWrapperBuff(await primaryDoc.use(usage, args[1] ?? {}, args[2] ?? {}));
-	        } catch (_e) {}
-	        const nextArgs = [usage, ...args.slice(1)];
-	        return await __epiMaybeApplyWrapperBuff(await wrapped(...nextArgs));
-	      }
+	      console.log(`[EPI lightning arrow debug] Lightning Arrow bypasses Item.use wrapper`, {
+	        item: item?.name,
+	        explicitActivityId: explicitActivityId || null
+	      });
+	      console.log(`[EPI lightning arrow debug] activity 1 uses standard launch path`, {
+	        item: item?.name,
+	        path: "wrapped(...args)"
+	      });
+	      console.log(`[EPI lightning arrow debug] Item.use wrapper chained correctly`, {
+	        item: item?.name,
+	        strategy: "delegate-to-wrapped-standard-path"
+	      });
+	      return await __epiMaybeApplyWrapperBuff(await wrapped(...args));
 	    }
 
 	    // Generic: prompt a dnd5e ActivityChoiceDialog when the spell has BOTH:
@@ -6324,6 +6302,11 @@ async function epiLaunchLightningArrowSecondaryFromConfirmedHit(workflow) {
 	    });
 	    try {
 	      console.log(`[EPI lightning arrow debug] activity 2 effective targets`, epiDescribeTokens(targetTokens));
+	      console.log(`[EPI lightning arrow debug] activity 2 launched from confirmed hook only`, {
+	        item: item?.name,
+	        workflowId: workflow?.id ?? workflow?.uuid ?? null,
+	        activityUuid: actUuid
+	      });
 	      console.log(`[EPI lightning arrow debug] auto-launching activity 2`, {
 	        activityUuid: actUuid,
 	        targetUuids
