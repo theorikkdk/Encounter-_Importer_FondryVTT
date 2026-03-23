@@ -5336,7 +5336,7 @@ for (const ev of [
   });
 }
 
-async function epiExecuteIceKnifeStyleOnHitAoe({ item, meta, primary, targets, activityRef, actUuid, usage, dialog, message }) {
+async function epiExecuteIceKnifeStyleOnHitAoe({ item, meta, primary, targets, activityRef, actUuid, usage, dialog, message, skipTargetSwitch = false }) {
   const targetUuids = targets
     .map(t => String(t?.document?.uuid ?? t?.uuid ?? ""))
     .filter(Boolean);
@@ -5363,9 +5363,11 @@ async function epiExecuteIceKnifeStyleOnHitAoe({ item, meta, primary, targets, a
   }, { inplace: false });
 
   let prevTargetIds = null;
-  try {
-    prevTargetIds = await epiSetUserTargets(targets.map(t => String(t?.id ?? t?.document?.id ?? "")).filter(Boolean));
-  } catch (_e) {}
+  if (!skipTargetSwitch) {
+    try {
+      prevTargetIds = await epiSetUserTargets(targets.map(t => String(t?.id ?? t?.document?.id ?? "")).filter(Boolean));
+    } catch (_e) {}
+  }
 
   try {
     const secondaryResult = await epiUseActivityViaMidi(activityRef ?? actUuid, nextUsage, dialog, message);
@@ -6285,6 +6287,16 @@ async function epiLaunchLightningArrowSecondaryFromConfirmedHit(workflow) {
 	      });
 	      targetTokens = adj;
 	    }
+	    if (!targetTokens.length) {
+	      const currentTargets = Array.from(game.user?.targets ?? [])
+	        .map(t => epiResolveTokenReference(t))
+	        .filter(Boolean)
+	        .filter(t => String(t?.id ?? "") !== String(primary?.id ?? ""));
+	      if (currentTargets.length) {
+	        targetTokens = currentTargets;
+	        console.log(`[EPI lightning arrow debug] current user targets reused for activity 2`, epiDescribeTokens(currentTargets));
+	      }
+	    }
 	    const targetUuids = targetTokens.map(t => String(t?.document?.uuid ?? t?.uuid ?? "")).filter(Boolean);
 	    if (!targetUuids.length) {
 	      console.warn(`[EPI lightning arrow debug] activity 2 launch failed`, {
@@ -6363,7 +6375,15 @@ async function epiLaunchLightningArrowSecondaryFromConfirmedHit(workflow) {
 	      message,
 	      targetUuids
 	    });
+	    let prevTargetIds = null;
 	    try {
+	      try {
+	        prevTargetIds = await epiSetUserTargets(targetTokens.map(t => String(t?.id ?? t?.document?.id ?? "")).filter(Boolean));
+	        console.log(`[EPI lightning arrow debug] activity 2 targets switched just before launch`, {
+	          targetUuids,
+	          userTargets: epiDescribeTokens(Array.from(game.user?.targets ?? []))
+	        });
+	      } catch (_targetSwitchError) {}
 	      console.log(`[EPI lightning arrow debug] activity 2 effective targets`, epiDescribeTokens(targetTokens));
 	      console.log(`[EPI lightning arrow debug] activity 2 launched from confirmed hook only`, {
 	        item: item?.name,
@@ -6383,7 +6403,8 @@ async function epiLaunchLightningArrowSecondaryFromConfirmedHit(workflow) {
 	        actUuid,
 	        usage,
 	        dialog,
-	        message
+	        message,
+	        skipTargetSwitch: true
 	      });
 	      console.log(`[EPI lightning arrow debug] activity 2 completed`, {
 	        activityUuid: actUuid,
@@ -6431,6 +6452,10 @@ async function epiLaunchLightningArrowSecondaryFromConfirmedHit(workflow) {
 	      });
 	      console.warn(`[EPI lightning arrow debug] activity 2 launch failed`, launchError);
 	      throw launchError;
+	    } finally {
+	      try {
+	        if (prevTargetIds) await epiRestoreUserTargets(prevTargetIds);
+	      } catch (_restoreError) {}
 	    }
   } catch (e) {
     console.warn(`[EPI lightning arrow debug] confirmed hit hook failed`, e);
