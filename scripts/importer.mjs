@@ -5790,7 +5790,8 @@ const addDelayedDamageActivity = () => {
     a2.type = "save";
     a2.name = isMidi ? (wantsFR ? "midi save" : "midi save") : (wantsFR ? "Sauvegarde" : "Save");
     a2.midiProperties = a2.midiProperties ?? (isMidi ? midiDefaults() : { displayActivityName: false });
-    a2.midiProperties.displayActivityName = true;
+    a2.midiProperties.displayActivityName = false;
+    a2.midiProperties.automationOnly = true;
     a2.consumption = a2.consumption ?? { targets: [], scaling: { allowed: false, max: "" }, spellSlot: false };
     a2.consumption.spellSlot = false;
     a2.save = a2.save ?? { ability: [saveAb], dc: { calculation: "", formula: CASTER_DC_FORMULA } };
@@ -5837,6 +5838,8 @@ const addDelayedDamageActivity = () => {
         a2.target.template.width = "";
         a2.target.template.height = "";
         a2.midiProperties ??= midiDefaults();
+        a2.midiProperties.displayActivityName = false;
+        a2.midiProperties.automationOnly = true;
         a2.midiProperties.otherActivityCompatible = false;
       } catch (_e) {}
     }
@@ -5859,15 +5862,24 @@ const addDelayedDamageActivity = () => {
     a1.target.override = true;
     a2.duration = { concentration: false, value: "", units: "inst", special: "", override: true };
     sys.actionType = "rsak";
-    console.debug(`[EPI lightning arrow debug] primary activity onHitAoe payload`, {
-      attackActivityId: String(a1?._id ?? baseId ?? ""),
-      onHitAoe: itemObj?.flags?.["encounterplus-importer"]?.onHitAoe ?? null
+    console.log(`[EPI lightning arrow debug] final activity 1 shape`, {
+      id: String(a1?._id ?? baseId ?? ""),
+      type: a1?.type ?? null,
+      target: a1?.target ?? null,
+      midiProperties: a1?.midiProperties ?? null
     });
-    console.debug(`[EPI lightning arrow debug] secondary activity final shape`, {
-      saveActivityId: String(a2id),
-      target: a2.target ?? null,
-      midiProperties: a2.midiProperties ?? null,
-      consumption: a2.consumption ?? null
+    console.log(`[EPI lightning arrow debug] final activity 2 shape`, {
+      id: String(a2id),
+      type: a2?.type ?? null,
+      target: a2?.target ?? null,
+      midiProperties: a2?.midiProperties ?? null,
+      consumption: a2?.consumption ?? null
+    });
+    console.log(`[EPI lightning arrow debug] activity 2 marked runtime-only`, {
+      id: String(a2id),
+      displayActivityName: a2?.midiProperties?.displayActivityName ?? null,
+      automationOnly: a2?.midiProperties?.automationOnly ?? null,
+      otherActivityCompatible: a2?.midiProperties?.otherActivityCompatible ?? null
     });
     console.debug(`[EPI lightning arrow debug] before final return`, {
       spellSlug,
@@ -7809,13 +7821,15 @@ function __epiForceLightningArrowFinalPayload(data) {
       act.target.affects = { count: "1", type: "creature", choice: false, special: "" };
       act.target.template = { count: "", contiguous: false, type: "", size: "", width: "", height: "", units: "ft" };
       act.midiProperties = act.midiProperties ?? {};
+      act.midiProperties.displayActivityName = true;
       act.midiProperties.automationOnly = false;
     } else if (act.type === "save") {
       act.target.affects = { count: "", type: "creature", choice: false, special: "" };
       act.target.prompt = false;
       act.target.template = { count: "", contiguous: false, type: "", size: "", width: "", height: "", units: "ft" };
       act.midiProperties = act.midiProperties ?? {};
-      act.midiProperties.automationOnly = false;
+      act.midiProperties.displayActivityName = false;
+      act.midiProperties.automationOnly = true;
       act.midiProperties.otherActivityCompatible = false;
     }
   }
@@ -7834,6 +7848,17 @@ async function __epiPostFixLightningArrowDocument(doc) {
       target: obj?.system?.target ?? null,
       properties: obj?.system?.properties ?? null,
       activities: __epiLightningArrowFinalPayloadSnapshot(obj)
+    });
+    const acts = __epiLightningArrowFinalPayloadSnapshot(obj);
+    const attackAct = acts.find(a => a?.type === "attack") ?? null;
+    const saveAct = acts.find(a => a?.type === "save") ?? null;
+    console.log(`[EPI lightning arrow debug] final activity 1 shape`, attackAct);
+    console.log(`[EPI lightning arrow debug] final activity 2 shape`, saveAct);
+    console.log(`[EPI lightning arrow debug] activity 2 marked runtime-only`, {
+      id: saveAct?.id ?? null,
+      displayActivityName: saveAct?.midiProperties?.displayActivityName ?? null,
+      automationOnly: saveAct?.midiProperties?.automationOnly ?? null,
+      otherActivityCompatible: saveAct?.midiProperties?.otherActivityCompatible ?? null
     });
     await doc.update({
       "system.duration": obj.system.duration,
@@ -7855,9 +7880,11 @@ function __epiLightningArrowFinalPayloadSnapshot(data) {
     return entries.map(([id, a]) => ({
       id: String(id ?? a?._id ?? ""),
       type: a?.type ?? null,
+      name: a?.name ?? null,
       target: a?.target ?? null,
       template: a?.target?.template ?? null,
-      prompt: a?.target?.prompt ?? null
+      prompt: a?.target?.prompt ?? null,
+      midiProperties: a?.midiProperties ?? null
     }));
   } catch (_e) {
     return [];
