@@ -6296,6 +6296,23 @@ async function epiLaunchLightningArrowSecondaryFromConfirmedHit(workflow) {
 	    const message = { create: true };
 
 	    epiMarkDone(doneKey);
+	    const launchContext = {
+	      activityRef: actUuid,
+	      actUuid,
+	      activity: {
+	        id: actId,
+	        uuid: String(act?.uuid ?? act?.document?.uuid ?? ""),
+	        type: act?.type ?? null
+	      },
+	      usage,
+	      dialog,
+	      message,
+	      targetUuids,
+	      userTargets: epiDescribeTokens(Array.from(game.user?.targets ?? []))
+	    };
+	    console.log(`[EPI lightning arrow debug] activity 2 launch context`, launchContext);
+	    console.log(`[EPI lightning arrow debug] activity 2 activity uuid`, actUuid);
+	    console.log(`[EPI lightning arrow debug] activity 2 usage payload`, usage);
 	    console.log(`[EPI lightning arrow debug] activity 2 targetUuids`, targetUuids);
 	    console.log(`[EPI lightning arrow debug] activity 2 activityRef`, actUuid);
 	    console.log(`[EPI lightning arrow debug] activity 2 launch payload`, {
@@ -6326,16 +6343,24 @@ async function epiLaunchLightningArrowSecondaryFromConfirmedHit(workflow) {
 	        resultType: typeof result
 	      });
 	    } catch (launchError) {
-	      console.warn(`[EPI lightning arrow debug] activity 2 launch failed`, {
+	      console.warn(`[EPI lightning arrow debug] activity 2 launch failed detailed`, {
 	        reason: "appel runtime qui échoue",
 	        item: item?.name,
 	        activityId: actId,
 	        activityUuid: actUuid,
+	        activityType: act?.type ?? null,
+	        activityRef: actUuid,
 	        targetUuids,
 	        usage,
+	        dialog,
+	        messageConfig: message,
+	        userTargets: epiDescribeTokens(Array.from(game.user?.targets ?? [])),
+	        name: launchError?.name ?? null,
 	        message: launchError?.message ?? String(launchError ?? ""),
-	        stack: launchError?.stack ?? null
+	        stack: launchError?.stack ?? null,
+	        cause: launchError?.cause ?? null
 	      });
+	      console.warn(`[EPI lightning arrow debug] activity 2 launch failed`, launchError);
 	      throw launchError;
 	    }
   } catch (e) {
