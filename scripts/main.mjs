@@ -4523,7 +4523,19 @@ Hooks.once("ready", () => {
 	      ?? ""
 	    ).toLowerCase();
 	    if (!explicitActivityId && lightningArrowSlug === "fleche-de-foudre") {
-	      const primaryDoc = epiGetLightningArrowPrimaryActivity(item);
+	      const primaryDoc =
+	        ((typeof epiGetLightningArrowPrimaryActivity === "function")
+	          ? epiGetLightningArrowPrimaryActivity(item)
+	          : null)
+	        ?? (() => {
+	          const hiddenIds = epiGetChooserHiddenActivityIds(item);
+	          return epiListActivities(item).find(a => {
+	            const actId = String(a?._id ?? a?.id ?? "");
+	            if (!actId || hiddenIds.has(actId)) return false;
+	            if (epiIsAutomationOnlyActivity(a)) return false;
+	            return epiActivityConsumesSpellSlot(a) || String(a?.type ?? "").toLowerCase() === "attack";
+	          }) ?? null;
+	        })();
 	      if (primaryDoc) {
 	        const primaryId = String(primaryDoc?._id ?? primaryDoc?.id ?? "");
 	        console.log(`[EPI lightning arrow debug] chooser forced to primary only`, {
