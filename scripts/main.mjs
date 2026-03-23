@@ -5958,6 +5958,10 @@ async function epiLaunchLightningArrowSecondaryFromConfirmedHit(workflow) {
     ).toLowerCase();
     if (slug !== "fleche-de-foudre") return;
 
+    console.log(`[EPI lightning arrow debug] using exact ice knife structure`, {
+      item: item?.name,
+      workflowId: workflow?.id ?? workflow?.uuid ?? null
+    });
     console.log(`[EPI lightning arrow debug] confirmed hit hook entered`, {
       item: item?.name,
       workflowId: workflow?.id ?? workflow?.uuid ?? null
@@ -6038,15 +6042,11 @@ async function epiLaunchLightningArrowSecondaryFromConfirmedHit(workflow) {
     epiMarkDone(doneKey);
     const prevTargetIds = await epiSetUserTargets(adj.map(t => String(t?.id ?? t?.document?.id ?? "")).filter(Boolean)).catch(() => null);
     try {
-      console.log(`[EPI lightning arrow debug] launching activity 2 directly from confirmed hit hook`, {
+      console.log(`[EPI lightning arrow debug] launching activity 2 directly`, {
         activityUuid: actUuid,
         targetUuids
       });
       const result = await epiUseActivityViaMidi(act ?? actUuid, usage, dialog, message);
-      console.log(`[EPI lightning arrow debug] activity 2 launched with explicit targets`, {
-        activityUuid: actUuid,
-        targetUuids
-      });
       console.log(`[EPI lightning arrow debug] activity 2 completed`, {
         activityUuid: actUuid,
         hasResult: result != null,

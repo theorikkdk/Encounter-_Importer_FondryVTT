@@ -5718,11 +5718,10 @@ const addDelayedDamageActivity = () => {
   }
 
 
-  // Dedicated simplification: Lightning Arrow is imported as a direct primary-target attack
-  // plus a secondary AoE save around the impact target (no concentration, no cast-time template,
-  // no next-shot buff state).
+  // Dedicated simplification: Lightning Arrow reuses the same attack + hidden follow-up SAVE
+  // structure as Ice Knife, with only the spell-specific differences applied afterwards.
   if (spellSlug === "fleche-de-foudre") {
-    console.debug(`[EPI lightning arrow debug] dedicated path reached`, {
+    console.log(`[EPI lightning arrow debug] using exact ice knife structure`, {
       spellSlug,
       itemName: itemObj?.name ?? sp?.name ?? "",
       initialDuration: sys.duration ?? null,
@@ -5739,6 +5738,10 @@ const addDelayedDamageActivity = () => {
     a1.type = "attack";
     a1.name = isMidi ? "midi attack" : (wantsFR ? "Attaque" : "Attack");
     a1.attack = a1.attack ?? { ability: "", bonus: "", critical: { threshold: null }, flat: false, type: { value: "ranged", classification: "spell" } };
+    a1.attack.ability = a1.attack.ability ?? "";
+    a1.attack.bonus = a1.attack.bonus ?? "";
+    a1.attack.critical = a1.attack.critical ?? { threshold: null };
+    a1.attack.flat = (a1.attack.flat ?? false);
     a1.attack.type = a1.attack.type ?? { value: "ranged", classification: "spell" };
     a1.attack.type.value = "ranged";
     a1.attack.type.classification = "spell";
@@ -5765,6 +5768,9 @@ const addDelayedDamageActivity = () => {
         scaling: { mode: "whole", number: 1, formula: "" }
       }];
       applyScalingToActivityDamage(a1, scaling);
+      a1.description.chatFlavor = `${atk.actionType.toUpperCase()} · ${hitDmg.number}d${hitDmg.denom} ${hitDmg.dtype}`;
+    } else {
+      a1.description.chatFlavor = `${atk.actionType.toUpperCase()}`;
     }
 
     let a2id;
@@ -5782,25 +5788,11 @@ const addDelayedDamageActivity = () => {
     a2.sort = 1;
     setCommonFromSpell(a2);
     a2.type = "save";
-    a2.name = isMidi ? "midi save" : (wantsFR ? "Sauvegarde" : "Save");
+    a2.name = isMidi ? (wantsFR ? "midi save" : "midi save") : (wantsFR ? "Sauvegarde" : "Save");
     a2.midiProperties = a2.midiProperties ?? (isMidi ? midiDefaults() : { displayActivityName: false });
     a2.midiProperties.displayActivityName = true;
     a2.consumption = a2.consumption ?? { targets: [], scaling: { allowed: false, max: "" }, spellSlot: false };
     a2.consumption.spellSlot = false;
-    a2.target = a2.target ?? {};
-    if (around?.value) {
-      a2.target.template = {
-        count: "",
-        contiguous: false,
-        type: "sphere",
-        size: String(around.value),
-        width: "",
-        height: "",
-        units: String(around.units ?? "ft")
-      };
-      a2.target.affects = { count: "", type: "", choice: false, special: "" };
-      a2.target.prompt = true;
-    }
     a2.save = a2.save ?? { ability: [saveAb], dc: { calculation: "", formula: CASTER_DC_FORMULA } };
     a2.save.ability = [saveAb];
     a2.save.dc = a2.save.dc ?? { calculation: "", formula: CASTER_DC_FORMULA };
@@ -5819,6 +5811,9 @@ const addDelayedDamageActivity = () => {
         scaling: { mode: "whole", number: 1, formula: "" }
       }];
       applyScalingToActivityDamage(a2, scaling);
+      a2.description.chatFlavor = `JS ${saveAb.toUpperCase()} · ${splashDmg.number}d${splashDmg.denom} ${splashDmg.dtype}${halfOnSave ? " (moitié si réussite)" : ""}`;
+    } else {
+      a2.description.chatFlavor = `JS ${saveAb.toUpperCase()}`;
     }
 
     if (around?.value) {
