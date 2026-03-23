@@ -1,0 +1,3783 @@
+[
+  {
+    "name": "Absorption des éléments",
+    "slug": "absorption-des-elements",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs"
+    ]
+  },
+  {
+    "name": "Agrandissement/Rapetissement",
+    "slug": "agrandissement-rapetissement",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save",
+      "buffs-resistances"
+    ]
+  },
+  {
+    "name": "Aide",
+    "slug": "aide",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Alarme",
+    "slug": "alarme",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Allié planaire",
+    "slug": "allie-planaire",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Amélioration de caractéristique",
+    "slug": "amelioration-de-caracteristique",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Amélioration de compétences",
+    "slug": "amelioration-de-competences",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Amitié avec les animaux",
+    "slug": "amitie-avec-les-animaux",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Animation des morts",
+    "slug": "animation-des-morts",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Animation des objets",
+    "slug": "animation-des-objets",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Anticipation",
+    "slug": "anticipation",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Antidétection",
+    "slug": "antidetection",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Apaisement des émotions",
+    "slug": "apaisement-des-emotions",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Apparence trompeuse",
+    "slug": "apparence-trompeuse",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Appel de destrier",
+    "slug": "appel-de-destrier",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Appel de destrier supérieur",
+    "slug": "appel-de-destrier-superieur",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Appel de familier",
+    "slug": "appel-de-familier",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Appel de la foudre",
+    "slug": "appel-de-la-foudre",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Arme élémentaire",
+    "slug": "arme-elementaire",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs"
+    ]
+  },
+  {
+    "name": "Arme magique",
+    "slug": "arme-magique",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Arme sacrée",
+    "slug": "arme-sacree",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Arme spirituelle",
+    "slug": "arme-spirituelle",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Armure d’Agathys",
+    "slug": "armure-d-agathys",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Armure du mage",
+    "slug": "armure-du-mage",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Arrêt du temps",
+    "slug": "arret-du-temps",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Aspersion acide",
+    "slug": "aspersion-acide",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save"
+    ]
+  },
+  {
+    "name": "Assassin imaginaire",
+    "slug": "assassin-imaginaire",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Assignation infernale",
+    "slug": "assignation-infernale",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Assistance",
+    "slug": "assistance",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Attraction terrestre",
+    "slug": "attraction-terrestre",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Aube",
+    "slug": "aube",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save"
+    ]
+  },
+  {
+    "name": "Augure",
+    "slug": "augure",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Aura de pureté",
+    "slug": "aura-de-purete",
+    "lot": "lot-1",
+    "reason": "simple direct",
+    "families": [
+      "buffs-resistances"
+    ]
+  },
+  {
+    "name": "Aura de vie",
+    "slug": "aura-de-vie",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Aura de vitalité",
+    "slug": "aura-de-vitalite",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Aura du croisé",
+    "slug": "aura-du-croise",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Aura magique de Nystul",
+    "slug": "aura-magique-de-nystul",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Aura sacrée",
+    "slug": "aura-sacree",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Aversion/Attirance",
+    "slug": "aversion-attirance",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Bagou",
+    "slug": "bagou",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Baies nourricières",
+    "slug": "baies-nourricieres",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Bannissement",
+    "slug": "bannissement",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Barrière de lames",
+    "slug": "barriere-de-lames",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Bénédiction",
+    "slug": "benediction",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Blessure",
+    "slug": "blessure",
+    "lot": "lot-1",
+    "reason": "simple direct",
+    "families": [
+      "degats-directs"
+    ]
+  },
+  {
+    "name": "Bosquet des druides",
+    "slug": "bosquet-des-druides",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Bouche magique",
+    "slug": "bouche-magique",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Bouclier",
+    "slug": "bouclier",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Bouclier de feu",
+    "slug": "bouclier-de-feu",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "buffs-resistances"
+    ]
+  },
+  {
+    "name": "Bouclier de la foi",
+    "slug": "bouclier-de-la-foi",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Bouclier de platine de Fizban",
+    "slug": "bouclier-de-platine-de-fizban",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Bouffée de poison",
+    "slug": "bouffee-de-poison",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save"
+    ]
+  },
+  {
+    "name": "Boule de feu",
+    "slug": "boule-de-feu",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save"
+    ]
+  },
+  {
+    "name": "Boule de feu à retardement",
+    "slug": "boule-de-feu-a-retardement",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save"
+    ]
+  },
+  {
+    "name": "Bourrasque",
+    "slug": "bourrasque",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Brume mortelle",
+    "slug": "brume-mortelle",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Cage de force",
+    "slug": "cage-de-force",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Cage des âmes",
+    "slug": "cage-des-ames",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Caresse du vampire",
+    "slug": "caresse-du-vampire",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "soins-simples"
+    ]
+  },
+  {
+    "name": "Catapulte",
+    "slug": "catapulte",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save"
+    ]
+  },
+  {
+    "name": "Cécité / Surdité",
+    "slug": "cecite-surdite",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Cercle de mort",
+    "slug": "cercle-de-mort",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save"
+    ]
+  },
+  {
+    "name": "Cercle de pouvoir",
+    "slug": "cercle-de-pouvoir",
+    "lot": "lot-1",
+    "reason": "simple direct",
+    "families": [
+      "buffs-resistances"
+    ]
+  },
+  {
+    "name": "Cercle de téléportation",
+    "slug": "cercle-de-teleportation",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Cercle magique",
+    "slug": "cercle-magique",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Cérémonie",
+    "slug": "ceremonie",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Chaîne d’éclairs",
+    "slug": "chaine-d-eclairs",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Champ antimagie",
+    "slug": "champ-antimagie",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Changement de forme",
+    "slug": "changement-de-forme",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "buffs-resistances"
+    ]
+  },
+  {
+    "name": "Changement de plan",
+    "slug": "changement-de-plan",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Charme personne",
+    "slug": "charme-personne",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Charme-monstre",
+    "slug": "charme-monstre",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Châtiment aveuglant",
+    "slug": "chatiment-aveuglant",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save"
+    ]
+  },
+  {
+    "name": "Châtiment calcinant",
+    "slug": "chatiment-calcinant",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save"
+    ]
+  },
+  {
+    "name": "Châtiment courroucé",
+    "slug": "chatiment-courrouce",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save"
+    ]
+  },
+  {
+    "name": "Châtiment débilitant",
+    "slug": "chatiment-debilitant",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save",
+      "buffs-resistances"
+    ]
+  },
+  {
+    "name": "Châtiment du ban",
+    "slug": "chatiment-du-ban",
+    "lot": "lot-1",
+    "reason": "simple direct",
+    "families": [
+      "degats-directs"
+    ]
+  },
+  {
+    "name": "Châtiment révélateur",
+    "slug": "chatiment-revelateur",
+    "lot": "lot-1",
+    "reason": "simple direct",
+    "families": [
+      "degats-directs"
+    ]
+  },
+  {
+    "name": "Châtiment tonitruant",
+    "slug": "chatiment-tonitruant",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save"
+    ]
+  },
+  {
+    "name": "Chien de garde de Mordenkainen",
+    "slug": "chien-de-garde-de-mordenkainen",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Clairvoyance",
+    "slug": "clairvoyance",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Clignotement",
+    "slug": "clignotement",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Clone",
+    "slug": "clone",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Coffre secret de Léomund",
+    "slug": "coffre-secret-de-leomund",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Collet",
+    "slug": "collet",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Colonne de flamme",
+    "slug": "colonne-de-flamme",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save"
+    ]
+  },
+  {
+    "name": "Communication à distance",
+    "slug": "communication-a-distance",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Communication avec les animaux",
+    "slug": "communication-avec-les-animaux",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Communication avec les morts",
+    "slug": "communication-avec-les-morts",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Communication avec les plantes",
+    "slug": "communication-avec-les-plantes",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Communion",
+    "slug": "communion",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Communion avec la nature",
+    "slug": "communion-avec-la-nature",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Compréhension des langues",
+    "slug": "comprehension-des-langues",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Compulsion",
+    "slug": "compulsion",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Cône de froid",
+    "slug": "cone-de-froid",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save"
+    ]
+  },
+  {
+    "name": "Confusion",
+    "slug": "confusion",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Contact avec les plans",
+    "slug": "contact-avec-les-plans",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save"
+    ]
+  },
+  {
+    "name": "Contact glacial",
+    "slug": "contact-glacial",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "soins-simples",
+      "buffs-resistances"
+    ]
+  },
+  {
+    "name": "Contagion",
+    "slug": "contagion",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "buffs-resistances"
+    ]
+  },
+  {
+    "name": "Contamination",
+    "slug": "contamination",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save",
+      "soins-simples"
+    ]
+  },
+  {
+    "name": "Contresort",
+    "slug": "contresort",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Contrôle de l’eau",
+    "slug": "controle-de-l-eau",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Contrôle des flammes",
+    "slug": "controle-des-flammes",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Contrôle des vents",
+    "slug": "controle-des-vents",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Contrôle du climat",
+    "slug": "controle-du-climat",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Convocation d’Aberration",
+    "slug": "convocation-d-aberration",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Convocation d’Artificiel",
+    "slug": "convocation-d-artificiel",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Convocation d’Élémentaire",
+    "slug": "convocation-d-elementaire",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Convocation d’esprit draconique",
+    "slug": "convocation-d-esprit-draconique",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Convocation d’Ombreux",
+    "slug": "convocation-d-ombreux",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Convocation de Bête",
+    "slug": "convocation-de-bete",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Convocation de Céleste",
+    "slug": "convocation-de-celeste",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Convocation de démon majeur",
+    "slug": "convocation-de-demon-majeur",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Convocation de démons mineurs",
+    "slug": "convocation-de-demons-mineurs",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Convocation de Fée",
+    "slug": "convocation-de-fee",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Convocation de Fiélon",
+    "slug": "convocation-de-fielon",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Convocation de Mort-vivant",
+    "slug": "convocation-de-mort-vivant",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Convocations instantanées de Drawmij",
+    "slug": "convocations-instantanees-de-drawmij",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Coquille antivie",
+    "slug": "coquille-antivie",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Corde enchantée",
+    "slug": "corde-enchantee",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Cordon de flèches",
+    "slug": "cordon-de-fleches",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save"
+    ]
+  },
+  {
+    "name": "Costume d’outre-monde de Tasha",
+    "slug": "costume-d-outre-monde-de-tasha",
+    "lot": "lot-1",
+    "reason": "simple direct",
+    "families": [
+      "buffs-resistances"
+    ]
+  },
+  {
+    "name": "Couleurs dansantes",
+    "slug": "couleurs-dansantes",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Coup au but",
+    "slug": "coup-au-but",
+    "lot": "lot-1",
+    "reason": "simple direct",
+    "families": [
+      "buffs-resistances"
+    ]
+  },
+  {
+    "name": "Coup de tonnerre",
+    "slug": "coup-de-tonnerre",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Couronne d’étoiles",
+    "slug": "couronne-d-etoiles",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs"
+    ]
+  },
+  {
+    "name": "Couronne du dément",
+    "slug": "couronne-du-dement",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Couteau de glace",
+    "slug": "couteau-de-glace",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Création",
+    "slug": "creation",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Création d’homoncule",
+    "slug": "creation-d-homoncule",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Création de mort-vivant",
+    "slug": "creation-de-mort-vivant",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Création de nourriture et d’eau",
+    "slug": "creation-de-nourriture-et-d-eau",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Création ou destruction d’eau",
+    "slug": "creation-ou-destruction-d-eau",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Croissance d’épines",
+    "slug": "croissance-d-epines",
+    "lot": "lot-1",
+    "reason": "simple direct",
+    "families": [
+      "degats-save"
+    ]
+  },
+  {
+    "name": "Croissance végétale",
+    "slug": "croissance-vegetale",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "buffs-resistances"
+    ]
+  },
+  {
+    "name": "Crosse des druides",
+    "slug": "crosse-des-druides",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Danse irrésistible d’Otto",
+    "slug": "danse-irresistible-d-otto",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "buffs-resistances"
+    ]
+  },
+  {
+    "name": "Danse macabre",
+    "slug": "danse-macabre",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Déblocage",
+    "slug": "deblocage",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Décharge occulte",
+    "slug": "decharge-occulte",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Dédale",
+    "slug": "dedale",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Déguisement",
+    "slug": "deguisement",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Délivrance des malédictions",
+    "slug": "delivrance-des-maledictions",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Déluge d’énergie négative",
+    "slug": "deluge-d-energie-negative",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save"
+    ]
+  },
+  {
+    "name": "Demi-plan",
+    "slug": "demi-plan",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Désintégration",
+    "slug": "desintegration",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Détection de l’invisibilité",
+    "slug": "detection-de-l-invisibilite",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Détection de la magie",
+    "slug": "detection-de-la-magie",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Détection des pensées",
+    "slug": "detection-des-pensees",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Détection des pièges",
+    "slug": "detection-des-pieges",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Détection du mal et du bien",
+    "slug": "detection-du-mal-et-du-bien",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Détection du poison et des maladies",
+    "slug": "detection-du-poison-et-des-maladies",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Discours captivant",
+    "slug": "discours-captivant",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Dispersion",
+    "slug": "dispersion",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Disque flottant de Tenser",
+    "slug": "disque-flottant-de-tenser",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Dissimulation suprême",
+    "slug": "dissimulation-supreme",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Dissipation de la magie",
+    "slug": "dissipation-de-la-magie",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Dissipation du mal et du bien",
+    "slug": "dissipation-du-mal-et-du-bien",
+    "lot": "lot-1",
+    "reason": "simple direct",
+    "families": [
+      "buffs-resistances"
+    ]
+  },
+  {
+    "name": "Divination",
+    "slug": "divination",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Doigt de mort",
+    "slug": "doigt-de-mort",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save"
+    ]
+  },
+  {
+    "name": "Domination d’animal",
+    "slug": "domination-d-animal",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "buffs-resistances"
+    ]
+  },
+  {
+    "name": "Domination de monstre",
+    "slug": "domination-de-monstre",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "buffs-resistances"
+    ]
+  },
+  {
+    "name": "Domination de personne",
+    "slug": "domination-de-personne",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "buffs-resistances"
+    ]
+  },
+  {
+    "name": "Don des langues",
+    "slug": "don-des-langues",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Double illusoire",
+    "slug": "double-illusoire",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Doux repos",
+    "slug": "doux-repos",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Dragon illusoire",
+    "slug": "dragon-illusoire",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Druidisme",
+    "slug": "druidisme",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Duel forcé",
+    "slug": "duel-force",
+    "lot": "lot-1",
+    "reason": "simple direct",
+    "families": [
+      "buffs-resistances"
+    ]
+  },
+  {
+    "name": "Eclair",
+    "slug": "eclair",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save"
+    ]
+  },
+  {
+    "name": "Eclair de chaos",
+    "slug": "eclair-de-chaos",
+    "lot": "lot-3",
+    "reason": "exception dediee",
+    "families": []
+  },
+  {
+    "name": "Eclat du soleil",
+    "slug": "eclat-du-soleil",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save",
+      "buffs-resistances"
+    ]
+  },
+  {
+    "name": "Embrasement",
+    "slug": "embrasement",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Embruns prismatiques",
+    "slug": "embruns-prismatiques",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save"
+    ]
+  },
+  {
+    "name": "Emprisonnement",
+    "slug": "emprisonnement",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Enchevêtrement",
+    "slug": "enchevetrement",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Enervation",
+    "slug": "enervation",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save",
+      "soins-simples"
+    ]
+  },
+  {
+    "name": "Ennemi subconscient",
+    "slug": "ennemi-subconscient",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Ennemis à foison",
+    "slug": "ennemis-a-foison",
+    "lot": "lot-1",
+    "reason": "simple direct",
+    "families": [
+      "buffs-resistances"
+    ]
+  },
+  {
+    "name": "Entrave planaire",
+    "slug": "entrave-planaire",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Entraves de givre",
+    "slug": "entraves-de-givre",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save"
+    ]
+  },
+  {
+    "name": "Epée de Mordenkainen",
+    "slug": "epee-de-mordenkainen",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Epine mentale",
+    "slug": "epine-mentale",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save"
+    ]
+  },
+  {
+    "name": "Eruption de lames",
+    "slug": "eruption-de-lames",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Eruption de terre",
+    "slug": "eruption-de-terre",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save"
+    ]
+  },
+  {
+    "name": "Espièglerie de Nathair",
+    "slug": "espieglerie-de-nathair",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Esprit faible",
+    "slug": "esprit-faible",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Esprit guérisseur",
+    "slug": "esprit-guerisseur",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Esprit impénétrable",
+    "slug": "esprit-impenetrable",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Esprits gardiens",
+    "slug": "esprits-gardiens",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save"
+    ]
+  },
+  {
+    "name": "Etat cadavérique",
+    "slug": "etat-cadaverique",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Eveil",
+    "slug": "eveil",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Fabrication",
+    "slug": "fabrication",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Façonnage de l’eau",
+    "slug": "faconnage-de-l-eau",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Façonnage de la pierre",
+    "slug": "faconnage-de-la-pierre",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Façonnage de la terre",
+    "slug": "faconnage-de-la-terre",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Faux amis",
+    "slug": "faux-amis",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Faveur divine",
+    "slug": "faveur-divine",
+    "lot": "lot-1",
+    "reason": "simple direct",
+    "families": [
+      "degats-directs"
+    ]
+  },
+  {
+    "name": "Ferrage fulgurant",
+    "slug": "ferrage-fulgurant",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Festin des héros",
+    "slug": "festin-des-heros",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "soins-simples",
+      "buffs-resistances"
+    ]
+  },
+  {
+    "name": "Feuille morte",
+    "slug": "feuille-morte",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Flambée d’Aganazzar",
+    "slug": "flambee-d-aganazzar",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save"
+    ]
+  },
+  {
+    "name": "Flamme éternelle",
+    "slug": "flamme-eternelle",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Flamme sacrée",
+    "slug": "flamme-sacree",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Flammes",
+    "slug": "flammes",
+    "lot": "lot-1",
+    "reason": "simple direct",
+    "families": [
+      "degats-directs"
+    ]
+  },
+  {
+    "name": "Fléau d’insectes",
+    "slug": "fleau-d-insectes",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save"
+    ]
+  },
+  {
+    "name": "Fléau élémentaire",
+    "slug": "fleau-elementaire",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save",
+      "buffs-resistances"
+    ]
+  },
+  {
+    "name": "Flèche acide de Melf",
+    "slug": "fleche-acide-de-melf",
+    "lot": "lot-1",
+    "reason": "simple direct",
+    "families": [
+      "degats-directs"
+    ]
+  },
+  {
+    "name": "Flèche de foudre",
+    "slug": "fleche-de-foudre",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save"
+    ]
+  },
+  {
+    "name": "Flèches enflammées",
+    "slug": "fleches-enflammees",
+    "lot": "lot-1",
+    "reason": "simple direct",
+    "families": [
+      "degats-directs"
+    ]
+  },
+  {
+    "name": "Flétrissement",
+    "slug": "fletrissement",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Flétrissure épouvantable d’Abi-Dalzim",
+    "slug": "fletrissure-epouvantable-d-abi-dalzim",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save",
+      "buffs-resistances"
+    ]
+  },
+  {
+    "name": "Flou",
+    "slug": "flou",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "buffs-resistances"
+    ]
+  },
+  {
+    "name": "Force fantasmagorique",
+    "slug": "force-fantasmagorique",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Forme éthérée",
+    "slug": "forme-etheree",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Forme gazeuse",
+    "slug": "forme-gazeuse",
+    "lot": "lot-1",
+    "reason": "simple direct",
+    "families": [
+      "buffs-resistances"
+    ]
+  },
+  {
+    "name": "Forteresse majestueuse",
+    "slug": "forteresse-majestueuse",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Forteresse mentale",
+    "slug": "forteresse-mentale",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Fou rire de Tasha",
+    "slug": "fou-rire-de-tasha",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Fouet épineux",
+    "slug": "fouet-epineux",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Fouet mental de Tasha",
+    "slug": "fouet-mental-de-tasha",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Foulée brumeuse",
+    "slug": "foulee-brumeuse",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Foulée d’Ashardalon",
+    "slug": "foulee-d-ashardalon",
+    "lot": "lot-1",
+    "reason": "simple direct",
+    "families": [
+      "degats-directs"
+    ]
+  },
+  {
+    "name": "Foulée dimensionnelle",
+    "slug": "foulee-dimensionnelle",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Foulée tonitruante",
+    "slug": "foulee-tonitruante",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Fracassement",
+    "slug": "fracassement",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save",
+      "buffs-resistances"
+    ]
+  },
+  {
+    "name": "Frappe du vent d’acier",
+    "slug": "frappe-du-vent-d-acier",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Frappe du zéphyr",
+    "slug": "frappe-du-zephyr",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "buffs-resistances"
+    ]
+  },
+  {
+    "name": "Frappe piégeuse",
+    "slug": "frappe-piegeuse",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Frayeur",
+    "slug": "frayeur",
+    "lot": "lot-1",
+    "reason": "simple direct",
+    "families": [
+      "buffs-resistances"
+    ]
+  },
+  {
+    "name": "Fureur de la nature",
+    "slug": "fureur-de-la-nature",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Fusion dans la pierre",
+    "slug": "fusion-dans-la-pierre",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "buffs-resistances"
+    ]
+  },
+  {
+    "name": "Gardien de la foi",
+    "slug": "gardien-de-la-foi",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Gardien de la nature",
+    "slug": "gardien-de-la-nature",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "buffs-resistances"
+    ]
+  },
+  {
+    "name": "Gelure",
+    "slug": "gelure",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save",
+      "buffs-resistances"
+    ]
+  },
+  {
+    "name": "Glas",
+    "slug": "glas",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save"
+    ]
+  },
+  {
+    "name": "Glissement de terrain",
+    "slug": "glissement-de-terrain",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Globe d’invulnérabilité",
+    "slug": "globe-d-invulnerabilite",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Glyphe de garde",
+    "slug": "glyphe-de-garde",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Graisse",
+    "slug": "graisse",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Grande foulée",
+    "slug": "grande-foulee",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Grêle d’épines",
+    "slug": "grele-d-epines",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Guérison",
+    "slug": "guerison",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "soins-simples"
+    ]
+  },
+  {
+    "name": "Guérison de groupe",
+    "slug": "guerison-de-groupe",
+    "lot": "lot-1",
+    "reason": "simple direct",
+    "families": [
+      "soins-simples"
+    ]
+  },
+  {
+    "name": "Hâte",
+    "slug": "hate",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "buffs-resistances"
+    ]
+  },
+  {
+    "name": "Hérissement de projectiles",
+    "slug": "herissement-de-projectiles",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Héroïsme",
+    "slug": "heroisme",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Hurlement psychique",
+    "slug": "hurlement-psychique",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Identification",
+    "slug": "identification",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Illusion mineure",
+    "slug": "illusion-mineure",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Illusion programmée",
+    "slug": "illusion-programmee",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Image majeure",
+    "slug": "image-majeure",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Image miroir",
+    "slug": "image-miroir",
+    "lot": "lot-1",
+    "reason": "simple direct",
+    "families": [
+      "degats-directs"
+    ]
+  },
+  {
+    "name": "Image projetée",
+    "slug": "image-projetee",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Image silencieuse",
+    "slug": "image-silencieuse",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Immobilisation de monstre",
+    "slug": "immobilisation-de-monstre",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Immobilisation de personne",
+    "slug": "immobilisation-de-personne",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Immolation ardente",
+    "slug": "immolation-ardente",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save"
+    ]
+  },
+  {
+    "name": "Imprécation",
+    "slug": "imprecation",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Infestation",
+    "slug": "infestation",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save"
+    ]
+  },
+  {
+    "name": "Injonction",
+    "slug": "injonction",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Insecte géant",
+    "slug": "insecte-geant",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Interdiction",
+    "slug": "interdiction",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Inversion de la gravité",
+    "slug": "inversion-de-la-gravite",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Invisibilité",
+    "slug": "invisibilite",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Invisibilité suprême",
+    "slug": "invisibilite-supreme",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Invocation d’animaux",
+    "slug": "invocation-d-animaux",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Invocation d’élémentaire",
+    "slug": "invocation-d-elementaire",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Invocation d’élémentaires mineurs",
+    "slug": "invocation-d-elementaires-mineurs",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Invocation d’êtres sylvestres",
+    "slug": "invocation-d-etres-sylvestres",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Invocation de céleste",
+    "slug": "invocation-de-celeste",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Invocation de fée",
+    "slug": "invocation-de-fee",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Invocation de volée",
+    "slug": "invocation-de-volee",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Invulnérabilité",
+    "slug": "invulnerabilite",
+    "lot": "lot-1",
+    "reason": "simple direct",
+    "families": [
+      "buffs-resistances"
+    ]
+  },
+  {
+    "name": "Lame d’ombres",
+    "slug": "lame-d-ombres",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Lame de feu",
+    "slug": "lame-de-feu",
+    "lot": "lot-1",
+    "reason": "simple direct",
+    "families": [
+      "degats-directs"
+    ]
+  },
+  {
+    "name": "Lame des flammes vertes",
+    "slug": "lame-des-flammes-vertes",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Lame du désastre",
+    "slug": "lame-du-desastre",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Lame retentissante",
+    "slug": "lame-retentissante",
+    "lot": "lot-1",
+    "reason": "simple direct",
+    "families": [
+      "degats-directs"
+    ]
+  },
+  {
+    "name": "Lance psychique de Raulothim",
+    "slug": "lance-psychique-de-raulothim",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save"
+    ]
+  },
+  {
+    "name": "Lenteur",
+    "slug": "lenteur",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Lévitation",
+    "slug": "levitation",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Liane avide",
+    "slug": "liane-avide",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Libellé aérien",
+    "slug": "libelle-aerien",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Liberté de mouvement",
+    "slug": "liberte-de-mouvement",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Lien avec une bête",
+    "slug": "lien-avec-une-bete",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "buffs-resistances"
+    ]
+  },
+  {
+    "name": "Lien de protection",
+    "slug": "lien-de-protection",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Lien télépathique de Rary",
+    "slug": "lien-telepathique-de-rary",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Linceul spirituel",
+    "slug": "linceul-spirituel",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Localisation d’animaux ou de plantes",
+    "slug": "localisation-d-animaux-ou-de-plantes",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Localisation d’objet",
+    "slug": "localisation-d-objet",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Localisation de créature",
+    "slug": "localisation-de-creature",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Lueur d’espoir",
+    "slug": "lueur-d-espoir",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "soins-simples",
+      "buffs-resistances"
+    ]
+  },
+  {
+    "name": "Lueurs féériques",
+    "slug": "lueurs-feeriques",
+    "lot": "lot-1",
+    "reason": "simple direct",
+    "families": [
+      "buffs-resistances"
+    ]
+  },
+  {
+    "name": "Lumière",
+    "slug": "lumiere",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Lumière du jour",
+    "slug": "lumiere-du-jour",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Lumières dansantes",
+    "slug": "lumieres-dansantes",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Maelström",
+    "slug": "maelstrom",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save"
+    ]
+  },
+  {
+    "name": "Main de Bigby",
+    "slug": "main-de-bigby",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Main du mage",
+    "slug": "main-du-mage",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Mains brûlantes",
+    "slug": "mains-brulantes",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save"
+    ]
+  },
+  {
+    "name": "Malédiction",
+    "slug": "malediction",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save",
+      "buffs-resistances"
+    ]
+  },
+  {
+    "name": "Maléfice",
+    "slug": "malefice",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "buffs-resistances"
+    ]
+  },
+  {
+    "name": "Manoir somptueux de Mordenkainen",
+    "slug": "manoir-somptueux-de-mordenkainen",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Marche sur l’onde",
+    "slug": "marche-sur-l-onde",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Marque du chasseur",
+    "slug": "marque-du-chasseur",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "buffs-resistances"
+    ]
+  },
+  {
+    "name": "Mauvais oeil",
+    "slug": "mauvais-oeil",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Message",
+    "slug": "message",
+    "lot": "lot-1",
+    "reason": "simple direct",
+    "families": [
+      "soins-simples"
+    ]
+  },
+  {
+    "name": "Messager animal",
+    "slug": "messager-animal",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Métal brûlant",
+    "slug": "metal-brulant",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save",
+      "buffs-resistances"
+    ]
+  },
+  {
+    "name": "Métamorphose",
+    "slug": "metamorphose",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Métamorphose animale",
+    "slug": "metamorphose-animale",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "buffs-resistances"
+    ]
+  },
+  {
+    "name": "Métamorphose de groupe",
+    "slug": "metamorphose-de-groupe",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Métamorphose suprême",
+    "slug": "metamorphose-supreme",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Minuscules météores de Melf",
+    "slug": "minuscules-meteores-de-melf",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Mirage",
+    "slug": "mirage",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Mixture caustique de Tasha",
+    "slug": "mixture-caustique-de-tasha",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save"
+    ]
+  },
+  {
+    "name": "Modification d’apparence",
+    "slug": "modification-d-apparence",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs"
+    ]
+  },
+  {
+    "name": "Modification de mémoire",
+    "slug": "modification-de-memoire",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Monture fantôme",
+    "slug": "monture-fantome",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Moquerie Cruelle",
+    "slug": "moquerie-cruelle",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save",
+      "soins-simples",
+      "buffs-resistances"
+    ]
+  },
+  {
+    "name": "Mot de guérison",
+    "slug": "mot-de-guerison",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Mot de guérison de groupe",
+    "slug": "mot-de-guerison-de-groupe",
+    "lot": "lot-1",
+    "reason": "simple direct",
+    "families": [
+      "soins-simples"
+    ]
+  },
+  {
+    "name": "Mot de pouvoir douloureux",
+    "slug": "mot-de-pouvoir-douloureux",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "buffs-resistances"
+    ]
+  },
+  {
+    "name": "Mot de pouvoir étourdissant",
+    "slug": "mot-de-pouvoir-etourdissant",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Mot de pouvoir guérisseur",
+    "slug": "mot-de-pouvoir-guerisseur",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "soins-simples"
+    ]
+  },
+  {
+    "name": "Mot de pouvoir mortel",
+    "slug": "mot-de-pouvoir-mortel",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Mot de radiance",
+    "slug": "mot-de-radiance",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Mot de retour",
+    "slug": "mot-de-retour",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Motif hypnotique",
+    "slug": "motif-hypnotique",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Mur d’eau",
+    "slug": "mur-d-eau",
+    "lot": "lot-1",
+    "reason": "simple direct",
+    "families": [
+      "buffs-resistances"
+    ]
+  },
+  {
+    "name": "Mur d’épines",
+    "slug": "mur-d-epines",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Mur de feu",
+    "slug": "mur-de-feu",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Mur de force",
+    "slug": "mur-de-force",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Mur de glace",
+    "slug": "mur-de-glace",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Mur de lumière",
+    "slug": "mur-de-lumiere",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Mur de pierre",
+    "slug": "mur-de-pierre",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Mur de sable",
+    "slug": "mur-de-sable",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Mur de vent",
+    "slug": "mur-de-vent",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Mur prismatique",
+    "slug": "mur-prismatique",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Murmures dissonants",
+    "slug": "murmures-dissonants",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Mythes et légendes",
+    "slug": "mythes-et-legendes",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Nappe de brouillard",
+    "slug": "nappe-de-brouillard",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Nuage incendiaire",
+    "slug": "nuage-incendiaire",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save"
+    ]
+  },
+  {
+    "name": "Nuage nauséabond",
+    "slug": "nuage-nauseabond",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Nuée de boules de neige de Snilloc",
+    "slug": "nuee-de-boules-de-neige-de-snilloc",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save"
+    ]
+  },
+  {
+    "name": "Nuée de dagues",
+    "slug": "nuee-de-dagues",
+    "lot": "lot-1",
+    "reason": "simple direct",
+    "families": [
+      "degats-directs"
+    ]
+  },
+  {
+    "name": "Nuée de météores",
+    "slug": "nuee-de-meteores",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save"
+    ]
+  },
+  {
+    "name": "Oeil du mage",
+    "slug": "oeil-du-mage",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Ombre d’égarement",
+    "slug": "ombre-d-egarement",
+    "lot": "lot-1",
+    "reason": "simple direct",
+    "families": [
+      "degats-directs"
+    ]
+  },
+  {
+    "name": "Orbe chromatique",
+    "slug": "orbe-chromatique",
+    "lot": "lot-1",
+    "reason": "simple direct",
+    "families": [
+      "degats-directs"
+    ]
+  },
+  {
+    "name": "Orientation",
+    "slug": "orientation",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Ossements de la terre",
+    "slug": "ossements-de-la-terre",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Parole divine",
+    "slug": "parole-divine",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Passage par les arbres",
+    "slug": "passage-par-les-arbres",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Passage sans trace",
+    "slug": "passage-sans-trace",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Passe-muraille",
+    "slug": "passe-muraille",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Pattes d’araignée",
+    "slug": "pattes-d-araignee",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Peau d’écorce",
+    "slug": "peau-d-ecorce",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Peau de pierre",
+    "slug": "peau-de-pierre",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Perturbations synaptiques",
+    "slug": "perturbations-synaptiques",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save"
+    ]
+  },
+  {
+    "name": "Petite hutte de Léomund",
+    "slug": "petite-hutte-de-leomund",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Pétrification",
+    "slug": "petrification",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Pierre Magique",
+    "slug": "pierre-magique",
+    "lot": "lot-1",
+    "reason": "simple direct",
+    "families": [
+      "degats-directs"
+    ]
+  },
+  {
+    "name": "Piqûre mentale",
+    "slug": "piqure-mentale",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save"
+    ]
+  },
+  {
+    "name": "Poigne électrique",
+    "slug": "poigne-electrique",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "buffs-resistances"
+    ]
+  },
+  {
+    "name": "Poigne terreuse de Maximilian",
+    "slug": "poigne-terreuse-de-maximilian",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save"
+    ]
+  },
+  {
+    "name": "Portail",
+    "slug": "portail",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Portail arcanique",
+    "slug": "portail-arcanique",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Porte dimensionnelle",
+    "slug": "porte-dimensionnelle",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Possession",
+    "slug": "possession",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "soins-simples",
+      "buffs-resistances"
+    ]
+  },
+  {
+    "name": "Prémonition",
+    "slug": "premonition",
+    "lot": "lot-1",
+    "reason": "simple direct",
+    "families": [
+      "buffs-resistances"
+    ]
+  },
+  {
+    "name": "Prestidigitation",
+    "slug": "prestidigitation",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Prière de guérison",
+    "slug": "priere-de-guerison",
+    "lot": "lot-1",
+    "reason": "simple direct",
+    "families": [
+      "soins-simples"
+    ]
+  },
+  {
+    "name": "Prison mentale",
+    "slug": "prison-mentale",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save",
+      "buffs-resistances"
+    ]
+  },
+  {
+    "name": "Projectile magique",
+    "slug": "projectile-magique",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Projection astrale",
+    "slug": "projection-astrale",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Protection contre l’énergie",
+    "slug": "protection-contre-l-energie",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Protection contre la mort",
+    "slug": "protection-contre-la-mort",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Protection contre le mal et le bien",
+    "slug": "protection-contre-le-mal-et-le-bien",
+    "lot": "lot-1",
+    "reason": "simple direct",
+    "families": [
+      "buffs-resistances"
+    ]
+  },
+  {
+    "name": "Protection contre le poison",
+    "slug": "protection-contre-le-poison",
+    "lot": "lot-1",
+    "reason": "simple direct",
+    "families": [
+      "buffs-resistances"
+    ]
+  },
+  {
+    "name": "Protection contre les armes",
+    "slug": "protection-contre-les-armes",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Protection primordiale",
+    "slug": "protection-primordiale",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "buffs-resistances"
+    ]
+  },
+  {
+    "name": "Protections et sceaux",
+    "slug": "protections-et-sceaux",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Purification de la nourriture et de l’eau",
+    "slug": "purification-de-la-nourriture-et-de-l-eau",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Pyrotechnie",
+    "slug": "pyrotechnie",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Quête",
+    "slug": "quete",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Rappel à la vie",
+    "slug": "rappel-a-la-vie",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Rayon affaiblissant",
+    "slug": "rayon-affaiblissant",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Rayon ardent",
+    "slug": "rayon-ardent",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Rayon de givre",
+    "slug": "rayon-de-givre",
+    "lot": "lot-1",
+    "reason": "simple direct",
+    "families": [
+      "degats-directs"
+    ]
+  },
+  {
+    "name": "Rayon de lune",
+    "slug": "rayon-de-lune",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save",
+      "buffs-resistances"
+    ]
+  },
+  {
+    "name": "Rayon de soleil",
+    "slug": "rayon-de-soleil",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Rayon empoisonné",
+    "slug": "rayon-empoisonne",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save"
+    ]
+  },
+  {
+    "name": "Rayon traçant",
+    "slug": "rayon-tracant",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Rayonnement écoeurant",
+    "slug": "rayonnement-ecoeurant",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Raz-de-marée",
+    "slug": "raz-de-maree",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save"
+    ]
+  },
+  {
+    "name": "Régénération",
+    "slug": "regeneration",
+    "lot": "lot-1",
+    "reason": "simple direct",
+    "families": [
+      "soins-simples"
+    ]
+  },
+  {
+    "name": "Réincarnation",
+    "slug": "reincarnation",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Réparation",
+    "slug": "reparation",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Repli expéditif",
+    "slug": "repli-expeditif",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Représailles infernales",
+    "slug": "represailles-infernales",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save"
+    ]
+  },
+  {
+    "name": "Résistance",
+    "slug": "resistance",
+    "lot": "lot-1",
+    "reason": "simple direct",
+    "families": [
+      "buffs-resistances"
+    ]
+  },
+  {
+    "name": "Respiration aquatique",
+    "slug": "respiration-aquatique",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Restauration partielle",
+    "slug": "restauration-partielle",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Restauration suprême",
+    "slug": "restauration-supreme",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Résurrection",
+    "slug": "resurrection",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Résurrection suprême",
+    "slug": "resurrection-supreme",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Retour à la vie",
+    "slug": "retour-a-la-vie",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Sacre de la glace",
+    "slug": "sacre-de-la-glace",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Sacre de la pierre",
+    "slug": "sacre-de-la-pierre",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Sacre des flammes",
+    "slug": "sacre-des-flammes",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Sacre du vent",
+    "slug": "sacre-du-vent",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Sanctification",
+    "slug": "sanctification",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Sanctuaire",
+    "slug": "sanctuaire",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Sanctuaire privé de Mordenkainen",
+    "slug": "sanctuaire-prive-de-mordenkainen",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Saut",
+    "slug": "saut",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Saute de vent",
+    "slug": "saute-de-vent",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Sauvagerie primitive",
+    "slug": "sauvagerie-primitive",
+    "lot": "lot-1",
+    "reason": "simple direct",
+    "families": [
+      "degats-directs"
+    ]
+  },
+  {
+    "name": "Scrutation",
+    "slug": "scrutation",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Secousse sismique",
+    "slug": "secousse-sismique",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save"
+    ]
+  },
+  {
+    "name": "Sens animal",
+    "slug": "sens-animal",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Serviteur invisible",
+    "slug": "serviteur-invisible",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Serviteur miniature",
+    "slug": "serviteur-miniature",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Sieste",
+    "slug": "sieste",
+    "lot": "lot-1",
+    "reason": "simple direct",
+    "families": [
+      "buffs-resistances"
+    ]
+  },
+  {
+    "name": "Silence",
+    "slug": "silence",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Simulacre",
+    "slug": "simulacre",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Simulacre de vie",
+    "slug": "simulacre-de-vie",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Soins",
+    "slug": "soins",
+    "lot": "lot-1",
+    "reason": "simple direct",
+    "families": [
+      "soins-simples"
+    ]
+  },
+  {
+    "name": "Soins de groupe",
+    "slug": "soins-de-groupe",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "soins-simples"
+    ]
+  },
+  {
+    "name": "Sommeil",
+    "slug": "sommeil",
+    "lot": "lot-1",
+    "reason": "simple direct",
+    "families": [
+      "degats-directs"
+    ]
+  },
+  {
+    "name": "Songe",
+    "slug": "songe",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Songe du voile bleu",
+    "slug": "songe-du-voile-bleu",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Souffle du dragon",
+    "slug": "souffle-du-dragon",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save"
+    ]
+  },
+  {
+    "name": "Souhait",
+    "slug": "souhait",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Sphère aqueuse",
+    "slug": "sphere-aqueuse",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Sphère de feu",
+    "slug": "sphere-de-feu",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save"
+    ]
+  },
+  {
+    "name": "Sphère de tempête",
+    "slug": "sphere-de-tempete",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Sphère de vitriol",
+    "slug": "sphere-de-vitriol",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save"
+    ]
+  },
+  {
+    "name": "Sphère glacée d’Otiluke",
+    "slug": "sphere-glacee-d-otiluke",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Sphère résiliente d’Otiluke",
+    "slug": "sphere-resiliente-d-otiluke",
+    "lot": "lot-1",
+    "reason": "simple direct",
+    "families": [
+      "buffs-resistances"
+    ]
+  },
+  {
+    "name": "Stabilisation",
+    "slug": "stabilisation",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Suggestion",
+    "slug": "suggestion",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Suggestion de groupe",
+    "slug": "suggestion-de-groupe",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Symbole",
+    "slug": "symbole",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Télékinésie",
+    "slug": "telekinesie",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Télépathie",
+    "slug": "telepathie",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Téléportation",
+    "slug": "teleportation",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Tempête de feu",
+    "slug": "tempete-de-feu",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Tempête de grêle",
+    "slug": "tempete-de-grele",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save"
+    ]
+  },
+  {
+    "name": "Tempête de neige",
+    "slug": "tempete-de-neige",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Tempête vengeresse",
+    "slug": "tempete-vengeresse",
+    "lot": "lot-1",
+    "reason": "simple direct",
+    "families": [
+      "degats-save"
+    ]
+  },
+  {
+    "name": "Temple des dieux",
+    "slug": "temple-des-dieux",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Ténèbres",
+    "slug": "tenebres",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Ténèbres oppressantes",
+    "slug": "tenebres-oppressantes",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Tentacules de Hadar",
+    "slug": "tentacules-de-hadar",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save"
+    ]
+  },
+  {
+    "name": "Tentacules noirs d’Evard",
+    "slug": "tentacules-noirs-d-evard",
+    "lot": "lot-1",
+    "reason": "simple direct",
+    "families": [
+      "degats-save"
+    ]
+  },
+  {
+    "name": "Terrain hallucinatoire",
+    "slug": "terrain-hallucinatoire",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Terreur",
+    "slug": "terreur",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Texte illusoire",
+    "slug": "texte-illusoire",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Thaumaturgie",
+    "slug": "thaumaturgie",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Toile d’araignée",
+    "slug": "toile-d-araignee",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Tourbillon",
+    "slug": "tourbillon",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Tourbillon de poussière",
+    "slug": "tourbillon-de-poussiere",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save"
+    ]
+  },
+  {
+    "name": "Trait de feu",
+    "slug": "trait-de-feu",
+    "lot": "lot-1",
+    "reason": "simple direct",
+    "families": [
+      "degats-directs"
+    ]
+  },
+  {
+    "name": "Trait ensorcelé",
+    "slug": "trait-ensorcele",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs"
+    ]
+  },
+  {
+    "name": "Transfert de vie",
+    "slug": "transfert-de-vie",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Transformation de Tenser",
+    "slug": "transformation-de-tenser",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save",
+      "buffs-resistances"
+    ]
+  },
+  {
+    "name": "Transformation draconique",
+    "slug": "transformation-draconique",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save"
+    ]
+  },
+  {
+    "name": "Transmutation de la pierre",
+    "slug": "transmutation-de-la-pierre",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save",
+      "buffs-resistances"
+    ]
+  },
+  {
+    "name": "Tremblement de terre",
+    "slug": "tremblement-de-terre",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Tsunami",
+    "slug": "tsunami",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Vague destructrice",
+    "slug": "vague-destructrice",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Vague tonnante",
+    "slug": "vague-tonnante",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "degats-directs",
+      "degats-save"
+    ]
+  },
+  {
+    "name": "Vent divin",
+    "slug": "vent-divin",
+    "lot": "lot-2",
+    "reason": "simple + cas particulier",
+    "families": [
+      "buffs-resistances"
+    ]
+  },
+  {
+    "name": "Vent protecteur",
+    "slug": "vent-protecteur",
+    "lot": "lot-1",
+    "reason": "simple direct",
+    "families": [
+      "buffs-resistances"
+    ]
+  },
+  {
+    "name": "Verrou magique",
+    "slug": "verrou-magique",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Vif carquois",
+    "slug": "vif-carquois",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Vision dans le noir",
+    "slug": "vision-dans-le-noir",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Vision suprême",
+    "slug": "vision-supreme",
+    "lot": "lot-3",
+    "reason": "hors noyau simple",
+    "families": []
+  },
+  {
+    "name": "Voie végétale",
+    "slug": "voie-vegetale",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Vol",
+    "slug": "vol",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Voracité de Hadar",
+    "slug": "voracite-de-hadar",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  },
+  {
+    "name": "Zone de vérité",
+    "slug": "zone-de-verite",
+    "lot": "lot-3",
+    "reason": "complexe/exclu",
+    "families": []
+  }
+]

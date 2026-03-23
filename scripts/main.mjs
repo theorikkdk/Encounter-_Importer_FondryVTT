@@ -467,6 +467,7 @@ Hooks.once("ready", async () => {
   const mod = game.modules?.get?.(MODULE_ID);
   const v = mod?.version ?? "(unknown)";
   console.log(`[${MODULE_ID}] Loaded version`, v);
+  console.log(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} hardproof main.mjs loaded (post-ready)`);
 
   // Hotfix270 safety: clean up any legacy Midi-QOL OnUse macros injected by earlier experimental hotfixes.
   // This prevents broken automation persisting on items even after reverting the module.
@@ -2038,6 +2039,156 @@ Hooks.on("midi-qol.RollComplete", async (workflow) => {
   }
 });
 
+// Lot-1 simple buff applicator: create real Active Effects on cast for importer-marked buff spells.
+// We hook both preItemRoll and RollComplete because some workflows don't keep targets/item data consistently at completion time.
+const __EPI_LOT1_BUFF_DEBUG_PREFIX = "[EPI lot1 buff debug]";
+const __EPI_LOT1_BUFF_DEBUG_SLUGS = new Set(["protection-contre-le-poison", "faveur-divine"]);
+const __EPI_LOT1_WRAPPER_CAST_GUARD = new Map();
+const __EPI_LOT1_WRAPPER_CAST_GUARD_MS = 1200;
+
+console.log(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} hardproof main.mjs loaded`);
+
+function __epiLot1BuffSlugFromItem(item) {
+  try {
+    const slug = String(
+      item?.flags?.[MODULE_ID]?.slug
+      ?? item?.flags?.["encounterplus-importer"]?.slug
+      ?? item?.system?.identifier
+      ?? ""
+    ).toLowerCase().trim();
+    if (slug) return slug;
+    const name = String(item?.name ?? "").toLowerCase();
+    if (/faveur\s+divine/i.test(name)) return "faveur-divine";
+    if (/protection\s+contre\s+le\s+poison/i.test(name)) return "protection-contre-le-poison";
+    return "";
+  } catch (_e) {
+    return "";
+  }
+}
+
+function __epiLot1BuffDebug(slug, msg, extra = undefined) {
+  if (!__EPI_LOT1_BUFF_DEBUG_SLUGS.has(String(slug ?? "").toLowerCase())) return;
+  if (extra !== undefined) console.debug(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} ${msg}`, extra);
+  else console.debug(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} ${msg}`);
+}
+
+async function __epiApplyLot1BuffEffects(workflow, hookName = "unknown") {
+  try {
+    console.debug(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} hook=${hookName} fired`, { hasWorkflow: !!workflow });
+    if (!game.user?.isGM) return;
+    const wfItem = workflow?.item ?? null;
+    const earlySlug = __epiLot1BuffSlugFromItem(wfItem);
+    const wfItemEffects = wfItem?.effects ? Array.from(wfItem.effects) : [];
+    const hasLot1CastTemplate = wfItemEffects.some((e) => {
+      const f = e?.flags?.[MODULE_ID] ?? e?.flags?.["encounterplus-importer"] ?? {};
+      return !!f?.simpleLot1Buff && !!f?.applyOnCast;
+    });
+    if (hasLot1CastTemplate) {
+      __epiLot1BuffDebug(earlySlug, `hook=${hookName} skipped (wrapper primary path by AE template)`);
+      return;
+    }
+    if (__EPI_LOT1_BUFF_DEBUG_SLUGS.has(earlySlug)) {
+      console.debug(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} hook=${hookName} item seen`, {
+        slug: earlySlug,
+        item: wfItem?.name ?? "",
+        hasActor: !!workflow?.actor,
+        hasToken: !!workflow?.token
+      });
+    }
+    if (!wfItem || wfItem.type !== "spell") return;
+
+    // Prefer owned item document when available (some Midi workflow clones can lose embedded effect data).
+    const actor = workflow?.actor ?? wfItem?.parent ?? null;
+    const owned = actor?.items?.get?.(wfItem.id) ?? null;
+    const item = owned ?? wfItem;
+
+    const itemEffects = item.effects ? Array.from(item.effects) : [];
+    const buffEffects = itemEffects.filter((e) => {
+      const f = e?.flags?.[MODULE_ID] ?? e?.flags?.["encounterplus-importer"] ?? {};
+      return !!f?.simpleLot1Buff && !!f?.applyOnCast;
+    });
+    if (!buffEffects.length) return;
+
+    const getSelfToken = () =>
+      workflow?.token
+      ?? (workflow?.tokenUuid ? canvas?.tokens?.get?.(String(workflow.tokenUuid).split(".").pop()) : null)
+      ?? (Array.from(actor?.getActiveTokens?.() ?? [])[0] ?? null);
+
+    for (const ef of buffEffects) {
+      const f = ef?.flags?.[MODULE_ID] ?? ef?.flags?.["encounterplus-importer"] ?? {};
+      const slug = String(f?.slug ?? __epiLot1BuffSlugFromItem(item) ?? "").toLowerCase();
+      const mode = String(f?.targetMode ?? "targets").toLowerCase();
+      __epiLot1BuffDebug(slug, `hook=${hookName} reached`, {
+        mode,
+        item: item?.name,
+        workflowItem: wfItem?.name,
+        effectName: ef?.name
+      });
+
+      const targets = (() => {
+        if (mode === "self") return [getSelfToken()].filter(Boolean);
+        const t1 = Array.from(workflow?.targets ?? []);
+        if (t1.length) return t1;
+        const t2 = Array.from(workflow?.hitTargets ?? []);
+        if (t2.length) return t2;
+        return [];
+      })();
+
+      __epiLot1BuffDebug(slug, `targets resolved`, targets.map(t => t?.actor?.name ?? t?.name ?? "?") );
+      if (!targets.length) continue;
+
+      for (const token of targets) {
+        const targetActor = token?.actor;
+        if (!targetActor) continue;
+
+        const key = `${item.uuid}|${slug}|${ef.name ?? ""}`;
+        const already = Array.from(targetActor.effects ?? []).some((ae) => {
+          const af = ae?.flags?.[MODULE_ID] ?? ae?.flags?.["encounterplus-importer"] ?? {};
+          return String(af?.simpleLot1BuffKey ?? "") === key;
+        });
+        if (already) {
+          __epiLot1BuffDebug(slug, `skip existing effect`, { actor: targetActor?.name, key });
+          continue;
+        }
+
+        const data = ef.toObject ? ef.toObject() : foundry.utils.deepClone(ef);
+        delete data._id;
+        data.origin = item.uuid;
+        data.transfer = false;
+        data.disabled = false;
+        data.flags = data.flags ?? {};
+        data.flags[MODULE_ID] = { ...(data.flags[MODULE_ID] ?? {}), simpleLot1BuffKey: key, slug };
+        data.flags["encounterplus-importer"] = {
+          ...(data.flags["encounterplus-importer"] ?? {}),
+          simpleLot1Buff: true,
+          simpleLot1BuffKey: key,
+          slug
+        };
+
+        __epiLot1BuffDebug(slug, `create AE attempt`, { actor: targetActor?.name, mode, key });
+        try {
+          await targetActor.createEmbeddedDocuments("ActiveEffect", [data]);
+          __epiLot1BuffDebug(slug, `create AE success`, { actor: targetActor?.name, mode });
+        } catch (e) {
+          __epiLot1BuffDebug(slug, `create AE error`, { actor: targetActor?.name, error: String(e) });
+        }
+      }
+    }
+  } catch (e) {
+    console.warn(`[${MODULE_ID}] Lot-1 simple buff apply-on-cast failed`, e);
+  }
+}
+
+Hooks.on("midi-qol.preItemRoll", async (workflow) => {
+  await __epiApplyLot1BuffEffects(workflow, "midi-qol.preItemRoll");
+});
+
+Hooks.on("midi-qol.RollComplete", async (workflow) => {
+  await __epiApplyLot1BuffEffects(workflow, "midi-qol.RollComplete");
+});
+
+console.log(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} hardproof hooks registered`, ["midi-qol.preItemRoll", "midi-qol.RollComplete", "createActiveEffect"]);
+
 
 function __epiIsWallOfLightCastWorkflow(workflow) {
   try {
@@ -2304,6 +2455,27 @@ Hooks.on("preCreateActiveEffect", (effect, data) => {
   }
 });
 
+// Lot-1 targeted hook: Protection contre le poison should immediately neutralize poisoned condition.
+Hooks.on("createActiveEffect", async (effect) => {
+  try {
+    if (!game.user?.isGM) return;
+    const actor = effect?.parent;
+    if (!actor) return;
+    const slug = String(effect?.flags?.[MODULE_ID]?.slug ?? effect?.flags?.["encounterplus-importer"]?.slug ?? "").toLowerCase();
+    if (slug !== "protection-contre-le-poison") return;
+
+    const poisoned = Array.from(actor.effects ?? []).filter((e) => {
+      const s = e?.statuses;
+      return s?.has?.("poisoned") || (Array.isArray(s) && s.includes("poisoned"));
+    });
+    if (!poisoned.length) return;
+    await actor.deleteEmbeddedDocuments("ActiveEffect", poisoned.map(e => e.id).filter(Boolean));
+    console.debug(`[${MODULE_ID}] Protection contre le poison: removed poisoned condition from`, actor?.name);
+  } catch (e) {
+    console.warn(`[${MODULE_ID}] Protection contre le poison condition cleanup failed`, e);
+  }
+});
+
 Hooks.on("midi-qol.preAttackRoll", (workflow) => {
   try {
     if (!game.user?.isGM || !workflow) return;
@@ -2314,6 +2486,273 @@ Hooks.on("midi-qol.preAttackRoll", (workflow) => {
     workflow.disadvantage = true;
   } catch (e) {
     console.warn(`[${MODULE_ID}] Aura sacrée preAttackRoll disadvantage failed`, e);
+  }
+});
+
+function __epiChaosBoltSlugFromWorkflow(workflow) {
+  try {
+    const item = workflow?.item;
+    const slug = String(item?.flags?.[MODULE_ID]?.slug ?? item?.flags?.["encounterplus-importer"]?.slug ?? item?.system?.identifier ?? "").toLowerCase().trim();
+    if (slug) return slug;
+    const name = String(item?.name ?? "").toLowerCase();
+    if (/eclair\s+de\s+chaos|chaos\s+bolt/.test(name)) return "eclair-de-chaos";
+  } catch (_e) {}
+  return "";
+}
+
+const __EPI_CHAOS_BOLT_DEBUG_PREFIX = "[EPI chaos bolt debug]";
+const __EPI_CHAOS_BOLT_TYPE_BY_D8 = {
+  1: "acid",
+  2: "cold",
+  3: "fire",
+  4: "force",
+  5: "lightning",
+  6: "poison",
+  7: "psychic",
+  8: "thunder"
+};
+
+function __epiChaosBoltTypeLabel(type) {
+  return {
+    acid: "Acide",
+    cold: "Froid",
+    fire: "Feu",
+    force: "Force",
+    lightning: "Foudre",
+    poison: "Poison",
+    psychic: "Psychique",
+    thunder: "Tonnerre"
+  }[String(type ?? "")] ?? String(type ?? "");
+}
+
+function __epiChaosBoltFormulaSnapshot(part) {
+  const customEnabled = !!part?.custom?.enabled;
+  const customFormula = String(part?.custom?.formula ?? "").trim();
+  if (customEnabled && customFormula) return customFormula;
+
+  const n = Number(part?.number ?? 0) || 0;
+  const d = Number(part?.denomination ?? part?.denom ?? 0) || 0;
+  const bonus = String(part?.bonus ?? "").trim();
+  if (n && d) return `${n}d${d}${bonus ? (bonus.startsWith("+") || bonus.startsWith("-") ? bonus : ` + ${bonus}`) : ""}`;
+  return customFormula || "";
+}
+
+function __epiChaosBoltUpcastFormula(castLevel, baseLevel = 1) {
+  const extra = Math.max(0, (Number(castLevel ?? 0) || 0) - (Number(baseLevel ?? 1) || 1));
+  return extra > 0 ? `2d8 + 1d6 + ${extra}d6` : "2d8 + 1d6";
+}
+
+async function __epiRollChaosBoltType(workflow, stage = "unknown") {
+  let chosen = String(workflow?.options?.[MODULE_ID]?.chaosBoltTypePicked ?? "").trim();
+  if (chosen) {
+    console.debug(`${__EPI_CHAOS_BOLT_DEBUG_PREFIX} stored chosen type`, {
+      stage,
+      item: workflow?.item?.name ?? "",
+      chosen,
+      face: workflow?.options?.[MODULE_ID]?.chaosBoltTypeFace ?? null
+    });
+    return chosen;
+  }
+
+  console.debug(`${__EPI_CHAOS_BOLT_DEBUG_PREFIX} type roll start`, {
+    stage,
+    item: workflow?.item?.name ?? "",
+    hasRollClass: typeof Roll !== "undefined",
+    hasEvaluateSync: typeof Roll !== "undefined" && typeof Roll?.prototype?.evaluateSync === "function",
+    hasEvaluate: typeof Roll !== "undefined" && typeof Roll?.prototype?.evaluate === "function"
+  });
+
+  try {
+    const roll = new Roll("1d8");
+    if (typeof roll?.evaluate === "function") await roll.evaluate();
+    else throw new Error("No async Roll evaluation method available for Chaos Bolt type roll");
+
+    const face = Number(roll?.total ?? 0) || 1;
+    chosen = __EPI_CHAOS_BOLT_TYPE_BY_D8[face] ?? "force";
+
+    workflow.options ??= {};
+    workflow.options[MODULE_ID] = {
+      ...(workflow.options[MODULE_ID] ?? {}),
+      chaosBoltTypePicked: chosen,
+      chaosBoltTypeFace: face
+    };
+
+    console.debug(`${__EPI_CHAOS_BOLT_DEBUG_PREFIX} type roll result`, {
+      stage,
+      face,
+      chosen,
+      item: workflow?.item?.name ?? ""
+    });
+
+    try {
+      await ChatMessage.create({
+        speaker: ChatMessage.getSpeaker({ actor: workflow?.actor ?? null, token: workflow?.token ?? null }),
+        flavor: `Éclair de chaos — d8 type: ${face} = ${__epiChaosBoltTypeLabel(chosen)}`,
+        rolls: [roll]
+      });
+    } catch (chatError) {
+      console.debug(`${__EPI_CHAOS_BOLT_DEBUG_PREFIX} type roll chat publish error`, {
+        stage,
+        message: chatError?.message ?? String(chatError ?? "")
+      });
+    }
+
+    console.debug(`${__EPI_CHAOS_BOLT_DEBUG_PREFIX} d8 type reached`, {
+      stage,
+      face,
+      item: workflow?.item?.name ?? ""
+    });
+    console.debug(`${__EPI_CHAOS_BOLT_DEBUG_PREFIX} type chosen`, {
+      stage,
+      face,
+      chosen,
+      item: workflow?.item?.name ?? ""
+    });
+    return chosen;
+  } catch (e) {
+    console.debug(`${__EPI_CHAOS_BOLT_DEBUG_PREFIX} type roll error`, {
+      stage,
+      item: workflow?.item?.name ?? "",
+      message: e?.message ?? String(e ?? ""),
+      stack: e?.stack ?? null
+    });
+    throw e;
+  }
+}
+
+Hooks.on("midi-qol.preItemRoll", (workflow) => {
+  try {
+    if (!game.user?.isGM || !workflow?.item) return;
+    const slug = __epiChaosBoltSlugFromWorkflow(workflow);
+    if (slug !== "eclair-de-chaos") return;
+    console.debug(`${__EPI_CHAOS_BOLT_DEBUG_PREFIX} preItemRoll reached`, { item: workflow?.item?.name ?? "" });
+  } catch (_e) {}
+});
+
+Hooks.on("midi-qol.preAttackRoll", async (workflow) => {
+  try {
+    if (!game.user?.isGM || !workflow?.item) return;
+    const slug = __epiChaosBoltSlugFromWorkflow(workflow);
+    if (slug !== "eclair-de-chaos") return;
+
+    console.debug(`${__EPI_CHAOS_BOLT_DEBUG_PREFIX} preAttackRoll reached`, {
+      item: workflow?.item?.name ?? "",
+      hasPicked: !!workflow?.options?.[MODULE_ID]?.chaosBoltTypePicked
+    });
+
+    await __epiRollChaosBoltType(workflow, "preAttackRoll");
+  } catch (e) {
+    console.debug(`${__EPI_CHAOS_BOLT_DEBUG_PREFIX} type roll error`, {
+      stage: "preAttackRoll",
+      item: workflow?.item?.name ?? "",
+      message: e?.message ?? String(e ?? ""),
+      stack: e?.stack ?? null
+    });
+    console.warn(`[${MODULE_ID}] Chaos Bolt preAttackRoll type roll failed`, e);
+  }
+});
+
+Hooks.on("midi-qol.preDamageRoll", async (workflow) => {
+  try {
+    if (!game.user?.isGM || !workflow?.item) return;
+    const slug = __epiChaosBoltSlugFromWorkflow(workflow);
+    if (slug !== "eclair-de-chaos") return;
+
+    console.debug(`${__EPI_CHAOS_BOLT_DEBUG_PREFIX} preDamageRoll reached`, {
+      item: workflow?.item?.name ?? "",
+      hasPicked: !!workflow?.options?.[MODULE_ID]?.chaosBoltTypePicked
+    });
+
+    const hadStoredType = !!workflow?.options?.[MODULE_ID]?.chaosBoltTypePicked;
+    const chosen = hadStoredType
+      ? String(workflow?.options?.[MODULE_ID]?.chaosBoltTypePicked ?? "").trim()
+      : await __epiRollChaosBoltType(workflow, "preDamageRoll");
+    if (hadStoredType) {
+      console.debug(`${__EPI_CHAOS_BOLT_DEBUG_PREFIX} preDamageRoll using stored type`, {
+        item: workflow?.item?.name ?? "",
+        chosen,
+        face: workflow?.options?.[MODULE_ID]?.chaosBoltTypeFace ?? null
+      });
+    }
+    console.debug(`${__EPI_CHAOS_BOLT_DEBUG_PREFIX} preDamageRoll chosen type`, {
+      item: workflow?.item?.name ?? "",
+      chosen,
+      face: workflow?.options?.[MODULE_ID]?.chaosBoltTypeFace ?? null
+    });
+
+    const castLevel = Number(
+      workflow?.castData?.castLevel ??
+      workflow?.spellLevel ??
+      workflow?.itemLevel ??
+      workflow?.options?.spellLevel ??
+      workflow?.options?.castLevel ??
+      workflow?.item?.system?.level ??
+      1
+    ) || 1;
+    const finalChaosBoltFormula = __epiChaosBoltUpcastFormula(castLevel, workflow?.item?.system?.level ?? 1);
+
+    const debugTypes = (label, value) => {
+      console.debug(`${__EPI_CHAOS_BOLT_DEBUG_PREFIX} final damage.types value`, {
+        label,
+        value,
+        typeof: typeof value,
+        constructorName: value?.constructor?.name ?? null,
+        array: Array.isArray(value),
+        set: value instanceof Set,
+        exactContent: value instanceof Set ? Array.from(value) : value
+      });
+    };
+
+    const applyTypeOnly = (act, label) => {
+      if (!act?.damage) return;
+      const parts = Array.isArray(act.damage.parts) ? act.damage.parts : [];
+      const part = parts[0];
+      if (!part) return;
+      debugTypes(`${label}:before`, part?.types);
+      part.types = new Set([chosen]);
+      part.number = null;
+      part.denomination = null;
+      part.bonus = "";
+      part.custom = { enabled: true, formula: finalChaosBoltFormula };
+      part.scaling = { mode: "", number: 0, formula: "" };
+      debugTypes(`${label}:after`, part?.types);
+      console.debug(`${__EPI_CHAOS_BOLT_DEBUG_PREFIX} final runtime formula`, {
+        label,
+        formula: finalChaosBoltFormula,
+        custom: part?.custom ?? null,
+        number: part?.number ?? null,
+        denomination: part?.denomination ?? null,
+        bonus: part?.bonus ?? null,
+        castLevel
+      });
+    };
+
+    applyTypeOnly(workflow?.activity, "workflow.activity");
+    const aId = String(workflow?.activity?.id ?? workflow?.activity?._id ?? workflow?.activityId ?? "");
+    if (aId) {
+      const ia = workflow?.item?.system?.activities?.[aId] ?? workflow?.item?.system?.activities?.get?.(aId) ?? null;
+      applyTypeOnly(ia, "item.activity");
+      try {
+        const srcAct = workflow?.item?._source?.system?.activities?.[aId] ?? null;
+        applyTypeOnly(srcAct, "item._source.activity");
+      } catch (_e) {}
+    }
+
+    const finalPart = workflow?.activity?.damage?.parts?.[0] ?? null;
+    console.debug(`${__EPI_CHAOS_BOLT_DEBUG_PREFIX} damage roll continuing`, {
+      chosen,
+      activityId: aId || null,
+      face: workflow?.options?.[MODULE_ID]?.chaosBoltTypeFace ?? null,
+      formula: __epiChaosBoltFormulaSnapshot(finalPart),
+      castLevel
+    });
+  } catch (e) {
+    console.debug(`${__EPI_CHAOS_BOLT_DEBUG_PREFIX} preDamageRoll injection error`, {
+      item: workflow?.item?.name ?? "",
+      message: e?.message ?? String(e ?? ""),
+      stack: e?.stack ?? null
+    });
+    console.warn(`[${MODULE_ID}] Chaos Bolt preDamageRoll type injection failed`, e);
   }
 });
 
@@ -3199,18 +3638,68 @@ function epiIsAutomationOnlyActivity(act) {
   return f?.kind === "multi-attack-extra" || f?.kind === "multi-attack-focus";
 }
 
+function epiGetChooserHiddenActivityIds(item) {
+  const hidden = new Set();
+  const add = (id) => {
+    const s = String(id ?? "");
+    if (s) hidden.add(s);
+  };
+
+  const onHitAoe =
+    item?.getFlag?.(MODULE_ID, "onHitAoe")
+    ?? item?.getFlag?.("encounterplus-importer", "onHitAoe")
+    ?? item?.flags?.[MODULE_ID]?.onHitAoe
+    ?? item?.flags?.["encounterplus-importer"]?.onHitAoe
+    ?? null;
+  add(onHitAoe?.saveActivityId);
+
+  const onHitAoeBuff =
+    item?.getFlag?.(MODULE_ID, "onHitAoeBuff")
+    ?? item?.getFlag?.("encounterplus-importer", "onHitAoeBuff")
+    ?? item?.flags?.[MODULE_ID]?.onHitAoeBuff
+    ?? item?.flags?.["encounterplus-importer"]?.onHitAoeBuff
+    ?? null;
+  add(onHitAoeBuff?.saveActivityId);
+
+  const epi = item?.flags?.[MODULE_ID] ?? item?.flags?.["encounterplus-importer"] ?? {};
+  add(epi?.repeatActivityIds?.follow);
+  add(epi?.beamCantrip?.extraActivityId);
+  add(epi?.multiAttackChain?.followActivityId);
+  add(epi?.multiAttackChain?.extraActivityId);
+
+  return hidden;
+}
+
 function epiShouldPromptActivityChoice(item) {
   if (!item || item.type !== "spell") return false;
 
-  // If importer explicitly marked it, trust the flag.
   const epi = item?.flags?.[MODULE_ID] ?? item?.flags?.["encounterplus-importer"] ?? {};
   if (epi?.forceActivityChooser) return true;
   if (epi?.beamCantrip?.enabled) return false;
+  if (String(epi?.slug ?? "").toLowerCase() === "fleche-de-foudre") {
+    console.log(`[EPI lightning arrow debug] chooser forced to primary only`, {
+      item: item?.name
+    });
+    return false;
+  }
+
+  const hiddenIds = epiGetChooserHiddenActivityIds(item);
+  const isLightningArrow = String(epi?.slug ?? "").toLowerCase() === "fleche-de-foudre";
 
   const list = epiListActivities(item);
-  const visible = list.filter(a => !epiIsAutomationOnlyActivity(a));
-  // Do NOT rely on canUse here: some sheets mark follow-up activities as "not usable"
-  // until the parent effect/region exists, which would incorrectly bypass the chooser.
+  const visible = list.filter(a => {
+    const actId = String(a?._id ?? a?.id ?? "");
+    if (hiddenIds.has(actId)) {
+      if (isLightningArrow) {
+        console.log(`[EPI lightning arrow debug] secondary activity hidden from choice`, {
+          item: item?.name,
+          activityId: actId
+        });
+      }
+      return false;
+    }
+    return !epiIsAutomationOnlyActivity(a);
+  });
   if ((visible?.length ?? 0) < 2) return false;
 
   const hasCast = visible.some(a => epiActivityConsumesSpellSlot(a));
@@ -3614,16 +4103,30 @@ Hooks.once("ready", () => {
     lw.register(MODULE_ID, "CONFIG.Item.documentClass.prototype.use", async function (wrapped, ...args) {
   try {
     const item = this;
+    try {
+      const slugDbg = __epiLot1BuffSlugFromItem(item);
+      if (__EPI_LOT1_BUFF_DEBUG_SLUGS.has(slugDbg)) {
+        console.log(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} hardproof Item.use path reached`, {
+          slug: slugDbg,
+          item: item?.name ?? "",
+          actor: item?.parent?.name ?? item?.actor?.name ?? ""
+        });
+      }
+    } catch (_e) {}
 
 // args[0] is usually the "usage" options object; preserve the rest (dialog/message) when present.
     const opts0 = (args.length && args[0] && typeof args[0] === "object") ? args[0] : {};
     const ev = opts0?.event ?? (args.find(a => a?.event)?.event ?? null);
+    const __epiMaybeApplyWrapperBuff = async (res) => {
+      await __epiApplyLot1BuffViaWrapper(item, opts0, res);
+      return res;
+    };
 
     const bypass = !!ev?.shiftKey
       || !!opts0.__epiBypassActivityChooser
       || !!opts0.__epiActivityChoiceDone;
 
-    if (bypass) return await wrapped(...args);
+    if (bypass) return await __epiMaybeApplyWrapperBuff(await wrapped(...args));
 
     const explicitActivityId = String(opts0?.activityId ?? opts0?.activity?._id ?? opts0?.activity?.id ?? "");
 
@@ -4010,12 +4513,35 @@ Hooks.once("ready", () => {
 
         return result;
       }
-    }
+	    }
 
-    // Generic: prompt a dnd5e ActivityChoiceDialog when the spell has BOTH:
-    // - at least one activity that consumes a spell slot (cast)
-    // - at least one activity that does NOT consume a spell slot (repeat/follow-up)
-    if (!epiShouldPromptActivityChoice(item)) return await wrapped(...args);
+	    const lightningArrowSlug = String(
+	      item?.getFlag?.(MODULE_ID, "slug")
+	      ?? item?.getFlag?.("encounterplus-importer", "slug")
+	      ?? item?.flags?.[MODULE_ID]?.slug
+	      ?? item?.flags?.["encounterplus-importer"]?.slug
+	      ?? ""
+	    ).toLowerCase();
+	    if (!explicitActivityId && lightningArrowSlug === "fleche-de-foudre") {
+	      console.log(`[EPI lightning arrow debug] Lightning Arrow bypasses Item.use wrapper`, {
+	        item: item?.name,
+	        explicitActivityId: explicitActivityId || null
+	      });
+	      console.log(`[EPI lightning arrow debug] activity 1 uses standard launch path`, {
+	        item: item?.name,
+	        path: "wrapped(...args)"
+	      });
+	      console.log(`[EPI lightning arrow debug] Item.use wrapper chained correctly`, {
+	        item: item?.name,
+	        strategy: "delegate-to-wrapped-standard-path"
+	      });
+	      return await __epiMaybeApplyWrapperBuff(await wrapped(...args));
+	    }
+
+	    // Generic: prompt a dnd5e ActivityChoiceDialog when the spell has BOTH:
+	    // - at least one activity that consumes a spell slot (cast)
+	    // - at least one activity that does NOT consume a spell slot (repeat/follow-up)
+    if (!epiShouldPromptActivityChoice(item)) return await __epiMaybeApplyWrapperBuff(await wrapped(...args));
 
 
     // If there isn't more than one usable activity, don't prompt.
@@ -4027,7 +4553,7 @@ Hooks.once("ready", () => {
     } catch (e) { /* ignore */ }
 
     const choiceId = await epiStormSphereChoiceDialog(item);
-    if (!choiceId) return await wrapped(...args);
+    if (!choiceId) return await __epiMaybeApplyWrapperBuff(await wrapped(...args));
 
     
     // Run the chosen activity.
@@ -4104,6 +4630,222 @@ function epiUnitsToSceneDistance(value, units) {
   return v;
 }
 
+function __epiResolveActorsFromUsageForLot1(opts0 = {}, item = null) {
+  const out = [];
+  const pushActor = (a) => { if (a && !out.includes(a)) out.push(a); };
+  const pushTokenLike = (t) => { const a = t?.actor ?? t?.document?.actor ?? null; if (a) pushActor(a); };
+
+  // Explicit usage targets (when available)
+  const usageTargets = opts0?.targets ?? opts0?.targetUuids ?? opts0?.tokenUuids ?? null;
+  if (usageTargets) {
+    const arr = Array.isArray(usageTargets) ? usageTargets : (usageTargets instanceof Set ? Array.from(usageTargets) : [usageTargets]);
+    for (const it of arr) {
+      if (!it) continue;
+      if (typeof it === "string") {
+        const id = it.split(".").pop();
+        const tok = canvas?.tokens?.get?.(id) ?? canvas?.scene?.tokens?.get?.(id)?.object ?? null;
+        if (tok?.actor) pushActor(tok.actor);
+      } else if (it?.actor || it?.document?.actor) {
+        pushTokenLike(it);
+      }
+    }
+  }
+
+  // Fallback to current user targets at cast time.
+  if (!out.length) {
+    for (const t of Array.from(game.user?.targets ?? [])) pushTokenLike(t);
+  }
+
+  // Last fallback: the caster itself.
+  if (!out.length) {
+    const caster = item?.parent ?? item?.actor ?? null;
+    if (caster?.documentName === "Actor") pushActor(caster);
+  }
+
+  return out;
+}
+
+async function __epiApplyLot1BuffViaWrapper(item, opts0 = {}, result = null) {
+  try {
+    const itemEffects = item?.effects ? Array.from(item.effects) : [];
+    const templates = itemEffects.filter((e) => {
+      const f = e?.flags?.[MODULE_ID] ?? e?.flags?.["encounterplus-importer"] ?? {};
+      return !!f?.simpleLot1Buff && !!f?.applyOnCast;
+    });
+    if (!templates.length) {
+      return;
+    }
+
+    console.log(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} wrapper found lot1 AE template`, {
+      item: item?.name ?? "",
+      templates: templates.map((e) => {
+        const f = e?.flags?.[MODULE_ID] ?? e?.flags?.["encounterplus-importer"] ?? {};
+        return { name: e?.name ?? "", slug: String(f?.slug ?? "").toLowerCase(), targetMode: String(f?.targetMode ?? "targets") };
+      })
+    });
+
+    const caster = item?.parent ?? item?.actor ?? null;
+
+    const buildGuardKey = (slug, targetMode) => {
+      const actorId = String(caster?.uuid ?? caster?.id ?? "");
+      const itemId = String(item?.uuid ?? item?.id ?? "");
+      const actId = String(opts0?.activityId ?? opts0?.activity?._id ?? opts0?.activity?.id ?? "");
+      const tgt = (() => {
+        const x = opts0?.targets ?? opts0?.targetUuids ?? opts0?.tokenUuids ?? [];
+        const arr = Array.isArray(x) ? x : (x instanceof Set ? Array.from(x) : (x ? [x] : []));
+        return arr.map(v => (typeof v === "string" ? v : (v?.uuid ?? v?.id ?? v?.actor?.id ?? ""))).filter(Boolean).sort().join("|");
+      })();
+      return [slug, targetMode, actorId, itemId, actId, tgt].join("::");
+    };
+
+    for (const src of templates) {
+      const f = src?.flags?.[MODULE_ID] ?? src?.flags?.["encounterplus-importer"] ?? {};
+      const slug = String(f?.slug ?? __epiLot1BuffSlugFromItem(item) ?? "").toLowerCase();
+      const targetMode = String(f?.targetMode ?? "targets").toLowerCase();
+      const targets = (targetMode === "self")
+        ? [caster].filter(a => a?.documentName === "Actor")
+        : __epiResolveActorsFromUsageForLot1(opts0, item);
+
+      const guardKey = buildGuardKey(slug, targetMode);
+      const now = Date.now();
+      const last = Number(__EPI_LOT1_WRAPPER_CAST_GUARD.get(guardKey) ?? 0);
+      if (last && (now - last) < __EPI_LOT1_WRAPPER_CAST_GUARD_MS) {
+        console.log(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} wrapper duplicate cast skipped`, {
+          item: item?.name ?? "",
+          slug,
+          targetMode,
+          deltaMs: now - last
+        });
+        continue;
+      }
+      __EPI_LOT1_WRAPPER_CAST_GUARD.set(guardKey, now);
+      setTimeout(() => {
+        const cur = Number(__EPI_LOT1_WRAPPER_CAST_GUARD.get(guardKey) ?? 0);
+        if (cur === now) __EPI_LOT1_WRAPPER_CAST_GUARD.delete(guardKey);
+      }, __EPI_LOT1_WRAPPER_CAST_GUARD_MS + 500);
+
+      console.log(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} wrapper first cast accepted`, {
+        item: item?.name ?? "",
+        slug,
+        targetMode,
+        targetActors: targets.map(a => a?.name ?? "")
+      });
+
+      console.log(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} wrapper apply path`, {
+        item: item?.name ?? "",
+        slug,
+        targetMode,
+        targetActors: targets.map(a => a?.name ?? "")
+      });
+
+      for (const actor of targets) {
+        if (slug === "faveur-divine") {
+          // Keep concentration and offensive buff separated:
+          // - concentration effect MUST NOT carry damage bonus
+          // - buff-simple effect is the only source of +1d4 radiant
+          const divineEffects = Array.from(actor?.effects ?? []).filter((ae) => {
+            const af = ae?.flags?.[MODULE_ID] ?? ae?.flags?.["encounterplus-importer"] ?? {};
+            if (String(af?.slug ?? "").toLowerCase() === "faveur-divine") return true;
+            const nm = String(ae?.name ?? "").toLowerCase();
+            return /faveur\s+divine|divine\s+favor/.test(nm);
+          });
+
+          if (divineEffects.length) {
+            const isConcentrationLike = (ae) => {
+              const n = String(ae?.name ?? "").toLowerCase();
+              const hasConcStatus = ae?.statuses?.has?.("concentrating") || (Array.isArray(ae?.statuses) && ae.statuses.includes("concentrating"));
+              return hasConcStatus || /concentr[eé]|concentrating/.test(n);
+            };
+
+            const rmBonus = (changes) => (Array.isArray(changes) ? changes : [])
+              .filter((c) => {
+                const key = String(c?.key ?? "");
+                return ![
+                  "system.bonuses.mwak.damage",
+                  "system.bonuses.rwak.damage",
+                  "system.bonuses.msak.damage",
+                  "system.bonuses.rsak.damage",
+                  "system.bonuses.weapon.damage",
+                  "system.bonuses.spell.damage"
+                ].includes(key);
+              });
+
+            // 1) Ensure concentration-like effects do not carry the bonus.
+            for (const ae of divineEffects.filter(isConcentrationLike)) {
+              try {
+                const cleaned = rmBonus(ae?.changes);
+                if (cleaned.length !== (Array.isArray(ae?.changes) ? ae.changes.length : 0)) {
+                  await ae.update({ changes: cleaned });
+                }
+              } catch (_e) {}
+            }
+
+            // 2) Prefer an existing buff-simple effect as the only +1d4 carrier.
+            const buffSimple = divineEffects.find((ae) => {
+              const af = ae?.flags?.[MODULE_ID] ?? ae?.flags?.["encounterplus-importer"] ?? {};
+              return !!af?.simpleLot1Buff;
+            });
+
+            if (buffSimple) {
+              const normalized = rmBonus(buffSimple?.changes);
+              normalized.push({ key: "system.bonuses.weapon.damage", mode: 2, value: "+1d4[radiant]", priority: 20 });
+              try { await buffSimple.update({ changes: normalized }); } catch (_e) {}
+
+              console.log(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} wrapper AE success`, {
+              slug,
+              actor: actor?.name ?? "",
+              reconciled: true,
+              removedDuplicates: 0
+            });
+              continue;
+            }
+          }
+
+        }
+
+        const key = `${item.uuid}|${slug}|${src.name ?? ""}`;
+        const exists = Array.from(actor?.effects ?? []).some((ae) => {
+          const af = ae?.flags?.[MODULE_ID] ?? ae?.flags?.["encounterplus-importer"] ?? {};
+          return String(af?.simpleLot1BuffKey ?? "") === key;
+        });
+        if (exists) continue;
+
+        const data = src.toObject ? src.toObject() : foundry.utils.deepClone(src);
+        delete data._id;
+        data.origin = item.uuid;
+        data.transfer = false;
+        data.disabled = false;
+        data.flags = data.flags ?? {};
+        data.flags[MODULE_ID] = { ...(data.flags[MODULE_ID] ?? {}), simpleLot1BuffKey: key, slug };
+        data.flags["encounterplus-importer"] = { ...(data.flags["encounterplus-importer"] ?? {}), simpleLot1Buff: true, simpleLot1BuffKey: key, slug };
+
+        if (slug === "faveur-divine") {
+          const baseChanges = Array.isArray(data.changes) ? data.changes : [];
+          const keep = baseChanges.filter(c => !["system.bonuses.mwak.damage", "system.bonuses.rwak.damage", "system.bonuses.weapon.damage"].includes(String(c?.key ?? "")));
+          keep.push({ key: "system.bonuses.weapon.damage", mode: 2, value: "+1d4[radiant]", priority: 20 });
+          data.changes = keep;
+        }
+
+        try {
+          await actor.createEmbeddedDocuments("ActiveEffect", [data]);
+          if (slug === "protection-contre-le-poison") {
+            const poisoned = Array.from(actor.effects ?? []).filter((e) => {
+              const s = e?.statuses;
+              return s?.has?.("poisoned") || (Array.isArray(s) && s.includes("poisoned"));
+            });
+            if (poisoned.length) await actor.deleteEmbeddedDocuments("ActiveEffect", poisoned.map(e => e.id).filter(Boolean));
+          }
+          console.log(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} wrapper AE success`, { slug, actor: actor?.name ?? "" });
+        } catch (e) {
+          console.log(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} wrapper AE error`, { slug, actor: actor?.name ?? "", error: String(e) });
+        }
+      }
+    }
+  } catch (e) {
+    console.log(`${__EPI_LOT1_BUFF_DEBUG_PREFIX} wrapper AE error`, { error: String(e) });
+  }
+}
+
 Hooks.once("ready", () => {
   const midiActive = !!game?.modules?.get?.("midi-qol")?.active;
   if (!midiActive) return;
@@ -4163,6 +4905,34 @@ function epiRectChebyshev(a, b) {
 function epiTokensInGridBurst(centerTok, candidates, steps = 1) {
   const cRect = epiTokenRect(centerTok);
   return (candidates ?? []).filter(t => epiRectChebyshev(cRect, epiTokenRect(t)) <= steps);
+}
+
+function epiTokenSceneDistance(a, b) {
+  try {
+    const ax = Number(a?.center?.x ?? NaN);
+    const ay = Number(a?.center?.y ?? NaN);
+    const bx = Number(b?.center?.x ?? NaN);
+    const by = Number(b?.center?.y ?? NaN);
+    if (![ax, ay, bx, by].every(Number.isFinite)) return null;
+    const px = Math.hypot(ax - bx, ay - by);
+    const gridSize = Number(canvas?.scene?.grid?.size ?? canvas?.grid?.size ?? 0) || 0;
+    const gridDistance = Number(canvas?.scene?.grid?.distance ?? 5) || 5;
+    if (!gridSize) return null;
+    return (px / gridSize) * gridDistance;
+  } catch (_e) {
+    return null;
+  }
+}
+
+function epiTokensInSceneRadius(centerTok, candidates, radiusScene = 0) {
+  const radius = Number(radiusScene ?? 0) || 0;
+  if (!centerTok || !radius) return [];
+  const gridDistance = Number(canvas?.scene?.grid?.distance ?? 5) || 5;
+  const pad = gridDistance * 0.5;
+  return (candidates ?? []).filter(t => {
+    const dist = epiTokenSceneDistance(centerTok, t);
+    return Number.isFinite(dist) && dist <= (radius + pad);
+  });
 }
 
 // Hotfix270k: Ice Knife-like secondary AoE (burst on grid) without breaking Midi-QOL.
@@ -4266,6 +5036,100 @@ function epiResolveTokenById(id) {
   return list.find(t => String(t?.id ?? t?.document?.id ?? "") === tid) ?? null;
 }
 
+function epiResolveTokenByUuid(uuid) {
+  const u = String(uuid ?? "").trim();
+  if (!u) return null;
+  const list = canvas?.tokens?.placeables ?? [];
+  return list.find(t =>
+    String(t?.document?.uuid ?? t?.uuid ?? "") === u
+    || String(t?.uuid ?? "") === u
+  ) ?? null;
+}
+
+function epiResolveTokenReference(ref) {
+  if (!ref) return null;
+  if (typeof ref === "string") {
+    return epiResolveTokenByUuid(ref) ?? epiResolveTokenById(ref);
+  }
+  if (ref?.actor || ref?.document?.actor) return ref;
+  const uuid = String(ref?.document?.uuid ?? ref?.uuid ?? "");
+  const id = String(ref?.document?.id ?? ref?.id ?? ref?._id ?? "");
+  return epiResolveTokenByUuid(uuid) ?? epiResolveTokenById(id);
+}
+
+function epiToTokenArray(source) {
+  const arr = Array.isArray(source)
+    ? source
+    : (source instanceof Set ? Array.from(source) : (source ? [source] : []));
+  const out = [];
+  for (const ref of arr) {
+    const tok = epiResolveTokenReference(ref);
+    if (!tok) continue;
+    if (!out.includes(tok)) out.push(tok);
+  }
+  return out;
+}
+
+function epiDescribeTokens(tokens) {
+  return (tokens ?? []).map(t => ({
+    id: String(t?.id ?? t?.document?.id ?? ""),
+    uuid: String(t?.document?.uuid ?? t?.uuid ?? ""),
+    name: t?.name ?? null
+  }));
+}
+
+function epiResolvePrimaryHitTargetFromWorkflow(workflow) {
+  const k = epiWorkflowKey(workflow);
+  const cached = k ? __epiOnHitAoeCache.get(k) : null;
+  const sources = {
+    hitTargets: epiToTokenArray(workflow?.hitTargets),
+    targets: epiToTokenArray(workflow?.targets),
+    applicationTargets: epiToTokenArray(workflow?.applicationTargets),
+    attackTarget: epiToTokenArray(workflow?.attackTarget),
+    targetUuids: epiToTokenArray(workflow?.targetUuids),
+    hitTargetUuids: epiToTokenArray(workflow?.hitTargetUuids),
+    currentUserTargets: epiToTokenArray(game.user?.targets),
+    cachedPrimary: epiToTokenArray([
+      cached?.primaryUuid,
+      cached?.primaryId
+    ].filter(Boolean))
+  };
+
+  const pickFirst = (...names) => {
+    for (const name of names) {
+      const tok = sources[name]?.[0] ?? null;
+      if (tok) return { token: tok, source: name };
+    }
+    return null;
+  };
+
+  const preferHit = pickFirst("hitTargets", "hitTargetUuids");
+  if (preferHit) return { ...preferHit, sources, cacheKey: k };
+
+  const directFallback = pickFirst(
+    "attackTarget",
+    "applicationTargets",
+    "targets",
+    "targetUuids",
+    "currentUserTargets",
+    "cachedPrimary"
+  );
+  if (directFallback) return { ...directFallback, sources, cacheKey: k };
+
+  return { token: null, source: null, sources, cacheKey: k };
+}
+
+function epiGetLightningArrowPrimaryActivity(item) {
+  const hiddenIds = epiGetChooserHiddenActivityIds(item);
+  const list = epiListActivities(item);
+  return list.find(a => {
+    const actId = String(a?._id ?? a?.id ?? "");
+    if (!actId || hiddenIds.has(actId)) return false;
+    if (epiIsAutomationOnlyActivity(a)) return false;
+    return epiActivityConsumesSpellSlot(a) || String(a?.type ?? "").toLowerCase() === "attack";
+  }) ?? null;
+}
+
 async function epiSetUserTargets(tokenIds) {
   const ids = (tokenIds ?? []).map(String).filter(Boolean);
   const prev = Array.from(game.user?.targets ?? []).map(t => String(t?.id ?? t?.document?.id ?? "")).filter(Boolean);
@@ -4296,7 +5160,7 @@ async function epiSetUserTargets(tokenIds) {
   } catch (_e) {}
 
   // Let the target set propagate before calling Midi
-  await new Promise(r => setTimeout(r, 0));
+  await new Promise(r => setTimeout(r, 50));
   return prev;
 }
 
@@ -4403,6 +5267,20 @@ function epiDisableOtherActivityForOnHitAoe(workflow) {
     if (!actType.includes('attack')) return;
 
     const item = workflow.item;
+    const spellSlug = String(
+      item?.getFlag?.(MODULE_ID, "slug")
+      ?? item?.getFlag?.("encounterplus-importer", "slug")
+      ?? item?.flags?.[MODULE_ID]?.slug
+      ?? item?.flags?.["encounterplus-importer"]?.slug
+      ?? ""
+    ).toLowerCase();
+
+    if (spellSlug === "fleche-de-foudre") {
+      console.log(`[EPI lightning arrow debug] attack activity launched`, {
+        item: item?.name,
+        activityId: String(workflow?.activity?.id ?? workflow?.activity?._id ?? "")
+      });
+    }
 
     let meta =
       item?.getFlag?.(MODULE_ID, "onHitAoe")
@@ -4422,11 +5300,19 @@ function epiDisableOtherActivityForOnHitAoe(workflow) {
       if (workflow.activity && ("_otherActivity" in workflow.activity)) workflow.activity._otherActivity = null;
     } catch (_e) {}
 
-    // Also mark the save activity as not compatible as an "other activity" (best-effort, runtime-only).
-    try {
-      const saveAct = epiGetActivityById(item, String(meta.saveActivityId));
-      if (saveAct?.midiProperties) saveAct.midiProperties.otherActivityCompatible = false;
-    } catch (_e) {}
+    // Keep Lightning Arrow aligned with the dedicated import/runtime flow:
+    // block Midi-QOL's auto-pick on the active attack workflow only, without mutating the
+    // secondary activity object at runtime.
+    if (spellSlug === "fleche-de-foudre") {
+      try {
+        const saveAct = epiGetActivityById(item, String(meta.saveActivityId));
+        console.log(`[EPI lightning arrow debug] saveActivityId resolved`, {
+          saveActivityId: String(meta.saveActivityId ?? ""),
+          resolvedId: String(saveAct?._id ?? saveAct?.id ?? ""),
+          uuid: String(saveAct?.uuid ?? saveAct?.document?.uuid ?? "")
+        });
+      } catch (_e) {}
+    }
 
   } catch (_e) {}
 }
@@ -4450,12 +5336,51 @@ for (const ev of [
   });
 }
 
+async function epiExecuteIceKnifeStyleOnHitAoe({ item, meta, primary, targets, activityRef, actUuid, usage, dialog, message, skipTargetSwitch = false }) {
+  const targetUuids = targets
+    .map(t => String(t?.document?.uuid ?? t?.uuid ?? ""))
+    .filter(Boolean);
+  if (!targetUuids.length) return null;
+
+  console.debug(`[${MODULE_ID}] onHitAoeBuff hotfix271d targetUuids`, targetUuids);
+  console.log(`[${MODULE_ID}] onHitAoe hotfix270r`, {
+    item: item?.name,
+    primary: primary?.name ?? primary?.id,
+    targets: targets.map(t => t?.name ?? t?.id),
+    radius: meta?.radius,
+    units: meta?.units
+  });
+
+  const nextUsage = foundry.utils.mergeObject(usage, {
+    targets: targetUuids,
+    targetUuids,
+    tokenUuids: targetUuids,
+    midiOptions: {
+      targetUuids,
+      proceedChecks: { checkTargets: false },
+      workflowOptions: { targetConfirmation: "none" }
+    }
+  }, { inplace: false });
+
+  let prevTargetIds = null;
+  if (!skipTargetSwitch) {
+    try {
+      prevTargetIds = await epiSetUserTargets(targets.map(t => String(t?.id ?? t?.document?.id ?? "")).filter(Boolean));
+    } catch (_e) {}
+  }
+
+  try {
+    const secondaryResult = await epiUseActivityViaMidi(activityRef ?? actUuid, nextUsage, dialog, message);
+    return secondaryResult;
+  } finally {
+    try {
+      if (prevTargetIds) await epiRestoreUserTargets(prevTargetIds);
+    } catch (_e) {}
+  }
+}
 async function epiRunOnHitAoeSecondary(workflow) {
   try {
-    // Skip secondary workflows created by this feature to avoid recursion.
     if (!workflow) return;
-    // Skip secondary workflows created by this feature to avoid recursion.
-    // Midi-QOL stores flags in slightly different places depending on call path.
     if (
       workflow?.workflowOptions?.__epiSecondaryOnHitAoe ||
       workflow?.options?.__epiSecondaryOnHitAoe ||
@@ -4463,9 +5388,6 @@ async function epiRunOnHitAoeSecondary(workflow) {
       workflow?.workflowOptions?.workflowOptions?.__epiSecondaryOnHitAoe
     ) return;
 
-    // Any workflow created via MidiQOL.completeActivityUse() will have forceCompletion=true.
-    // We use completeActivityUse() for the follow-up AoE activity; skip those workflows entirely
-    // to prevent re-triggering on their RollComplete events (extra JdS/dégâts).
     if (
       workflow?.workflowOptions?.forceCompletion === true ||
       workflow?.options?.workflowOptions?.forceCompletion === true ||
@@ -4475,6 +5397,13 @@ async function epiRunOnHitAoeSecondary(workflow) {
     const item = workflow?.item ?? null;
     if (!item) return;
 
+    const spellSlug = String(
+      item?.getFlag?.(MODULE_ID, "slug")
+      ?? item?.getFlag?.("encounterplus-importer", "slug")
+      ?? item?.flags?.[MODULE_ID]?.slug
+      ?? item?.flags?.["encounterplus-importer"]?.slug
+      ?? ""
+    ).toLowerCase();
     let meta =
       item?.getFlag?.(MODULE_ID, "onHitAoe")
       ?? item?.getFlag?.("encounterplus-importer", "onHitAoe")
@@ -4497,8 +5426,8 @@ async function epiRunOnHitAoeSecondary(workflow) {
       return;
     }
 
-    // If this workflow IS already the secondary SAVE activity, do nothing
-    // (prevents double application if user clicks it, or if hooks fire from the follow-up workflow).
+    if (spellSlug === "fleche-de-foudre") return;
+
     try {
       const wActId = String(
         workflow?.activity?.id ??
@@ -4514,7 +5443,6 @@ async function epiRunOnHitAoeSecondary(workflow) {
       if (wActId && wActId === String(meta.saveActivityId)) return;
     } catch (_e) {}
 
-    // Resolve primary target (may be cleared by RollComplete)
     let primary = epiExtractPrimaryToken(workflow);
     if (!primary) {
       const k = epiWorkflowKey(workflow);
@@ -4530,7 +5458,7 @@ async function epiRunOnHitAoeSecondary(workflow) {
     const rScene = epiUnitsToSceneDistance(meta.radius, meta.units);
     if (!rScene) return;
 
-    const steps = Math.max(1, Math.round(rScene / gridDist)); // 1 for 5ft / 1.5m
+    const steps = Math.max(1, Math.round(rScene / gridDist));
     const tokens = (canvas?.tokens?.placeables ?? []).filter(t => t?.actor);
     let targets = epiTokensInGridBurst(primary, tokens, steps);
 
@@ -4538,33 +5466,7 @@ async function epiRunOnHitAoeSecondary(workflow) {
     if (!targets.length) return;
 
     const act = epiGetActivityById(item, String(meta.saveActivityId));
-    // Prefer passing a UUID string to Midi-QOL (more robust than passing an Activity object which might be a plain data object).
-    const actUuid =
-      String(act?.uuid ?? act?.document?.uuid ?? "")
-      || (item?.uuid ? `${item.uuid}.Activity.${String(meta.saveActivityId)}` : "");
 
-    if (!actUuid) return;
-
-    const targetUuids = targets
-      .map(t => String(t?.document?.uuid ?? t?.uuid ?? ""))
-      .filter(Boolean);
-    // Debug: show resolved target UUIDs (useful for V13 token/document differences)
-    // Note: use Scene Token UUIDs explicitly; some modules/contexts can yield token.document.uuid variants.
-    console.debug(`[${MODULE_ID}] onHitAoeBuff hotfix271d targetUuids`, targetUuids);
-
-    if (!targetUuids.length) return;
-
-    // Debug (always visible in console logs)
-    console.log(`[${MODULE_ID}] onHitAoe hotfix270r`, {
-      item: item?.name,
-      primary: primary?.name ?? primary?.id,
-      targets: targets.map(t => t?.name ?? t?.id),
-      radius: meta.radius,
-      units: meta.units,
-      steps
-    });
-
-    // Preserve upcast scaling when re-running the secondary save activity.
     const baseLevel = Number(item?.system?.level ?? 0) || 0;
     const castLevel = Number(
       workflow?.castData?.castLevel ??
@@ -4577,19 +5479,24 @@ async function epiRunOnHitAoeSecondary(workflow) {
     ) || baseLevel;
     const scaling = Math.max(0, castLevel - baseLevel);
 
+    const targetUuids = targets
+      .map(t => String(t?.document?.uuid ?? t?.uuid ?? ""))
+      .filter(Boolean);
+    if (!targetUuids.length) return;
+
     const usage = {
       consume: { spellSlot: false },
       scaling,
       spell: { slot: castLevel ? `spell${castLevel}` : undefined },
+      targets: targetUuids,
+      targetUuids,
+      tokenUuids: targetUuids,
       midiOptions: {
         targetUuids,
-        // Secondary on-hit bursts (Ice Knife, etc.) are multi-target but may not be recognized as AoE by Midi-QOL.
-        // Disable target-count enforcement for this follow-up activity to prevent workflow abortion.
         proceedChecks: { checkTargets: false },
         workflowOptions: {
           __epiSecondaryOnHitAoe: true,
           targetConfirmation: "none",
-          // Avoid side-effects (reactions/confirm dialogs) on the follow-up AoE roll.
           noProvokeReaction: true,
           fastForward: true,
           fastForwardDamage: true
@@ -4603,8 +5510,23 @@ async function epiRunOnHitAoeSecondary(workflow) {
 
     epiMarkDone(doneKey);
 
-    // Run the secondary SAVE activity through Midi-QOL.
-    await globalThis.MidiQOL.completeActivityUse(actUuid, usage, dialog, message);
+    const actUuid =
+      String(act?.uuid ?? act?.document?.uuid ?? "")
+      || (item?.uuid ? `${item.uuid}.Activity.${String(meta.saveActivityId)}` : "");
+    if (!actUuid) return;
+
+    await epiExecuteIceKnifeStyleOnHitAoe({
+      item,
+      meta,
+      primary,
+      targets,
+      activityRef: act ?? actUuid,
+      actUuid,
+      usage,
+      dialog,
+      message,
+      debugLabel: isLightningArrow ? "lightning-arrow" : "generic"
+    });
   } catch (e) {
     console.warn(`[${MODULE_ID}] onHitAoe hotfix270r failed`, e);
   }
@@ -4900,6 +5822,21 @@ async function epiRunBuffOnHitAoeSecondary(workflow) {
     const found = await epiFindFirstBuffSpellEffect(actor);
     if (!found) return;
     const { effect, spellItem, meta } = found;
+    const spellSlug = String(
+      spellItem?.getFlag?.(MODULE_ID, "slug")
+      ?? spellItem?.getFlag?.("encounterplus-importer", "slug")
+      ?? spellItem?.flags?.[MODULE_ID]?.slug
+      ?? spellItem?.flags?.["encounterplus-importer"]?.slug
+      ?? ""
+    ).toLowerCase();
+    if (spellSlug === "fleche-de-foudre") {
+      console.log(`[EPI lightning arrow debug] manual buff detonation bypassed`, {
+        actor: actor?.name,
+        spell: spellItem?.name,
+        workflowId: workflow?.id ?? workflow?.uuid ?? null
+      });
+      return;
+    }
 
     // Primary target is the hit target; optionally trigger on miss.
     const hit = (() => {
@@ -5189,6 +6126,349 @@ async function epiAutoApplyOnHitAoeBuffMarker(workflow) {
 }
 
 
+async function epiLaunchLightningArrowSecondaryFromConfirmedHit(workflow) {
+  try {
+    if (!workflow?.item) return;
+    const item = workflow.item;
+    const slug = String(
+      item?.getFlag?.(MODULE_ID, "slug")
+      ?? item?.getFlag?.("encounterplus-importer", "slug")
+      ?? item?.flags?.[MODULE_ID]?.slug
+      ?? item?.flags?.["encounterplus-importer"]?.slug
+      ?? ""
+    ).toLowerCase();
+    if (slug !== "fleche-de-foudre") return;
+
+    console.log(`[EPI lightning arrow debug] using exact ice knife structure`, {
+      item: item?.name,
+      workflowId: workflow?.id ?? workflow?.uuid ?? null
+    });
+    console.log(`[EPI lightning arrow debug] confirmed hit hook entered`, {
+      item: item?.name,
+      workflowId: workflow?.id ?? workflow?.uuid ?? null
+    });
+
+	    let meta =
+	      item?.getFlag?.(MODULE_ID, "onHitAoe")
+	      ?? item?.getFlag?.("encounterplus-importer", "onHitAoe")
+	      ?? item?.flags?.[MODULE_ID]?.onHitAoe
+	      ?? item?.flags?.["encounterplus-importer"]?.onHitAoe
+	      ?? null;
+	    if (!meta?.radius || !meta?.saveActivityId) meta = meta ?? inferOnHitAoeFromItemHotfix270k(item) ?? {};
+	    console.log(`[EPI lightning arrow debug] follow-up meta payload`, meta ?? null);
+
+	    const rawSaveActivityId = meta?.saveActivityId ?? null;
+	    console.log(`[EPI lightning arrow debug] saveActivityId raw value`, rawSaveActivityId);
+
+	    const primaryActivityId = String(
+	      workflow?.activity?.id
+	      ?? workflow?.activity?._id
+	      ?? workflow?.activityId
+	      ?? workflow?.options?.activityId
+	      ?? ""
+	    );
+
+	    let actId = String(rawSaveActivityId ?? "");
+	    let act = actId ? epiGetActivityById(item, actId) : null;
+	    if (act) {
+	      console.log(`[EPI lightning arrow debug] activity 2 resolved by id`, {
+	        item: item?.name,
+	        activityId: actId
+	      });
+	    }
+	    if (!act) {
+	      const fallbackAct = epiListActivities(item).find(a => {
+	        const id = String(a?._id ?? a?.id ?? "");
+	        const type = String(a?.type ?? "").toLowerCase();
+	        return type === "save" && id && id !== primaryActivityId;
+	      }) ?? null;
+	      if (fallbackAct) {
+	        act = fallbackAct;
+	        actId = String(fallbackAct?._id ?? fallbackAct?.id ?? "");
+	        console.log(`[EPI lightning arrow debug] activity 2 resolved by fallback search`, {
+	          item: item?.name,
+	          activityId: actId,
+	          primaryActivityId: primaryActivityId || null
+	        });
+	      }
+	    }
+	    if (!actId) {
+	      console.warn(`[EPI lightning arrow debug] activity 2 launch failed`, {
+	        reason: "id absent",
+	        item: item?.name,
+	        saveActivityId: rawSaveActivityId
+	      });
+	      return;
+	    }
+	    if (!act) {
+	      console.warn(`[EPI lightning arrow debug] activity 2 launch failed`, {
+	        reason: "activité introuvable",
+	        item: item?.name,
+	        activityId: actId,
+	        saveActivityId: rawSaveActivityId
+	      });
+	      return;
+	    }
+	    console.log(`[EPI lightning arrow debug] activity 2 document found`, {
+	      item: item?.name,
+	      activityId: actId,
+	      activityUuid: String(act?.uuid ?? act?.document?.uuid ?? "")
+	    });
+
+	    const resolvedPrimary = epiResolvePrimaryHitTargetFromWorkflow(workflow);
+	    console.log(`[EPI lightning arrow debug] hit resolution candidates`, {
+      workflowId: workflow?.id ?? workflow?.uuid ?? null,
+      chosenSource: resolvedPrimary?.source ?? null,
+      hitTargets: epiDescribeTokens(resolvedPrimary?.sources?.hitTargets),
+      targets: epiDescribeTokens(resolvedPrimary?.sources?.targets),
+      applicationTargets: epiDescribeTokens(resolvedPrimary?.sources?.applicationTargets),
+      attackTarget: epiDescribeTokens(resolvedPrimary?.sources?.attackTarget),
+      targetUuids: epiDescribeTokens(resolvedPrimary?.sources?.targetUuids),
+      hitTargetUuids: epiDescribeTokens(resolvedPrimary?.sources?.hitTargetUuids),
+      currentUserTargets: epiDescribeTokens(resolvedPrimary?.sources?.currentUserTargets),
+      cachedPrimary: epiDescribeTokens(resolvedPrimary?.sources?.cachedPrimary)
+    });
+
+	    const primary = resolvedPrimary?.token ?? null;
+	    if (!primary) {
+	      console.log(`[EPI lightning arrow debug] no primary hit target found`, {
+	        workflowId: workflow?.id ?? workflow?.uuid ?? null,
+	        cacheKey: resolvedPrimary?.cacheKey ?? null
+	      });
+	    }
+
+	    if (primary) {
+	      console.log(`[EPI lightning arrow debug] chosen primary hit target`, {
+	        source: resolvedPrimary?.source ?? null,
+	        target: primary?.name ?? primary?.id ?? null,
+	        targetId: primary?.id ?? null,
+	        targetUuid: primary?.document?.uuid ?? primary?.uuid ?? null
+	      });
+	      console.log(`[EPI lightning arrow debug] hit target resolved`, {
+	        target: primary?.name ?? primary?.id ?? null,
+	        targetId: primary?.id ?? null,
+	        targetUuid: primary?.document?.uuid ?? primary?.uuid ?? null
+	      });
+	      console.log(`[EPI lightning arrow debug] primary target for activity 2`, {
+	        target: primary?.name ?? primary?.id ?? null,
+	        targetId: primary?.id ?? null,
+	        targetUuid: primary?.document?.uuid ?? primary?.uuid ?? null
+	      });
+	    }
+
+	    const doneKey = epiDoneKey(workflow, String(primary?.id ?? "no-primary"));
+	    if (epiDoneRecently(doneKey)) return;
+
+	    if (!primary) {
+	      console.warn(`[EPI lightning arrow debug] activity 2 launch failed`, {
+	        reason: "primary target absent for secondary targeting",
+	        item: item?.name,
+	        activityId: actId
+	      });
+	      return;
+	    }
+
+	    let targetTokens = [];
+	    const gridDist = Number(canvas?.scene?.grid?.distance ?? 5) || 5;
+	    const rScene = epiUnitsToSceneDistance(meta?.radius, meta?.units);
+	    if (rScene) {
+	      const steps = Math.max(1, Math.round(rScene / gridDist));
+	      const tokens = (canvas?.tokens?.placeables ?? []).filter(t => t?.actor);
+	      let adj = epiTokensInGridBurst(primary, tokens, steps);
+	      console.log(`[EPI lightning arrow debug] adjacent targets for activity 2`, epiDescribeTokens(adj));
+	      if (!adj.length) {
+	        adj = epiTokensInSceneRadius(primary, tokens, rScene);
+	        console.log(`[EPI lightning arrow debug] radius fallback targets for activity 2`, epiDescribeTokens(adj));
+	      }
+	      adj = adj.filter(t => String(t?.id ?? "") !== String(primary?.id ?? ""));
+	      console.log(`[EPI lightning arrow debug] primary excluded from secondary targets`, {
+	        primaryId: String(primary?.id ?? ""),
+	        remainingTargets: epiDescribeTokens(adj)
+	      });
+	      targetTokens = adj;
+	    }
+	    if (!targetTokens.length) {
+	      const currentTargets = Array.from(game.user?.targets ?? [])
+	        .map(t => epiResolveTokenReference(t))
+	        .filter(Boolean)
+	        .filter(t => String(t?.id ?? "") !== String(primary?.id ?? ""));
+	      if (currentTargets.length) {
+	        targetTokens = currentTargets;
+	        console.log(`[EPI lightning arrow debug] current user targets reused for activity 2`, epiDescribeTokens(currentTargets));
+	      }
+	    }
+	    if (!targetTokens.length && primary) {
+	      targetTokens = [primary];
+	      console.log(`[EPI lightning arrow debug] primary target reused as activity 2 anchor`, {
+	        primary: epiDescribeTokens([primary]),
+	        reason: "allow aoe/template resolution instead of aborting"
+	      });
+	    }
+	    const targetUuids = targetTokens.map(t => String(t?.document?.uuid ?? t?.uuid ?? "")).filter(Boolean);
+	    if (!targetUuids.length) {
+	      console.warn(`[EPI lightning arrow debug] activity 2 launch failed`, {
+	        reason: "no targets available for activity 2",
+	        item: item?.name,
+	        activityId: actId,
+	        primaryId: String(primary?.id ?? "")
+	      });
+	      return;
+	    }
+	    console.log(`[EPI lightning arrow debug] adjacent target uuids built`, targetUuids);
+	    console.log(`[EPI lightning arrow debug] secondary targetUuids applied`, targetUuids);
+
+	    const actUuid = String(act?.uuid ?? act?.document?.uuid ?? "") || (item?.uuid ? `${item.uuid}.Activity.${actId}` : "");
+	    if (!actUuid) {
+	      console.warn(`[EPI lightning arrow debug] activity 2 launch failed`, {
+	        reason: "uuid absent",
+	        item: item?.name,
+	        activityId: actId
+	      });
+	      return;
+	    }
+
+	    const baseLevel = Number(item?.system?.level ?? 0) || 0;
+	    const castLevel = Number(
+      workflow?.castData?.castLevel ?? workflow?.spellLevel ?? workflow?.itemLevel ?? workflow?.workflowOptions?.castLevel ?? workflow?.options?.spellLevel ?? workflow?.options?.castLevel ?? baseLevel
+    ) || baseLevel;
+    const scaling = Math.max(0, castLevel - baseLevel);
+	    const usage = {
+	      consume: { spellSlot: false },
+	      scaling,
+	      spell: { slot: castLevel ? `spell${castLevel}` : undefined },
+	      targets: targetUuids,
+	      targetUuids,
+	      tokenUuids: targetUuids,
+	      midiOptions: {
+	        targetUuids,
+	        proceedChecks: { checkTargets: false },
+	        workflowOptions: {
+	          __epiSecondaryOnHitAoe: true,
+          targetConfirmation: "none",
+          noProvokeReaction: true,
+          fastForward: true,
+          fastForwardDamage: true
+        }
+      },
+	      __epiBypassActivityChooser: true,
+	      __epiActivityChoiceDone: true
+	    };
+	    const dialog = { configure: false, options: { display: { all: false } } };
+	    const message = { create: true };
+
+	    epiMarkDone(doneKey);
+	    const launchContext = {
+	      activityRef: actUuid,
+	      actUuid,
+	      activity: {
+	        id: actId,
+	        uuid: String(act?.uuid ?? act?.document?.uuid ?? ""),
+	        type: act?.type ?? null
+	      },
+	      usage,
+	      dialog,
+	      message,
+	      targetUuids,
+	      userTargets: epiDescribeTokens(Array.from(game.user?.targets ?? []))
+	    };
+	    console.log(`[EPI lightning arrow debug] activity 2 launch context`, launchContext);
+	    console.log(`[EPI lightning arrow debug] activity 2 activity uuid`, actUuid);
+	    console.log(`[EPI lightning arrow debug] activity 2 usage payload`, usage);
+	    console.log(`[EPI lightning arrow debug] activity 2 targetUuids`, targetUuids);
+	    console.log(`[EPI lightning arrow debug] activity 2 activityRef`, actUuid);
+	    console.log(`[EPI lightning arrow debug] activity 2 launch payload`, {
+	      usage,
+	      dialog,
+	      message,
+	      targetUuids
+	    });
+	    let prevTargetIds = null;
+	    try {
+	      try {
+	        prevTargetIds = await epiSetUserTargets(targetTokens.map(t => String(t?.id ?? t?.document?.id ?? "")).filter(Boolean));
+	        console.log(`[EPI lightning arrow debug] activity 2 targets switched just before launch`, {
+	          targetUuids,
+	          userTargets: epiDescribeTokens(Array.from(game.user?.targets ?? []))
+	        });
+	      } catch (_targetSwitchError) {}
+	      console.log(`[EPI lightning arrow debug] activity 2 effective targets`, epiDescribeTokens(targetTokens));
+	      console.log(`[EPI lightning arrow debug] activity 2 launched from confirmed hook only`, {
+	        item: item?.name,
+	        workflowId: workflow?.id ?? workflow?.uuid ?? null,
+	        activityUuid: actUuid
+	      });
+	      console.log(`[EPI lightning arrow debug] auto-launching activity 2`, {
+	        activityUuid: actUuid,
+	        targetUuids
+	      });
+	      const result = await epiExecuteIceKnifeStyleOnHitAoe({
+	        item,
+	        meta,
+	        primary,
+	        targets: targetTokens,
+	        activityRef: act ?? actUuid,
+	        actUuid,
+	        usage,
+	        dialog,
+	        message,
+	        skipTargetSwitch: true
+	      });
+	      console.log(`[EPI lightning arrow debug] activity 2 completed`, {
+	        activityUuid: actUuid,
+	        hasResult: result != null,
+	        resultType: typeof result
+	      });
+	      try {
+	        const actor = workflow?.actor ?? workflow?.item?.actor ?? null;
+	        const found = actor ? await epiFindFirstBuffSpellEffect(actor) : null;
+	        if (found?.spellItem) {
+	          const foundSlug = String(
+	            found.spellItem?.getFlag?.(MODULE_ID, "slug")
+	            ?? found.spellItem?.getFlag?.("encounterplus-importer", "slug")
+	            ?? found.spellItem?.flags?.[MODULE_ID]?.slug
+	            ?? found.spellItem?.flags?.["encounterplus-importer"]?.slug
+	            ?? ""
+	          ).toLowerCase();
+	          if (foundSlug === "fleche-de-foudre") {
+	            try { await found.effect?.delete?.(); } catch (_e) {}
+	            try { await epiEndConcentrationBestEffort(actor, found.spellItem?.uuid); } catch (_e) {}
+	            console.log(`[EPI lightning arrow debug] Lightning Arrow buff marker consumed after activity 2`, {
+	              actor: actor?.name ?? null,
+	              spell: found.spellItem?.name ?? null
+	            });
+	          }
+	        }
+	      } catch (_cleanupError) {}
+	    } catch (launchError) {
+	      console.warn(`[EPI lightning arrow debug] activity 2 launch failed detailed`, {
+	        reason: "appel runtime qui échoue",
+	        item: item?.name,
+	        activityId: actId,
+	        activityUuid: actUuid,
+	        activityType: act?.type ?? null,
+	        activityRef: actUuid,
+	        targetUuids,
+	        usage,
+	        dialog,
+	        messageConfig: message,
+	        userTargets: epiDescribeTokens(Array.from(game.user?.targets ?? [])),
+	        name: launchError?.name ?? null,
+	        message: launchError?.message ?? String(launchError ?? ""),
+	        stack: launchError?.stack ?? null,
+	        cause: launchError?.cause ?? null
+	      });
+	      console.warn(`[EPI lightning arrow debug] activity 2 launch failed`, launchError);
+	      throw launchError;
+	    } finally {
+	      try {
+	        if (prevTargetIds) await epiRestoreUserTargets(prevTargetIds);
+	      } catch (_restoreError) {}
+	    }
+  } catch (e) {
+    console.warn(`[EPI lightning arrow debug] confirmed hit hook failed`, e);
+  }
+}
+
 // Main trigger
 // We intentionally only listen to RollComplete here.
 // DamageRollComplete can fire in addition (and sometimes before RollComplete), which led to duplicate
@@ -5203,6 +6483,10 @@ Hooks.on("midi-qol.RollComplete", (workflow) => {
 
 Hooks.on("midi-qol.AttackRollComplete", (workflow) => {
   void epiRunBuffOnHitAoeSecondary(workflow);
+});
+
+Hooks.on("midi-qol.preDamageRoll", (workflow) => {
+  void epiLaunchLightningArrowSecondaryFromConfirmedHit(workflow);
 });
 });
 

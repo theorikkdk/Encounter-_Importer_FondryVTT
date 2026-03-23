@@ -1795,11 +1795,19 @@ function parseAoeRadiusFR(text) {
 
   // --- LIGNE ---
   // "ligne de 30 mètres de long et 1,5 mètre de large"
-  m = t.match(/ligne\s+de\s+(\d+(?:[.,]\d+)?)\s*(m|m[ée]tres?|ft|feet|pieds?)(?:\s*(?:de\s+long|de\s+longueur|de\s+longue|de\s+longueur|de\s+longueur))?(?:[^\.\n]{0,60}?\bet\b\s+(\d+(?:[.,]\d+)?)\s*(m|m[ée]tres?|ft|feet|pieds?)\s*(?:de\s+large|de\s+largeur))?/);
+  m = t.match(/ligne\s+de\s+(\d+(?:[.,]\d+)?)\s*(m|m[ée]tres?|ft|feet|pieds?)(?:\s*(?:de\s+long|de\s+longueur|de\s+longue|de\s+longueur|de\s+longueur))?(?:[^\.\n]{0,80}?(?:\bet\b|sur)\s+(\d+(?:[.,]\d+)?)\s*(m|m[ée]tres?|ft|feet|pieds?)\s*(?:de\s+large|de\s+largeur))?/);
   if (m) {
     const len = num(m[1]); const u1 = unit(m[2]);
     const w = m[3] ? num(m[3]) : null;
     const uW = m[4] ? unit(m[4]) : u1;
+    return { type: "line", value: len, units: u1, width: (w != null ? w : null), widthUnits: uW };
+  }
+
+  // Alternate wording: "une ligne longue de 30 m" + "large de 1,5 m"
+  m = t.match(/ligne[^\.\n]{0,80}?long(?:ue|ueur)?\s+de\s+(\d+(?:[.,]\d+)?)\s*(m|m[ée]tres?|ft|feet|pieds?)[^\.\n]{0,80}?large(?:ur)?\s+de\s+(\d+(?:[.,]\d+)?)\s*(m|m[ée]tres?|ft|feet|pieds?)/);
+  if (m) {
+    const len = num(m[1]); const u1 = unit(m[2]);
+    const w = num(m[3]); const uW = unit(m[4]);
     return { type: "line", value: len, units: u1, width: (w != null ? w : null), widthUnits: uW };
   }
 
@@ -2084,6 +2092,251 @@ function parseHealingOrTempFR(text) {
   }
 
   return null;
+}
+
+// --- Lot 1 (batch simple) ---------------------------------------------------
+// Pragmatic fast-pass: only for explicitly listed simple/ROI spells,
+// while excluding already-validated heavy systems (auras/regions/walls/multi-shot-like specials).
+const LOT1_SIMPLE_BATCH_SLUGS = new Set([
+  "blessure",
+  "chatiment-du-ban",
+  "chatiment-revelateur",
+  "coup-au-but",
+  "dissipation-du-mal-et-du-bien",
+  "duel-force",
+  "ennemis-a-foison",
+  "faveur-divine",
+  "flammes",
+  "fleche-acide-de-melf",
+  "fleches-enflammees",
+  "forme-gazeuse",
+  "foulee-d-ashardalon",
+  "frayeur",
+  "guerison-de-groupe",
+  "image-miroir",
+  "invulnerabilite",
+  "lame-de-feu",
+  "lame-retentissante",
+  "lueurs-feeriques",
+  "mot-de-guerison-de-groupe",
+  "ombre-d-egarement",
+  "orbe-chromatique",
+  "premonition",
+  "priere-de-guerison",
+  "protection-contre-le-mal-et-le-bien",
+  "protection-contre-le-poison",
+  "rayon-de-givre",
+  "regeneration",
+  "resistance",
+  "sauvagerie-primitive",
+  "soins",
+  "trait-de-feu",
+  "vent-protecteur"
+]);
+
+// Lot 2 sub-batch (ROI): keep only broad, reusable and low-special-case spells.
+// Target families: damage simple + save-then-damage simple.
+const LOT2_SIMPLE_BATCH_SLUGS = new Set([
+  "boule-de-feu",
+  "mains-brulantes",
+  "eclair",
+  "vague-tonnante",
+  "glas",
+  "moquerie-cruelle",
+  "piqure-mentale",
+  "epine-mentale",
+  "trait-ensorcele",
+  "gelure",
+  "poigne-electrique",
+  "contact-glacial",
+  // Next pragmatic sub-batch (simple/ROI): straightforward damage/save or heal.
+  "cone-de-froid",
+  "nuee-de-boules-de-neige-de-snilloc",
+  "raz-de-maree",
+  "secousse-sismique",
+  "tempete-de-grele",
+  "bouffee-de-poison",
+  "catapulte",
+  "soins-de-groupe",
+  // Next pragmatic sub-batch (ROI): additional straightforward damage/save templates.
+  "aspersion-acide",
+  "flambee-d-aganazzar",
+  "fleche-de-foudre"
+]);
+
+const SIMPLE_BATCH_EXCLUDED_SLUGS = new Set([
+  // Explicitly out-of-scope for this pass (existing dedicated systems)
+  "aura-de-purete",
+  "cercle-de-pouvoir",
+  "croissance-d-epines",
+  "eclair-de-chaos",
+  "fleche-de-foudre",
+  "mur-d-eau",
+  "nuee-de-dagues",
+  "tentacules-noirs-d-evard",
+  // Not prioritized combat simple mechanics for this pass
+  "message",
+  "pierre-magique",
+  "sieste",
+  "sommeil",
+  "sphere-resiliente-d-otiluke",
+  "tempete-vengeresse"
+]);
+
+function isSimpleBatchEligible(spellSlug) {
+  const s = String(spellSlug ?? "").toLowerCase().trim();
+  return (LOT1_SIMPLE_BATCH_SLUGS.has(s) || LOT2_SIMPLE_BATCH_SLUGS.has(s)) && !SIMPLE_BATCH_EXCLUDED_SLUGS.has(s);
+}
+
+const SIMPLE_FRIENDLY_HEAL_SLUGS = new Set([
+  "soins-de-groupe",
+  "guerison-de-groupe",
+  "mot-de-guerison-de-groupe",
+  "priere-de-guerison"
+]);
+
+function isSimpleFriendlyHeal(spellSlug) {
+  return SIMPLE_FRIENDLY_HEAL_SLUGS.has(String(spellSlug ?? "").toLowerCase().trim());
+}
+
+function applyFriendlyOnlyHealTarget(act, spellSlug) {
+  if (!isSimpleFriendlyHeal(spellSlug)) return;
+  act.target = act.target ?? { template: {count:"", contiguous:false, type:"", size:"", width:"", height:"", units:"ft"}, affects: {count:"", type:"", choice:false, special:""}, prompt: true, override: false };
+  act.target.affects = act.target.affects ?? { count: "", type: "", choice: false, special: "" };
+  act.target.affects.type = "ally";
+  act.target.affects.choice = true;
+  act.target.prompt = true;
+  act.target.override = true;
+}
+
+function parseSimpleBuffChangesFR(descText = "", spellSlug = "") {
+  const t = foldKey(descText);
+  const slug = String(spellSlug ?? "").toLowerCase().trim();
+  const changes = [];
+
+  // Targeted hotfixes (lot 1) with explicit semantics.
+  // Protection contre le poison: ensure a useful baseline buff even if wording varies.
+  if (slug === "protection-contre-le-poison") {
+    changes.push({ key: "system.traits.dr.value", mode: 2, value: "poison", priority: 20 });
+  }
+
+  // Faveur divine: offensive rider, never immediate damage at cast.
+  // Use a single native dnd5e weapon damage bonus (+1d4 radiant) to avoid double counting.
+  if (slug === "faveur-divine") {
+    changes.push({ key: "system.bonuses.weapon.damage", mode: 2, value: "+1d4[radiant]", priority: 20 });
+    changes.push({ key: "flags.encounterplus-importer.simpleRider.divineFavor", mode: 5, value: true, priority: 20 });
+  }
+
+  const dmgTypes = ["acid", "cold", "fire", "force", "lightning", "necrotic", "poison", "psychic", "radiant", "thunder", "bludgeoning", "piercing", "slashing"];
+  const frToSys = new Map([
+    ["acide", "acid"], ["froid", "cold"], ["feu", "fire"], ["force", "force"], ["foudre", "lightning"],
+    ["necrotique", "necrotic"], ["nécrotique", "necrotic"], ["poison", "poison"], ["psychique", "psychic"],
+    ["radiant", "radiant"], ["radieux", "radiant"], ["tonnerre", "thunder"], ["contondant", "bludgeoning"],
+    ["contendant", "bludgeoning"], ["perforant", "piercing"], ["tranchant", "slashing"]
+  ]);
+
+  for (const [fr, sysType] of frToSys.entries()) {
+    const rx = new RegExp(`resistan(?:ce|t)\\s+(?:aux|au|a la|a l')\\s+degats?\\s+(?:de\\s+|d')?${fr}`);
+    if (rx.test(t) && dmgTypes.includes(sysType)) {
+      changes.push({ key: "system.traits.dr.value", mode: 2, value: sysType, priority: 20 });
+    }
+  }
+
+  if (/avantage[^\.]{0,80}jets? de sauvegarde/.test(t)) {
+    changes.push({ key: "flags.midi-qol.advantage.ability.save.all", mode: 5, value: true, priority: 20 });
+  }
+
+  // de-dup
+  const seen = new Set();
+  return changes.filter((c) => {
+    const k = `${c.key}|${c.mode}|${String(c.value)}`;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+}
+
+function resolveLot1BuffTemplateSpec(spellSlug = "", spellName = "", descText = "") {
+  const slug = String(spellSlug ?? "").toLowerCase().trim();
+  const name = foldKey(String(spellName ?? ""));
+
+  const isDivineFavor = slug === "faveur-divine" || /faveur\s+divine/.test(name);
+  if (isDivineFavor) {
+    return {
+      slug: "faveur-divine",
+      targetMode: "self",
+      changes: parseSimpleBuffChangesFR(descText, "faveur-divine")
+    };
+  }
+
+  const isPoisonProtect = slug === "protection-contre-le-poison" || /protection\s+contre\s+le\s+poison/.test(name);
+  if (isPoisonProtect) {
+    return {
+      slug: "protection-contre-le-poison",
+      targetMode: "targets",
+      changes: parseSimpleBuffChangesFR(descText, "protection-contre-le-poison")
+    };
+  }
+
+  return null;
+}
+
+function attachLot1BuffTemplateEffect(itemObj, sp, durationObj) {
+  const rawSlug = String(sp?.slug ?? "").toLowerCase();
+  const spellName = String(itemObj?.name ?? sp?.name ?? "");
+  const desc = stripHtmlToText(cleanEncounterLinks(sp?.descr ?? ""));
+  const spec = resolveLot1BuffTemplateSpec(rawSlug, spellName, desc);
+  if (!spec) return { attached: false, reason: "no-spec" };
+
+  itemObj.effects = Array.isArray(itemObj.effects) ? itemObj.effects : [];
+
+  const spellSlug = String(spec.slug ?? rawSlug).toLowerCase();
+  const targetMode = String(spec.targetMode ?? "targets").toLowerCase();
+  const changes = Array.isArray(spec.changes) ? spec.changes : [];
+  if (!changes.length) return { attached: false, reason: "no-changes", spellSlug };
+
+  const existing = itemObj.effects.find(e => {
+    const f = e?.flags?.["encounterplus-importer"] ?? e?.flags?.[MODULE_ID] ?? {};
+    return !!f?.simpleLot1Buff && !!f?.applyOnCast && String(f?.slug ?? "").toLowerCase() === spellSlug;
+  });
+  if (existing) return { attached: false, reason: "already-exists", spellSlug, effectName: existing?.name ?? "" };
+
+  const effectId = foundry?.utils?.randomID ? foundry.utils.randomID(16) : crypto.randomUUID().slice(0, 16);
+  const effectName = `${itemObj.name} — Buff simple`;
+  itemObj.effects.push({
+    _id: effectId,
+    name: effectName,
+    icon: itemObj.img ?? "icons/svg/aura.svg",
+    origin: null,
+    disabled: false,
+    transfer: false,
+    duration: (typeof toEffectDuration === "function") ? toEffectDuration(itemObj?.system?.duration ?? durationObj) : {},
+    changes,
+    flags: {
+      [MODULE_ID]: {
+        simpleLot1Buff: true,
+        slug: spellSlug,
+        family: "buffs-resistances",
+        applyOnCast: true,
+        targetMode
+      },
+      "encounterplus-importer": {
+        simpleLot1Buff: true,
+        slug: spellSlug,
+        family: "buffs-resistances",
+        applyOnCast: true,
+        targetMode
+      }
+    }
+  });
+
+  console.log(`[EPI lot1 buff debug] importer attached AE template`, {
+    slug: spellSlug,
+    effectName,
+    effectsCount: itemObj.effects.length
+  });
+
+  return { attached: true, spellSlug, effectName, effectId };
 }
 
 
@@ -3805,6 +4058,14 @@ function toDnd5eTarget(sp, measurement) {
       : { value: 10, units: "ft", type: "cube", prompt: true };
   }
 
+  // Hard fallback for Lightning Bolt: enforce the canonical line template.
+  // Some Encounter+ exports provide incomplete/incorrect area metadata for this spell.
+  if (slug === "eclair" || slug === "lightning-bolt") {
+    return wantMetric
+      ? { value: 30, units: "m", type: "line", width: 1.5, prompt: true }
+      : { value: 100, units: "ft", type: "line", width: 5, prompt: true };
+  }
+
   // Hard fallback for Blade Barrier: Encounter+ exports may omit the template metadata.
   // RAW: straight wall up to 100 ft long and 5 ft thick OR ring up to 60 ft diameter and 5 ft thick.
   // We default the item target to the LINE form; applySpellActivities will add an alternate RING activity.
@@ -3902,6 +4163,10 @@ function toDnd5eTarget(sp, measurement) {
     const base = srcMetric ? Number(size) : roundTo5(size); // keep 5-ft increments for imperial exports
     const val = wantMetric ? (srcMetric ? base : feetToMeters(base)) : (srcMetric ? metersToFeet(base) : base);
     const units = wantMetric ? "m" : "ft";
+    if (type === "line") {
+      const width = (units === "m") ? 1.5 : 5;
+      return { value: val, units, type, width, prompt: true };
+    }
     return { value: val, units, type, prompt: true };
   }
 
@@ -4017,6 +4282,12 @@ async function toDnd5eSpell(sp, folderId) {
   }
   try { applySpellEffects(out, sp, duration, measurement); } catch (e) {
     console.warn("encounterplus-importer | applySpellEffects failed", name, e);
+  }
+
+  // Hard guarantee for lot-1 buff templates on imported spell items.
+  // If a template should exist (Divine Favor / Protection from Poison), ensure it is present on the final item payload.
+  try { attachLot1BuffTemplateEffect(out, sp, duration); } catch (e) {
+    console.warn("encounterplus-importer | attachLot1BuffTemplateEffect failed", name, e);
   }
 
   return out;
@@ -4370,9 +4641,17 @@ if (unlimitedTargets && (!maxTargets || Number(maxTargets) <= 1) && (!multiShotT
     }
   }
 
-  // NOTE: We intentionally do not write legacy item.system.scaling formulas here.
-  // Encounter+ scaling is handled elsewhere and adding a formula can break user workflows.
-
+  // Normalize directional line templates: keep length, but guarantee sane thickness.
+  // This prevents frequent imports where line length is correct but width is missing/invalid.
+  try {
+    const tType = String(sys?.target?.type ?? "").toLowerCase();
+    if (tType === "line") {
+      const units = String(sys?.target?.units ?? "ft").toLowerCase() === "m" ? "m" : "ft";
+      const curW = Number(sys?.target?.width ?? 0);
+      const defaultW = units === "m" ? 1.5 : 5;
+      if (!Number.isFinite(curW) || curW <= 0) sys.target.width = defaultW;
+    }
+  } catch (_e) {}
 
   const isMidi = (() => { try { return !!game.modules?.get?.("midi-qol")?.active; } catch(e){ return false; } })();
   const wantsFR = (() => { try { return String(game.i18n?.lang ?? "en").toLowerCase().startsWith("fr"); } catch(e){ return true; } })();
@@ -4523,6 +4802,192 @@ if (unlimitedTargets && (!maxTargets || Number(maxTargets) <= 1) && (!multiShotT
     return;
   }
   let __beamExtraActivityId = null;
+
+  // Dedicated exception: rebuild Chaos Bolt from a fixed explicit activity shape.
+  // We do not reuse the simple batch or parsed primary damage here because the item
+  // must visibly carry the canonical 2d8 + 1d6 formula before runtime type injection.
+  if (spellSlug === "eclair-de-chaos") {
+    const act = makeActivity(baseId);
+    act.sort = 0;
+    setCommonFromSpell(act);
+    act.midiProperties = act.midiProperties ?? {};
+    act.midiProperties.displayActivityName = true;
+    act.type = "attack";
+    act.name = isMidi ? "midi attack" : (wantsFR ? "Attaque" : "Attack");
+    act.attack = act.attack ?? { ability: "", bonus: "", critical: { threshold: null }, flat: false, type: { value: "ranged", classification: "spell" } };
+    act.attack.type = act.attack.type ?? { value: "ranged", classification: "spell" };
+    act.attack.type.value = "ranged";
+    act.attack.type.classification = "spell";
+
+    const importedFormula = "2d8 + 1d6";
+    const importedDamagePart = {
+      number: null,
+      denomination: null,
+      bonus: "",
+      // Placeholder imported type only. Runtime replaces the type after the d8 choice,
+      // but the visible sheet formula must already be correct before any roll occurs.
+      types: ["force"],
+      custom: { enabled: true, formula: importedFormula },
+      // Runtime will explicitly rebuild the final upcast formula for Chaos Bolt so the
+      // activity never accumulates an unwanted extra d8 from mixed scaling paths.
+      scaling: { mode: "", number: 0, formula: "" }
+    };
+
+    act.damage = act.damage ?? { critical: { bonus: "" }, includeBase: true, parts: [] };
+    act.damage.includeBase = true;
+    act.damage.parts = [importedDamagePart];
+    act.flags = act.flags ?? {};
+    act.flags["encounterplus-importer"] = {
+      ...(act.flags["encounterplus-importer"] ?? {}),
+      generated: true,
+      kind: "chaos-bolt-dedicated",
+      importedFormula,
+      variableDamageTypes: ["acid", "cold", "fire", "force", "lightning", "poison", "psychic", "thunder"]
+    };
+    act.description = act.description ?? { chatFlavor: "" };
+    act.description.chatFlavor = wantsFR
+      ? "Éclair de chaos — formule importée fixe : 2d8 + 1d6. Le type est déterminé par un d8 avant l'attaque."
+      : "Chaos Bolt — fixed imported formula: 2d8 + 1d6. Damage type is determined by a d8 before the attack.";
+
+    console.debug(`[EPI chaos bolt debug] imported formula`, {
+      spellSlug,
+      formula: importedFormula,
+      custom: importedDamagePart.custom,
+      types: importedDamagePart.types
+    });
+
+    sys.actionType = "rsak";
+    return;
+  }
+
+  // Lot 1/2 simple fast-path: keep implementation simple, deterministic, and cheap.
+  // This path is intentionally limited to selected simple-batch slugs and avoids touching
+  // dedicated complex systems (regions/walls/auras/multi-shot special handling).
+  const __simpleBatchEligible = isSimpleBatchEligible(spellSlug)
+    && !delayedNextForFilter
+    && !dotEachTurnForFilter;
+  if (__simpleBatchEligible) {
+    if (spellSlug === "faveur-divine") {
+      // Hotfix: Divine Favor is a weapon-hit rider buff, not immediate spell damage.
+      // Keep cast as a clean self utility/buff setup and stop here.
+      const act = makeActivity(baseId);
+      act.sort = 0;
+      setCommonFromSpell(act);
+      act.type = "utility";
+      act.name = act.name || "Lancer";
+      act.target = act.target ?? {
+        template: { count:"", contiguous:false, type:"", size:"", width:"", height:"", units:"ft" },
+        affects: { count:"1", type:"self", choice:false, special:"" },
+        prompt: false,
+        override: true
+      };
+      act.target.template = { count: "", contiguous: false, type: "", size: "", width: "", height: "", units: "ft" };
+      act.target.affects = { count: "1", type: "self", choice: false, special: "" };
+      act.target.prompt = false;
+      act.target.override = true;
+      sys.actionType = "";
+      return;
+    }
+
+    const healCandLot1 = parseHealingOrTempFR(descText);
+    const primaryDamage = Array.isArray(damages) && damages.length ? damages[0] : null;
+
+    const act = makeActivity(baseId);
+    act.sort = 0;
+    setCommonFromSpell(act);
+    act.midiProperties = act.midiProperties ?? {};
+    act.midiProperties.displayActivityName = true;
+
+    // Do not route mixed damage+heal descriptions (e.g. Contact glacial)
+    // to a pure heal activity; prefer offensive paths when damage is present.
+    const shouldRouteHealLot = !!(healCandLot1 && !primaryDamage && !atk && !saveAb);
+    if (shouldRouteHealLot) {
+      const isTemp = healCandLot1.kind === "temp";
+      act.type = "heal";
+      act.name = isMidi ? "midi heal" : (wantsFR ? (isTemp ? "PV temporaires" : "Soigner") : (isTemp ? "Temp HP" : "Heal"));
+      act.healing = act.healing ?? { number: null, denomination: null, bonus: "", types: [], custom: { enabled: false, formula: "" }, scaling: { mode: "whole", number: 1, formula: "" } };
+      act.healing.types = [isTemp ? "temphp" : "healing"];
+      applyFriendlyOnlyHealTarget(act, spellSlug);
+
+      if (healCandLot1.custom) {
+        act.healing.custom.enabled = true;
+        act.healing.custom.formula = String(healCandLot1.custom).trim();
+        act.healing.number = null;
+        act.healing.denomination = null;
+        act.healing.bonus = "";
+      } else {
+        act.healing.custom.enabled = false;
+        act.healing.custom.formula = "";
+        act.healing.number = Number(healCandLot1.number ?? 0) || null;
+        act.healing.denomination = Number(healCandLot1.denom ?? healCandLot1.denomination ?? 0) || null;
+        act.healing.bonus = String(healCandLot1.bonus ?? "");
+      }
+      sys.actionType = "";
+      return;
+    }
+
+    if (saveAb && primaryDamage) {
+      act.type = "save";
+      act.name = isMidi ? "midi save" : (wantsFR ? "Sauvegarde" : "Save");
+      act.save = act.save ?? { ability: [saveAb], dc: { calculation: "", formula: CASTER_DC_FORMULA } };
+      act.save.ability = [saveAb];
+      act.save.dc = act.save.dc ?? { calculation: "", formula: CASTER_DC_FORMULA };
+      act.save.dc.calculation = "";
+      act.save.dc.formula = CASTER_DC_FORMULA;
+      try { delete act.save.dc.value; } catch (e) { act.save.dc.value = null; }
+      act.damage = act.damage ?? { critical: { bonus: "" }, includeBase: true, parts: [] };
+      act.damage.parts = [{
+        number: primaryDamage.number,
+        denomination: primaryDamage.denom,
+        bonus: String(primaryDamage.bonus ?? ""),
+        types: [primaryDamage.dtype || ""],
+        custom: { enabled: false, formula: "" },
+        scaling: { mode: "whole", number: 1, formula: "" }
+      }];
+      act.description = act.description ?? { chatFlavor: "" };
+      act.description.chatFlavor = wantsFR
+        ? `JS ${saveAb.toUpperCase()} · ${primaryDamage.number}d${primaryDamage.denom} ${primaryDamage.dtype}${halfOnSave ? " (moitié si réussite)" : ""}`
+        : `${saveAb.toUpperCase()} save · ${primaryDamage.number}d${primaryDamage.denom} ${primaryDamage.dtype}${halfOnSave ? " (half on save)" : ""}`;
+      sys.actionType = "save";
+      return;
+    }
+
+    if (atk && primaryDamage) {
+      act.type = "attack";
+      act.name = isMidi ? "midi attack" : (wantsFR ? "Attaque" : "Attack");
+      act.attack = act.attack ?? { ability: "", bonus: "", critical: { threshold: null }, flat: false, type: { value: "ranged", classification: "spell" } };
+      act.attack.type = act.attack.type ?? { value: "ranged", classification: "spell" };
+      act.attack.type.value = (atk.mode === "melee") ? "melee" : "ranged";
+      act.attack.type.classification = "spell";
+      act.damage = act.damage ?? { critical: { bonus: "" }, includeBase: true, parts: [] };
+      act.damage.parts = [{
+        number: primaryDamage.number,
+        denomination: primaryDamage.denom,
+        bonus: String(primaryDamage.bonus ?? ""),
+        types: [primaryDamage.dtype || ""],
+        custom: { enabled: false, formula: "" },
+        scaling: { mode: "whole", number: 1, formula: "" }
+      }];
+      sys.actionType = atk.actionType;
+      return;
+    }
+
+    if (primaryDamage) {
+      act.type = "damage";
+      act.name = isMidi ? "midi damage" : (wantsFR ? "Dégâts" : "Damage");
+      act.damage = act.damage ?? { critical: { bonus: "" }, includeBase: true, parts: [] };
+      act.damage.parts = [{
+        number: primaryDamage.number,
+        denomination: primaryDamage.denom,
+        bonus: String(primaryDamage.bonus ?? ""),
+        types: [primaryDamage.dtype || ""],
+        custom: { enabled: false, formula: "" },
+        scaling: { mode: "whole", number: 1, formula: "" }
+      }];
+      sys.actionType = "";
+      return;
+    }
+  }
 
   // Deterministic extra activity IDs (avoid duplicates on re-import)
   const deriveSiblingId = (base, preferChars = ["x","1","2","3","4","5","6","7","8","9","a","b","c","d","e","f"]) => {
@@ -5056,7 +5521,7 @@ const addDelayedDamageActivity = () => {
       act.target = act.target ?? { template: {count:"", contiguous:false, type:"", size:"", width:"", height:"", units:"ft"}, affects: {count:"", type:"", choice:false, special:""}, prompt: true, override: false };
       act.target.affects = act.target.affects ?? { count: "", type: "", choice: false, special: "" };
       act.target.affects.count = String(maxTargets);
-      act.target.affects.type = "creature";
+      act.target.affects.type = isSimpleFriendlyHeal(spellSlug) ? "ally" : "creature";
       // don't force prompt; let Foundry/Midi handle targets as usual
     }
 
@@ -5068,6 +5533,8 @@ const addDelayedDamageActivity = () => {
 
     act.midiProperties = act.midiProperties ?? {};
     act.midiProperties.displayActivityName = true;
+
+    applyFriendlyOnlyHealTarget(act, spellSlug);
 
     // dnd5e uses "healing" field for heal activities
     act.healing = act.healing ?? { number: null, denomination: null, bonus: "", types: [], custom: { enabled: false, formula: "" }, scaling: { mode: "whole", number: 1, formula: "" } };
@@ -5251,6 +5718,191 @@ const addDelayedDamageActivity = () => {
   }
 
 
+  // Dedicated simplification: Lightning Arrow reuses the same attack + hidden follow-up SAVE
+  // structure as Ice Knife, with only the spell-specific differences applied afterwards.
+  if (spellSlug === "fleche-de-foudre") {
+    console.log(`[EPI lightning arrow debug] using exact ice knife structure`, {
+      spellSlug,
+      itemName: itemObj?.name ?? sp?.name ?? "",
+      initialDuration: sys.duration ?? null,
+      initialTarget: sys.target ?? null,
+      initialProperties: sys.properties ?? null
+    });
+    const hitDmg = damages[0] ?? null;
+    const splashDmg = damages[1] ?? damages[0] ?? null;
+    const around = parseAoeAroundTargetFR(descText) ?? (aoe?.value ? { value: aoe.value, units: aoe.units } : null);
+
+    const a1 = makeActivity(baseId);
+    a1.sort = 0;
+    setCommonFromSpell(a1);
+    a1.type = "attack";
+    a1.name = isMidi ? "midi attack" : (wantsFR ? "Attaque" : "Attack");
+    a1.attack = a1.attack ?? { ability: "", bonus: "", critical: { threshold: null }, flat: false, type: { value: "ranged", classification: "spell" } };
+    a1.attack.ability = a1.attack.ability ?? "";
+    a1.attack.bonus = a1.attack.bonus ?? "";
+    a1.attack.critical = a1.attack.critical ?? { threshold: null };
+    a1.attack.flat = (a1.attack.flat ?? false);
+    a1.attack.type = a1.attack.type ?? { value: "ranged", classification: "spell" };
+    a1.attack.type.value = "ranged";
+    a1.attack.type.classification = "spell";
+    a1.target = a1.target ?? {
+      template: { count:"", contiguous:false, type:"", size:"", width:"", height:"", units:"ft" },
+      affects: { count:"1", type:"creature", choice:false, special:"" },
+      prompt: true,
+      override: true
+    };
+    a1.target.template = { count:"", contiguous:false, type:"", size:"", width:"", height:"", units:"ft" };
+    a1.target.affects = { count:"1", type:"creature", choice:false, special:"" };
+    a1.target.prompt = true;
+    a1.target.override = true;
+    a1.midiProperties = a1.midiProperties ?? (isMidi ? midiDefaults() : { displayActivityName: false });
+    a1.midiProperties.displayActivityName = true;
+    if (hitDmg) {
+      a1.damage = a1.damage ?? { critical: { bonus: "" }, includeBase: true, parts: [] };
+      a1.damage.parts = [{
+        number: hitDmg.number,
+        denomination: hitDmg.denom,
+        bonus: String(hitDmg.bonus ?? ""),
+        types: [hitDmg.dtype || ""],
+        custom: { enabled: false, formula: "" },
+        scaling: { mode: "whole", number: 1, formula: "" }
+      }];
+      applyScalingToActivityDamage(a1, scaling);
+      a1.description.chatFlavor = `${atk.actionType.toUpperCase()} · ${hitDmg.number}d${hitDmg.denom} ${hitDmg.dtype}`;
+    } else {
+      a1.description.chatFlavor = `${atk.actionType.toUpperCase()}`;
+    }
+
+    let a2id;
+    const genId = () => {
+      try {
+        if (foundry?.utils?.randomID) return foundry.utils.randomID(16);
+      } catch (e) {}
+      const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+      let s = "";
+      for (let i = 0; i < 16; i++) s += chars[Math.floor(Math.random() * chars.length)];
+      return s;
+    };
+    do { a2id = genId(); } while (sys.activities[a2id]);
+    const a2 = makeActivity(a2id);
+    a2.sort = 1;
+    setCommonFromSpell(a2);
+    a2.type = "save";
+    a2.name = isMidi ? (wantsFR ? "midi save" : "midi save") : (wantsFR ? "Sauvegarde" : "Save");
+    a2.midiProperties = a2.midiProperties ?? (isMidi ? midiDefaults() : { displayActivityName: false });
+    a2.midiProperties.displayActivityName = false;
+    a2.midiProperties.automationOnly = true;
+    a2.consumption = a2.consumption ?? { targets: [], scaling: { allowed: false, max: "" }, spellSlot: false };
+    a2.consumption.spellSlot = false;
+    a2.save = a2.save ?? { ability: [saveAb], dc: { calculation: "", formula: CASTER_DC_FORMULA } };
+    a2.save.ability = [saveAb];
+    a2.save.dc = a2.save.dc ?? { calculation: "", formula: CASTER_DC_FORMULA };
+    a2.save.dc.calculation = "";
+    a2.save.dc.formula = CASTER_DC_FORMULA;
+    try { delete a2.save.dc.value; } catch (e) { a2.save.dc.value = null; }
+    if (splashDmg) {
+      a2.damage = a2.damage ?? { onSave: halfOnSave ? "half" : "none", critical: { bonus: "" }, includeBase: true, parts: [] };
+      a2.damage.onSave = halfOnSave ? "half" : "none";
+      a2.damage.parts = [{
+        number: splashDmg.number,
+        denomination: splashDmg.denom,
+        bonus: String(splashDmg.bonus ?? ""),
+        types: [splashDmg.dtype || ""],
+        custom: { enabled: false, formula: "" },
+        scaling: { mode: "whole", number: 1, formula: "" }
+      }];
+      applyScalingToActivityDamage(a2, scaling);
+      a2.description.chatFlavor = `JS ${saveAb.toUpperCase()} · ${splashDmg.number}d${splashDmg.denom} ${splashDmg.dtype}${halfOnSave ? " (moitié si réussite)" : ""}`;
+    } else {
+      a2.description.chatFlavor = `JS ${saveAb.toUpperCase()}`;
+    }
+
+    if (around?.value) {
+      itemObj.flags ??= {};
+      itemObj.flags["encounterplus-importer"] ??= {};
+      itemObj.flags["encounterplus-importer"].onHitAoe = {
+        radius: Number(around.value),
+        units: String(around.units ?? "ft"),
+        saveActivityId: String(a2id),
+        includePrimaryTarget: false
+      };
+      try {
+        a2.target ??= {};
+        a2.target.affects ??= { count: "", type: "creature", choice: false, special: "" };
+        a2.target.affects.count = "";
+        a2.target.affects.type = a2.target.affects.type || "creature";
+        a2.target.prompt = false;
+        a2.target.template ??= { count: "", contiguous: false, type: "", size: "", width: "", height: "", units: "ft" };
+        a2.target.template.type = "";
+        a2.target.template.size = "";
+        a2.target.template.width = "";
+        a2.target.template.height = "";
+        a2.midiProperties ??= midiDefaults();
+        a2.midiProperties.displayActivityName = false;
+        a2.midiProperties.automationOnly = true;
+        a2.midiProperties.otherActivityCompatible = false;
+      } catch (_e) {}
+    }
+
+    sys.duration = sys.duration ?? { value: null, units: "inst", concentration: false };
+    sys.duration.value = null;
+    sys.duration.units = "inst";
+    sys.duration.concentration = false;
+    sys.target = sys.target ?? { value: 1, units: "", type: "creature", prompt: false };
+    sys.target.value = 1;
+    sys.target.type = "creature";
+    sys.target.units = "";
+    sys.target.prompt = false;
+    try { delete sys.target.width; } catch (_e) { sys.target.width = ""; }
+    try { delete sys.target.height; } catch (_e) { sys.target.height = ""; }
+    sys.properties = Array.isArray(sys.properties) ? sys.properties.filter(p => String(p ?? "") !== "concentration") : [];
+    a1.duration = { concentration: false, value: "", units: "inst", special: "", override: true };
+    a1.target.template = { count:"", contiguous:false, type:"", size:"", width:"", height:"", units:"ft" };
+    a1.target.prompt = false;
+    a1.target.override = true;
+    a2.duration = { concentration: false, value: "", units: "inst", special: "", override: true };
+    sys.actionType = "rsak";
+    console.log(`[EPI lightning arrow debug] final activity 1 shape`, {
+      id: String(a1?._id ?? baseId ?? ""),
+      type: a1?.type ?? null,
+      target: a1?.target ?? null,
+      midiProperties: a1?.midiProperties ?? null
+    });
+    console.log(`[EPI lightning arrow debug] final activity 2 shape`, {
+      id: String(a2id),
+      type: a2?.type ?? null,
+      target: a2?.target ?? null,
+      midiProperties: a2?.midiProperties ?? null,
+      consumption: a2?.consumption ?? null
+    });
+    console.log(`[EPI lightning arrow debug] activity 2 marked runtime-only`, {
+      id: String(a2id),
+      displayActivityName: a2?.midiProperties?.displayActivityName ?? null,
+      automationOnly: a2?.midiProperties?.automationOnly ?? null,
+      otherActivityCompatible: a2?.midiProperties?.otherActivityCompatible ?? null
+    });
+    console.debug(`[EPI lightning arrow debug] before final return`, {
+      spellSlug,
+      duration: sys.duration ?? null,
+      properties: sys.properties ?? null,
+      target: sys.target ?? null,
+      onHitAoe: itemObj?.flags?.["encounterplus-importer"]?.onHitAoe ?? null
+    });
+    console.debug(`[EPI lightning arrow debug] final payload concentration`, {
+      itemDurationConcentration: sys.duration?.concentration ?? null,
+      hasConcentrationProperty: Array.isArray(sys.properties) ? sys.properties.includes("concentration") : false,
+      activity1Duration: a1.duration ?? null,
+      activity2Duration: a2.duration ?? null
+    });
+    console.debug(`[EPI lightning arrow debug] final activity target/template`, {
+      itemTarget: sys.target ?? null,
+      attackTarget: a1.target ?? null,
+      saveTarget: a2.target ?? null
+    });
+    forceCasterSaveDC();
+    return;
+  }
+
   // Buff spells that trigger a secondary AoE SAVE when you next hit with a ranged weapon attack (e.g. Grêle d'épines).
   // These should behave as a SELF buff at cast time (no template, no save, no damage),
   // and then auto-run a hidden SAVE activity on the hit target + adjacent creatures.
@@ -5382,7 +6034,9 @@ const addDelayedDamageActivity = () => {
           radius: Number(around.value),
           units: String(around.units ?? "ft"),
           saveActivityId: String(saveId),
-          includePrimaryTarget: true,
+          // Lightning Arrow is handled as a main-target weapon hit plus splash around
+          // the impact point; the burst should not re-hit the primary target.
+          includePrimaryTarget: spellSlug === "fleche-de-foudre" ? false : true,
           triggerOnMiss: !!triggerOnMiss
         };
       }
@@ -6146,8 +6800,16 @@ function applySpellEffects(itemObj, sp, durationObj, measurement) {
     if (!act.effects.some(e => e?._id === effectId)) act.effects.push({ _id: effectId });
   };
 
+  const addSimpleLot1BuffEffect = () => {
+    const res = attachLot1BuffTemplateEffect(itemObj, sp, durationObj);
+    if (res?.attached && res?.effectId) addEffectRefToBaseActivity(res.effectId);
+  };
+
   // Nettoie d'éventuels anciens placeholders d'aura
   itemObj.effects = itemObj.effects.filter(e => !(e?.flags?.["encounterplus-importer"]?.aura));
+
+  // Lot-1 simple buffs/resistances (pragmatic batch pass).
+  try { addSimpleLot1BuffEffect(); } catch (e) { /* ignore */ }
 
   // Nettoie aussi d'éventuels anciens placeholders "OverTime" générés par l'import
   {
@@ -7135,6 +7797,100 @@ export async function runImport({ sourcePath, prefix = "Encounter+ Import", dest
   }
 
 
+function __epiForceLightningArrowFinalPayload(data) {
+  if (String(data?.flags?.["encounterplus-importer"]?.slug ?? "").toLowerCase() !== "fleche-de-foudre") return data;
+  data.system ??= {};
+  const sys = data.system;
+  sys.duration = { value: null, units: "inst", concentration: false };
+  sys.target = { value: 1, units: "", type: "creature", prompt: false };
+  sys.actionType = "rsak";
+  sys.properties = Array.isArray(sys.properties) ? sys.properties.filter(p => String(p ?? "") !== "concentration") : [];
+  try { delete sys.target.width; } catch (_e) { sys.target.width = ""; }
+  try { delete sys.target.height; } catch (_e) { sys.target.height = ""; }
+
+  const acts = sys.activities ?? {};
+  const entries = (acts?.entries && typeof acts.entries === "function") ? Array.from(acts.entries()) : Object.entries(acts);
+  for (const [, act] of entries) {
+    if (!act || typeof act !== "object") continue;
+    act.duration = { concentration: false, value: "", units: "inst", special: "", override: true };
+    act.target = act.target ?? {};
+    act.target.template = { count: "", contiguous: false, type: "", size: "", width: "", height: "", units: "ft" };
+    act.target.prompt = false;
+    act.target.override = true;
+    if (act.type === "attack") {
+      act.target.affects = { count: "1", type: "creature", choice: false, special: "" };
+      act.target.template = { count: "", contiguous: false, type: "", size: "", width: "", height: "", units: "ft" };
+      act.midiProperties = act.midiProperties ?? {};
+      act.midiProperties.displayActivityName = true;
+      act.midiProperties.automationOnly = false;
+    } else if (act.type === "save") {
+      act.target.affects = { count: "", type: "creature", choice: false, special: "" };
+      act.target.prompt = false;
+      act.target.template = { count: "", contiguous: false, type: "", size: "", width: "", height: "", units: "ft" };
+      act.midiProperties = act.midiProperties ?? {};
+      act.midiProperties.displayActivityName = false;
+      act.midiProperties.automationOnly = true;
+      act.midiProperties.otherActivityCompatible = false;
+    }
+  }
+  return data;
+}
+
+async function __epiPostFixLightningArrowDocument(doc) {
+  try {
+    const slug = String(doc?.flags?.["encounterplus-importer"]?.slug ?? "").toLowerCase();
+    if (slug !== "fleche-de-foudre") return;
+    const obj = doc.toObject();
+    __epiForceLightningArrowFinalPayload(obj);
+    console.debug(`[EPI lightning arrow debug] post-fix document payload`, {
+      itemId: doc?.id ?? null,
+      duration: obj?.system?.duration ?? null,
+      target: obj?.system?.target ?? null,
+      properties: obj?.system?.properties ?? null,
+      activities: __epiLightningArrowFinalPayloadSnapshot(obj)
+    });
+    const acts = __epiLightningArrowFinalPayloadSnapshot(obj);
+    const attackAct = acts.find(a => a?.type === "attack") ?? null;
+    const saveAct = acts.find(a => a?.type === "save") ?? null;
+    console.log(`[EPI lightning arrow debug] final activity 1 shape`, attackAct);
+    console.log(`[EPI lightning arrow debug] final activity 2 shape`, saveAct);
+    console.log(`[EPI lightning arrow debug] activity 2 marked runtime-only`, {
+      id: saveAct?.id ?? null,
+      displayActivityName: saveAct?.midiProperties?.displayActivityName ?? null,
+      automationOnly: saveAct?.midiProperties?.automationOnly ?? null,
+      otherActivityCompatible: saveAct?.midiProperties?.otherActivityCompatible ?? null
+    });
+    await doc.update({
+      "system.duration": obj.system.duration,
+      "system.target": obj.system.target,
+      "system.properties": obj.system.properties,
+      "system.actionType": obj.system.actionType,
+      "system.activities": obj.system.activities
+    });
+  } catch (e) {
+    console.warn(`[EPI lightning arrow debug] post-fix failed`, e);
+  }
+}
+
+function __epiLightningArrowFinalPayloadSnapshot(data) {
+  try {
+    const sys = data?.system ?? {};
+    const acts = sys?.activities ?? {};
+    const entries = (acts?.entries && typeof acts.entries === "function") ? Array.from(acts.entries()) : Object.entries(acts);
+    return entries.map(([id, a]) => ({
+      id: String(id ?? a?._id ?? ""),
+      type: a?.type ?? null,
+      name: a?.name ?? null,
+      target: a?.target ?? null,
+      template: a?.target?.template ?? null,
+      prompt: a?.target?.prompt ?? null,
+      midiProperties: a?.midiProperties ?? null
+    }));
+  } catch (_e) {
+    return [];
+  }
+}
+
   // Import Spells
   if (Array.isArray(spells) && spells.length) {
     notify("info", `Import des sorts (${spells.length})…`);
@@ -7143,7 +7899,18 @@ export async function runImport({ sourcePath, prefix = "Encounter+ Import", dest
         const lvl = Number(sp?.data?.level ?? 0);
         const folder = spellFolders?.[lvl]?.id ?? fSpell.id;
         const data = await toDnd5eSpell(sp, folder);
-        await Item.create(data);
+        __epiForceLightningArrowFinalPayload(data);
+        if (String(sp?.slug ?? "").toLowerCase() === "fleche-de-foudre") {
+          console.debug(`[EPI lightning arrow debug] final payload before Item.create`, {
+            slug: String(sp?.slug ?? "").toLowerCase(),
+            duration: data?.system?.duration ?? null,
+            target: data?.system?.target ?? null,
+            properties: data?.system?.properties ?? null,
+            activities: __epiLightningArrowFinalPayloadSnapshot(data)
+          });
+        }
+        const createdSpell = await Item.create(data);
+        await __epiPostFixLightningArrowDocument(createdSpell);
         summary.spells++;
       } catch (e) {
         failed.spells++;
@@ -7303,6 +8070,7 @@ export async function repairSpellDistances({ sourcePath, prefix = "Encounter+ Im
       obj.system = obj.system ?? {};
       obj.system.range = range;
       obj.system.target = target;
+      obj.system.duration = { value: duration.value, units: duration.units, concentration: !!duration.concentration };
 
       // Avoid stacking duplicated aura placeholder effects
       if (Array.isArray(obj.effects)) {
@@ -7312,12 +8080,28 @@ export async function repairSpellDistances({ sourcePath, prefix = "Encounter+ Im
       try { applySpellActivities(obj, sp, duration, measurement); } catch (e) { log("applySpellActivities failed", obj?.name, e); }
       try { applySpellEffects(obj, sp, duration, measurement); } catch (e) { log("applySpellEffects failed", obj?.name, e); }
 
+      __epiForceLightningArrowFinalPayload(obj);
+      if (String(sp?.slug ?? "").toLowerCase() === "fleche-de-foudre") {
+        console.debug(`[EPI lightning arrow debug] final payload before Item.update`, {
+          slug: String(sp?.slug ?? "").toLowerCase(),
+          itemId: it?.id ?? null,
+          duration: obj.system.duration ?? null,
+          target: obj.system.target ?? null,
+          properties: obj.system.properties ?? null,
+          activities: __epiLightningArrowFinalPayloadSnapshot(obj)
+        });
+      }
+
       await it.update({
         "system.range": obj.system.range,
         "system.target": obj.system.target,
+        "system.duration": obj.system.duration,
+        "system.properties": obj.system.properties,
+        "system.actionType": obj.system.actionType,
         "system.activities": obj.system.activities,
         "effects": obj.effects
       });
+      await __epiPostFixLightningArrowDocument(it);
 
       updated++;
     }
