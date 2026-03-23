@@ -4907,6 +4907,34 @@ function epiTokensInGridBurst(centerTok, candidates, steps = 1) {
   return (candidates ?? []).filter(t => epiRectChebyshev(cRect, epiTokenRect(t)) <= steps);
 }
 
+function epiTokenSceneDistance(a, b) {
+  try {
+    const ax = Number(a?.center?.x ?? NaN);
+    const ay = Number(a?.center?.y ?? NaN);
+    const bx = Number(b?.center?.x ?? NaN);
+    const by = Number(b?.center?.y ?? NaN);
+    if (![ax, ay, bx, by].every(Number.isFinite)) return null;
+    const px = Math.hypot(ax - bx, ay - by);
+    const gridSize = Number(canvas?.scene?.grid?.size ?? canvas?.grid?.size ?? 0) || 0;
+    const gridDistance = Number(canvas?.scene?.grid?.distance ?? 5) || 5;
+    if (!gridSize) return null;
+    return (px / gridSize) * gridDistance;
+  } catch (_e) {
+    return null;
+  }
+}
+
+function epiTokensInSceneRadius(centerTok, candidates, radiusScene = 0) {
+  const radius = Number(radiusScene ?? 0) || 0;
+  if (!centerTok || !radius) return [];
+  const gridDistance = Number(canvas?.scene?.grid?.distance ?? 5) || 5;
+  const pad = gridDistance * 0.5;
+  return (candidates ?? []).filter(t => {
+    const dist = epiTokenSceneDistance(centerTok, t);
+    return Number.isFinite(dist) && dist <= (radius + pad);
+  });
+}
+
 // Hotfix270k: Ice Knife-like secondary AoE (burst on grid) without breaking Midi-QOL.
 // We capture the primary target early (some Midi-QOL builds clear workflow.targets by RollComplete),
 // then re-run the secondary SAVE/Damage activity on EXTRA adjacent tokens (3×3 grid burst).
@@ -6246,6 +6274,10 @@ async function epiLaunchLightningArrowSecondaryFromConfirmedHit(workflow) {
 	      const tokens = (canvas?.tokens?.placeables ?? []).filter(t => t?.actor);
 	      let adj = epiTokensInGridBurst(primary, tokens, steps);
 	      console.log(`[EPI lightning arrow debug] adjacent targets for activity 2`, epiDescribeTokens(adj));
+	      if (!adj.length) {
+	        adj = epiTokensInSceneRadius(primary, tokens, rScene);
+	        console.log(`[EPI lightning arrow debug] radius fallback targets for activity 2`, epiDescribeTokens(adj));
+	      }
 	      adj = adj.filter(t => String(t?.id ?? "") !== String(primary?.id ?? ""));
 	      console.log(`[EPI lightning arrow debug] primary excluded from secondary targets`, {
 	        primaryId: String(primary?.id ?? ""),
