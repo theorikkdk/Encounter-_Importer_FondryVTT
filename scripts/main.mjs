@@ -5049,41 +5049,15 @@ function epiResolvePrimaryHitTargetFromWorkflow(workflow) {
   const preferHit = pickFirst("hitTargets", "hitTargetUuids");
   if (preferHit) return { ...preferHit, sources, cacheKey: k };
 
-  const attackTarget = sources.attackTarget[0] ?? null;
-  if (attackTarget) {
-    const coherentTarget =
-      sources.applicationTargets.find(t => t === attackTarget)
-      ?? sources.targets.find(t => t === attackTarget)
-      ?? sources.targetUuids.find(t => t === attackTarget)
-      ?? sources.currentUserTargets.find(t => t === attackTarget)
-      ?? sources.cachedPrimary.find(t => t === attackTarget)
-      ?? null;
-    if (coherentTarget) return { token: coherentTarget, source: "attackTarget+fallback", sources, cacheKey: k };
-  }
-
-  const applicationTarget = sources.applicationTargets[0] ?? null;
-  if (applicationTarget) {
-    const coherentTarget =
-      sources.targets.find(t => t === applicationTarget)
-      ?? sources.targetUuids.find(t => t === applicationTarget)
-      ?? sources.currentUserTargets.find(t => t === applicationTarget)
-      ?? sources.cachedPrimary.find(t => t === applicationTarget)
-      ?? null;
-    if (coherentTarget) return { token: coherentTarget, source: "applicationTargets+fallback", sources, cacheKey: k };
-  }
-
-  const fallbackPools = ["targets", "targetUuids", "currentUserTargets", "cachedPrimary"];
-  const uniqueFallbacks = [];
-  for (const name of fallbackPools) {
-    for (const tok of sources[name] ?? []) {
-      if (!uniqueFallbacks.includes(tok)) uniqueFallbacks.push(tok);
-    }
-  }
-  if (uniqueFallbacks.length === 1) {
-    const tok = uniqueFallbacks[0];
-    const from = fallbackPools.filter(name => (sources[name] ?? []).includes(tok));
-    return { token: tok, source: from.join("+"), sources, cacheKey: k };
-  }
+  const directFallback = pickFirst(
+    "attackTarget",
+    "applicationTargets",
+    "targets",
+    "targetUuids",
+    "currentUserTargets",
+    "cachedPrimary"
+  );
+  if (directFallback) return { ...directFallback, sources, cacheKey: k };
 
   return { token: null, source: null, sources, cacheKey: k };
 }
@@ -6168,7 +6142,7 @@ async function epiLaunchLightningArrowSecondaryFromConfirmedHit(workflow) {
     epiMarkDone(doneKey);
     const prevTargetIds = await epiSetUserTargets(adj.map(t => String(t?.id ?? t?.document?.id ?? "")).filter(Boolean)).catch(() => null);
     try {
-      console.log(`[EPI lightning arrow debug] launching activity 2 directly`, {
+      console.log(`[EPI lightning arrow debug] launching activity 2 immediately after activity 1`, {
         activityUuid: actUuid,
         targetUuids
       });
