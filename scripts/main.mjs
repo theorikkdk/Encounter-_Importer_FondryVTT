@@ -6292,39 +6292,51 @@ async function epiLaunchLightningArrowSecondaryFromConfirmedHit(workflow) {
 	      __epiBypassActivityChooser: true,
 	      __epiActivityChoiceDone: true
 	    };
-	    if (targetUuids.length) usage.midiOptions.targetUuids = targetUuids;
-		    const dialog = { configure: false, options: { display: { all: false } } };
-		    const message = { create: true };
+	    const dialog = { configure: false, options: { display: { all: false } } };
+	    const message = { create: true };
 
 	    epiMarkDone(doneKey);
-	    const prevTargetIds = targetTokens.length
-	      ? await epiSetUserTargets(targetTokens.map(t => String(t?.id ?? t?.document?.id ?? "")).filter(Boolean)).catch(() => null)
-	      : null;
+	    console.log(`[EPI lightning arrow debug] activity 2 targetUuids`, targetUuids);
+	    console.log(`[EPI lightning arrow debug] activity 2 activityRef`, actUuid);
+	    console.log(`[EPI lightning arrow debug] activity 2 launch payload`, {
+	      usage,
+	      dialog,
+	      message,
+	      targetUuids
+	    });
 	    try {
-	      console.log(`[EPI lightning arrow debug] activity 2 effective targets`, epiDescribeTokens(Array.from(game.user?.targets ?? [])));
+	      console.log(`[EPI lightning arrow debug] activity 2 effective targets`, epiDescribeTokens(targetTokens));
 	      console.log(`[EPI lightning arrow debug] auto-launching activity 2`, {
 	        activityUuid: actUuid,
 	        targetUuids
-		      });
-	      try {
-	        const result = await epiUseActivityViaMidi(act ?? actUuid, usage, dialog, message);
-	        console.log(`[EPI lightning arrow debug] activity 2 completed`, {
-	          activityUuid: actUuid,
-	          hasResult: result != null,
-	          resultType: typeof result
-	        });
-	      } catch (launchError) {
-	        console.warn(`[EPI lightning arrow debug] activity 2 launch failed`, {
-	          reason: "appel runtime qui échoue",
-	          item: item?.name,
-	          activityId: actId,
-	          activityUuid: actUuid,
-	          message: launchError?.message ?? String(launchError ?? "")
-	        });
-	        throw launchError;
-	      }
-	    } finally {
-	      try { if (prevTargetIds) await epiRestoreUserTargets(prevTargetIds); } catch (_e) {}
+	      });
+	      const result = await epiExecuteIceKnifeStyleOnHitAoe({
+	        item,
+	        meta,
+	        primary,
+	        targets: targetTokens,
+	        actUuid,
+	        usage,
+	        dialog,
+	        message
+	      });
+	      console.log(`[EPI lightning arrow debug] activity 2 completed`, {
+	        activityUuid: actUuid,
+	        hasResult: result != null,
+	        resultType: typeof result
+	      });
+	    } catch (launchError) {
+	      console.warn(`[EPI lightning arrow debug] activity 2 launch failed`, {
+	        reason: "appel runtime qui échoue",
+	        item: item?.name,
+	        activityId: actId,
+	        activityUuid: actUuid,
+	        targetUuids,
+	        usage,
+	        message: launchError?.message ?? String(launchError ?? ""),
+	        stack: launchError?.stack ?? null
+	      });
+	      throw launchError;
 	    }
   } catch (e) {
     console.warn(`[EPI lightning arrow debug] confirmed hit hook failed`, e);
