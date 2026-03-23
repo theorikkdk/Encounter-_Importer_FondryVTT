@@ -4979,6 +4979,115 @@ function epiResolveTokenById(id) {
   return list.find(t => String(t?.id ?? t?.document?.id ?? "") === tid) ?? null;
 }
 
+function epiResolveTokenByUuid(uuid) {
+  const u = String(uuid ?? "").trim();
+  if (!u) return null;
+  const list = canvas?.tokens?.placeables ?? [];
+  return list.find(t =>
+    String(t?.document?.uuid ?? t?.uuid ?? "") === u
+    || String(t?.uuid ?? "") === u
+  ) ?? null;
+}
+
+function epiResolveTokenReference(ref) {
+  if (!ref) return null;
+  if (typeof ref === "string") {
+    return epiResolveTokenByUuid(ref) ?? epiResolveTokenById(ref);
+  }
+  if (ref?.actor || ref?.document?.actor) return ref;
+  const uuid = String(ref?.document?.uuid ?? ref?.uuid ?? "");
+  const id = String(ref?.document?.id ?? ref?.id ?? ref?._id ?? "");
+  return epiResolveTokenByUuid(uuid) ?? epiResolveTokenById(id);
+}
+
+function epiToTokenArray(source) {
+  const arr = Array.isArray(source)
+    ? source
+    : (source instanceof Set ? Array.from(source) : (source ? [source] : []));
+  const out = [];
+  for (const ref of arr) {
+    const tok = epiResolveTokenReference(ref);
+    if (!tok) continue;
+    if (!out.includes(tok)) out.push(tok);
+  }
+  return out;
+}
+
+function epiDescribeTokens(tokens) {
+  return (tokens ?? []).map(t => ({
+    id: String(t?.id ?? t?.document?.id ?? ""),
+    uuid: String(t?.document?.uuid ?? t?.uuid ?? ""),
+    name: t?.name ?? null
+  }));
+}
+
+function epiResolvePrimaryHitTargetFromWorkflow(workflow) {
+  const k = epiWorkflowKey(workflow);
+  const cached = k ? __epiOnHitAoeCache.get(k) : null;
+  const sources = {
+    hitTargets: epiToTokenArray(workflow?.hitTargets),
+    targets: epiToTokenArray(workflow?.targets),
+    applicationTargets: epiToTokenArray(workflow?.applicationTargets),
+    attackTarget: epiToTokenArray(workflow?.attackTarget),
+    targetUuids: epiToTokenArray(workflow?.targetUuids),
+    hitTargetUuids: epiToTokenArray(workflow?.hitTargetUuids),
+    currentUserTargets: epiToTokenArray(game.user?.targets),
+    cachedPrimary: epiToTokenArray([
+      cached?.primaryUuid,
+      cached?.primaryId
+    ].filter(Boolean))
+  };
+
+  const pickFirst = (...names) => {
+    for (const name of names) {
+      const tok = sources[name]?.[0] ?? null;
+      if (tok) return { token: tok, source: name };
+    }
+    return null;
+  };
+
+  const preferHit = pickFirst("hitTargets", "hitTargetUuids");
+  if (preferHit) return { ...preferHit, sources, cacheKey: k };
+
+  const attackTarget = sources.attackTarget[0] ?? null;
+  if (attackTarget) {
+    const coherentTarget =
+      sources.applicationTargets.find(t => t === attackTarget)
+      ?? sources.targets.find(t => t === attackTarget)
+      ?? sources.targetUuids.find(t => t === attackTarget)
+      ?? sources.currentUserTargets.find(t => t === attackTarget)
+      ?? sources.cachedPrimary.find(t => t === attackTarget)
+      ?? null;
+    if (coherentTarget) return { token: coherentTarget, source: "attackTarget+fallback", sources, cacheKey: k };
+  }
+
+  const applicationTarget = sources.applicationTargets[0] ?? null;
+  if (applicationTarget) {
+    const coherentTarget =
+      sources.targets.find(t => t === applicationTarget)
+      ?? sources.targetUuids.find(t => t === applicationTarget)
+      ?? sources.currentUserTargets.find(t => t === applicationTarget)
+      ?? sources.cachedPrimary.find(t => t === applicationTarget)
+      ?? null;
+    if (coherentTarget) return { token: coherentTarget, source: "applicationTargets+fallback", sources, cacheKey: k };
+  }
+
+  const fallbackPools = ["targets", "targetUuids", "currentUserTargets", "cachedPrimary"];
+  const uniqueFallbacks = [];
+  for (const name of fallbackPools) {
+    for (const tok of sources[name] ?? []) {
+      if (!uniqueFallbacks.includes(tok)) uniqueFallbacks.push(tok);
+    }
+  }
+  if (uniqueFallbacks.length === 1) {
+    const tok = uniqueFallbacks[0];
+    const from = fallbackPools.filter(name => (sources[name] ?? []).includes(tok));
+    return { token: tok, source: from.join("+"), sources, cacheKey: k };
+  }
+
+  return { token: null, source: null, sources, cacheKey: k };
+}
+
 async function epiSetUserTargets(tokenIds) {
   const ids = (tokenIds ?? []).map(String).filter(Boolean);
   const prev = Array.from(game.user?.targets ?? []).map(t => String(t?.id ?? t?.document?.id ?? "")).filter(Boolean);
@@ -5975,18 +6084,35 @@ async function epiLaunchLightningArrowSecondaryFromConfirmedHit(workflow) {
     if (!meta?.radius || !meta?.saveActivityId) meta = inferOnHitAoeFromItemHotfix270k(item);
     if (!meta?.radius || !meta?.saveActivityId) return;
 
-    let primary = null;
-    try { primary = Array.from(workflow?.hitTargets ?? [])[0] ?? null; } catch (_e) {}
-    if (!primary) {
-      try { primary = Array.from(workflow?.targets ?? [])[0] ?? null; } catch (_e) {}
-    }
-    if (!primary) {
-      const k = epiWorkflowKey(workflow);
-      const cached = k ? __epiOnHitAoeCache.get(k) : null;
-      if (cached?.primaryId) primary = epiResolveTokenById(cached.primaryId);
-    }
-    if (!primary) return;
+    const resolvedPrimary = epiResolvePrimaryHitTargetFromWorkflow(workflow);
+    console.log(`[EPI lightning arrow debug] hit resolution candidates`, {
+      workflowId: workflow?.id ?? workflow?.uuid ?? null,
+      chosenSource: resolvedPrimary?.source ?? null,
+      hitTargets: epiDescribeTokens(resolvedPrimary?.sources?.hitTargets),
+      targets: epiDescribeTokens(resolvedPrimary?.sources?.targets),
+      applicationTargets: epiDescribeTokens(resolvedPrimary?.sources?.applicationTargets),
+      attackTarget: epiDescribeTokens(resolvedPrimary?.sources?.attackTarget),
+      targetUuids: epiDescribeTokens(resolvedPrimary?.sources?.targetUuids),
+      hitTargetUuids: epiDescribeTokens(resolvedPrimary?.sources?.hitTargetUuids),
+      currentUserTargets: epiDescribeTokens(resolvedPrimary?.sources?.currentUserTargets),
+      cachedPrimary: epiDescribeTokens(resolvedPrimary?.sources?.cachedPrimary)
+    });
 
+    const primary = resolvedPrimary?.token ?? null;
+    if (!primary) {
+      console.log(`[EPI lightning arrow debug] no primary hit target found`, {
+        workflowId: workflow?.id ?? workflow?.uuid ?? null,
+        cacheKey: resolvedPrimary?.cacheKey ?? null
+      });
+      return;
+    }
+
+    console.log(`[EPI lightning arrow debug] chosen primary hit target`, {
+      source: resolvedPrimary?.source ?? null,
+      target: primary?.name ?? primary?.id ?? null,
+      targetId: primary?.id ?? null,
+      targetUuid: primary?.document?.uuid ?? primary?.uuid ?? null
+    });
     console.log(`[EPI lightning arrow debug] hit target resolved`, {
       target: primary?.name ?? primary?.id ?? null,
       targetId: primary?.id ?? null,
