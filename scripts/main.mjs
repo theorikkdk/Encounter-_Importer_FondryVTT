@@ -6100,16 +6100,43 @@ async function epiLaunchLightningArrowSecondaryFromConfirmedHit(workflow) {
       workflowId: workflow?.id ?? workflow?.uuid ?? null
     });
 
-    let meta =
-      item?.getFlag?.(MODULE_ID, "onHitAoe")
-      ?? item?.getFlag?.("encounterplus-importer", "onHitAoe")
-      ?? item?.flags?.[MODULE_ID]?.onHitAoe
-      ?? item?.flags?.["encounterplus-importer"]?.onHitAoe;
-    if (!meta?.radius || !meta?.saveActivityId) meta = inferOnHitAoeFromItemHotfix270k(item);
-    if (!meta?.radius || !meta?.saveActivityId) return;
+	    let meta =
+	      item?.getFlag?.(MODULE_ID, "onHitAoe")
+	      ?? item?.getFlag?.("encounterplus-importer", "onHitAoe")
+	      ?? item?.flags?.[MODULE_ID]?.onHitAoe
+	      ?? item?.flags?.["encounterplus-importer"]?.onHitAoe;
+	    if (!meta?.radius || !meta?.saveActivityId) meta = inferOnHitAoeFromItemHotfix270k(item);
+	    if (!meta?.radius || !meta?.saveActivityId) return;
 
-    const resolvedPrimary = epiResolvePrimaryHitTargetFromWorkflow(workflow);
-    console.log(`[EPI lightning arrow debug] hit resolution candidates`, {
+	    const actId = String(meta?.saveActivityId ?? "");
+	    console.log(`[EPI lightning arrow debug] activity 2 id resolved`, {
+	      item: item?.name,
+	      activityId: actId || null
+	    });
+	    if (!actId) {
+	      console.warn(`[EPI lightning arrow debug] activity 2 launch failed`, {
+	        reason: "id absent",
+	        item: item?.name
+	      });
+	      return;
+	    }
+	    const act = epiGetActivityById(item, actId);
+	    if (!act) {
+	      console.warn(`[EPI lightning arrow debug] activity 2 launch failed`, {
+	        reason: "activité introuvable",
+	        item: item?.name,
+	        activityId: actId
+	      });
+	      return;
+	    }
+	    console.log(`[EPI lightning arrow debug] activity 2 document found`, {
+	      item: item?.name,
+	      activityId: actId,
+	      activityUuid: String(act?.uuid ?? act?.document?.uuid ?? "")
+	    });
+
+	    const resolvedPrimary = epiResolvePrimaryHitTargetFromWorkflow(workflow);
+	    console.log(`[EPI lightning arrow debug] hit resolution candidates`, {
       workflowId: workflow?.id ?? workflow?.uuid ?? null,
       chosenSource: resolvedPrimary?.source ?? null,
       hitTargets: epiDescribeTokens(resolvedPrimary?.sources?.hitTargets),
@@ -6122,88 +6149,120 @@ async function epiLaunchLightningArrowSecondaryFromConfirmedHit(workflow) {
       cachedPrimary: epiDescribeTokens(resolvedPrimary?.sources?.cachedPrimary)
     });
 
-    const primary = resolvedPrimary?.token ?? null;
-    if (!primary) {
-      console.log(`[EPI lightning arrow debug] no primary hit target found`, {
-        workflowId: workflow?.id ?? workflow?.uuid ?? null,
-        cacheKey: resolvedPrimary?.cacheKey ?? null
-      });
-      return;
-    }
+	    const primary = resolvedPrimary?.token ?? null;
+	    if (!primary) {
+	      console.log(`[EPI lightning arrow debug] no primary hit target found`, {
+	        workflowId: workflow?.id ?? workflow?.uuid ?? null,
+	        cacheKey: resolvedPrimary?.cacheKey ?? null
+	      });
+	    }
 
-    console.log(`[EPI lightning arrow debug] chosen primary hit target`, {
-      source: resolvedPrimary?.source ?? null,
-      target: primary?.name ?? primary?.id ?? null,
-      targetId: primary?.id ?? null,
-      targetUuid: primary?.document?.uuid ?? primary?.uuid ?? null
-    });
-    console.log(`[EPI lightning arrow debug] hit target resolved`, {
-      target: primary?.name ?? primary?.id ?? null,
-      targetId: primary?.id ?? null,
-      targetUuid: primary?.document?.uuid ?? primary?.uuid ?? null
-    });
+	    if (primary) {
+	      console.log(`[EPI lightning arrow debug] chosen primary hit target`, {
+	        source: resolvedPrimary?.source ?? null,
+	        target: primary?.name ?? primary?.id ?? null,
+	        targetId: primary?.id ?? null,
+	        targetUuid: primary?.document?.uuid ?? primary?.uuid ?? null
+	      });
+	      console.log(`[EPI lightning arrow debug] hit target resolved`, {
+	        target: primary?.name ?? primary?.id ?? null,
+	        targetId: primary?.id ?? null,
+	        targetUuid: primary?.document?.uuid ?? primary?.uuid ?? null
+	      });
+	    }
 
-    const doneKey = epiDoneKey(workflow, String(primary?.id ?? ""));
-    if (epiDoneRecently(doneKey)) return;
+	    const doneKey = epiDoneKey(workflow, String(primary?.id ?? "no-primary"));
+	    if (epiDoneRecently(doneKey)) return;
 
-	    const gridDist = Number(canvas?.scene?.grid?.distance ?? 5) || 5;
-	    const rScene = epiUnitsToSceneDistance(meta.radius, meta.units);
-	    if (!rScene) return;
-	    const steps = Math.max(1, Math.round(rScene / gridDist));
-	    const tokens = (canvas?.tokens?.placeables ?? []).filter(t => t?.actor);
-	    let adj = epiTokensInGridBurst(primary, tokens, steps);
-	    adj = adj.filter(t => String(t?.id ?? "") !== String(primary?.id ?? ""));
-	    const targetTokens = adj.length ? adj : [primary];
+	    let targetTokens = [];
+	    if (primary) {
+	      const gridDist = Number(canvas?.scene?.grid?.distance ?? 5) || 5;
+	      const rScene = epiUnitsToSceneDistance(meta.radius, meta.units);
+	      if (rScene) {
+	        const steps = Math.max(1, Math.round(rScene / gridDist));
+	        const tokens = (canvas?.tokens?.placeables ?? []).filter(t => t?.actor);
+	        let adj = epiTokensInGridBurst(primary, tokens, steps);
+	        adj = adj.filter(t => String(t?.id ?? "") !== String(primary?.id ?? ""));
+	        targetTokens = adj.length ? adj : [primary];
+	      }
+	    }
+	    if (!targetTokens.length) {
+	      targetTokens = epiToTokenArray(workflow?.targets);
+	    }
+	    if (!targetTokens.length) {
+	      targetTokens = epiToTokenArray(game.user?.targets);
+	    }
+	    if (!targetTokens.length && primary) {
+	      targetTokens = [primary];
+	    }
 	    const targetUuids = targetTokens.map(t => String(t?.document?.uuid ?? t?.uuid ?? "")).filter(Boolean);
-	    if (!targetUuids.length) return;
-	    console.log(`[EPI lightning arrow debug] adjacent target uuids built`, targetUuids);
+	    if (targetUuids.length) console.log(`[EPI lightning arrow debug] adjacent target uuids built`, targetUuids);
 
-    const act = epiGetActivityById(item, String(meta.saveActivityId));
-    const actUuid = String(act?.uuid ?? act?.document?.uuid ?? "") || (item?.uuid ? `${item.uuid}.Activity.${String(meta.saveActivityId)}` : "");
-    if (!actUuid) return;
+	    const actUuid = String(act?.uuid ?? act?.document?.uuid ?? "") || (item?.uuid ? `${item.uuid}.Activity.${actId}` : "");
+	    if (!actUuid) {
+	      console.warn(`[EPI lightning arrow debug] activity 2 launch failed`, {
+	        reason: "uuid absent",
+	        item: item?.name,
+	        activityId: actId
+	      });
+	      return;
+	    }
 
-    const baseLevel = Number(item?.system?.level ?? 0) || 0;
-    const castLevel = Number(
+	    const baseLevel = Number(item?.system?.level ?? 0) || 0;
+	    const castLevel = Number(
       workflow?.castData?.castLevel ?? workflow?.spellLevel ?? workflow?.itemLevel ?? workflow?.workflowOptions?.castLevel ?? workflow?.options?.spellLevel ?? workflow?.options?.castLevel ?? baseLevel
     ) || baseLevel;
     const scaling = Math.max(0, castLevel - baseLevel);
-    const usage = {
-      consume: { spellSlot: false },
-      scaling,
-      spell: { slot: castLevel ? `spell${castLevel}` : undefined },
-      midiOptions: {
-        targetUuids,
-        proceedChecks: { checkTargets: false },
-        workflowOptions: {
-          __epiSecondaryOnHitAoe: true,
+	    const usage = {
+	      consume: { spellSlot: false },
+	      scaling,
+	      spell: { slot: castLevel ? `spell${castLevel}` : undefined },
+	      midiOptions: {
+	        proceedChecks: { checkTargets: false },
+	        workflowOptions: {
+	          __epiSecondaryOnHitAoe: true,
           targetConfirmation: "none",
           noProvokeReaction: true,
           fastForward: true,
           fastForwardDamage: true
         }
       },
-      __epiBypassActivityChooser: true,
-      __epiActivityChoiceDone: true
-    };
-	    const dialog = { configure: false, options: { display: { all: false } } };
-	    const message = { create: true };
+	      __epiBypassActivityChooser: true,
+	      __epiActivityChoiceDone: true
+	    };
+	    if (targetUuids.length) usage.midiOptions.targetUuids = targetUuids;
+		    const dialog = { configure: false, options: { display: { all: false } } };
+		    const message = { create: true };
 
-	    epiMarkDone(doneKey);
-	    const prevTargetIds = await epiSetUserTargets(targetTokens.map(t => String(t?.id ?? t?.document?.id ?? "")).filter(Boolean)).catch(() => null);
-	    try {
-	      console.log(`[EPI lightning arrow debug] activity 2 auto-launched`, {
-	        activityUuid: actUuid,
-	        targetUuids
-	      });
-      const result = await epiUseActivityViaMidi(act ?? actUuid, usage, dialog, message);
-      console.log(`[EPI lightning arrow debug] activity 2 completed`, {
-        activityUuid: actUuid,
-        hasResult: result != null,
-        resultType: typeof result
-      });
-    } finally {
-      try { if (prevTargetIds) await epiRestoreUserTargets(prevTargetIds); } catch (_e) {}
-    }
+		    epiMarkDone(doneKey);
+		    const prevTargetIds = targetTokens.length
+		      ? await epiSetUserTargets(targetTokens.map(t => String(t?.id ?? t?.document?.id ?? "")).filter(Boolean)).catch(() => null)
+		      : null;
+		    try {
+		      console.log(`[EPI lightning arrow debug] auto-launching activity 2`, {
+		        activityUuid: actUuid,
+		        targetUuids
+		      });
+	      try {
+	        const result = await epiUseActivityViaMidi(act ?? actUuid, usage, dialog, message);
+	        console.log(`[EPI lightning arrow debug] activity 2 completed`, {
+	          activityUuid: actUuid,
+	          hasResult: result != null,
+	          resultType: typeof result
+	        });
+	      } catch (launchError) {
+	        console.warn(`[EPI lightning arrow debug] activity 2 launch failed`, {
+	          reason: "appel runtime qui échoue",
+	          item: item?.name,
+	          activityId: actId,
+	          activityUuid: actUuid,
+	          message: launchError?.message ?? String(launchError ?? "")
+	        });
+	        throw launchError;
+	      }
+	    } finally {
+	      try { if (prevTargetIds) await epiRestoreUserTargets(prevTargetIds); } catch (_e) {}
+	    }
   } catch (e) {
     console.warn(`[EPI lightning arrow debug] confirmed hit hook failed`, e);
   }
