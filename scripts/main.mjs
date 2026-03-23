@@ -6297,10 +6297,17 @@ async function epiLaunchLightningArrowSecondaryFromConfirmedHit(workflow) {
 	        console.log(`[EPI lightning arrow debug] current user targets reused for activity 2`, epiDescribeTokens(currentTargets));
 	      }
 	    }
+	    if (!targetTokens.length && primary) {
+	      targetTokens = [primary];
+	      console.log(`[EPI lightning arrow debug] primary target reused as activity 2 anchor`, {
+	        primary: epiDescribeTokens([primary]),
+	        reason: "allow aoe/template resolution instead of aborting"
+	      });
+	    }
 	    const targetUuids = targetTokens.map(t => String(t?.document?.uuid ?? t?.uuid ?? "")).filter(Boolean);
 	    if (!targetUuids.length) {
 	      console.warn(`[EPI lightning arrow debug] activity 2 launch failed`, {
-	        reason: "no secondary adjacent targets",
+	        reason: "no targets available for activity 2",
 	        item: item?.name,
 	        activityId: actId,
 	        primaryId: String(primary?.id ?? "")
