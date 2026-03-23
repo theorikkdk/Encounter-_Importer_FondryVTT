@@ -5132,7 +5132,7 @@ async function epiSetUserTargets(tokenIds) {
   } catch (_e) {}
 
   // Let the target set propagate before calling Midi
-  await new Promise(r => setTimeout(r, 0));
+  await new Promise(r => setTimeout(r, 50));
   return prev;
 }
 
@@ -5323,7 +5323,16 @@ async function epiExecuteIceKnifeStyleOnHitAoe({ item, meta, primary, targets, a
     units: meta?.units
   });
 
-  const nextUsage = foundry.utils.mergeObject(usage, { midiOptions: { targetUuids } }, { inplace: false });
+  const nextUsage = foundry.utils.mergeObject(usage, {
+    targets: targetUuids,
+    targetUuids,
+    tokenUuids: targetUuids,
+    midiOptions: {
+      targetUuids,
+      proceedChecks: { checkTargets: false },
+      workflowOptions: { targetConfirmation: "none" }
+    }
+  }, { inplace: false });
 
   let prevTargetIds = null;
   try {
@@ -5449,6 +5458,9 @@ async function epiRunOnHitAoeSecondary(workflow) {
       consume: { spellSlot: false },
       scaling,
       spell: { slot: castLevel ? `spell${castLevel}` : undefined },
+      targets: targetUuids,
+      targetUuids,
+      tokenUuids: targetUuids,
       midiOptions: {
         targetUuids,
         proceedChecks: { checkTargets: false },
@@ -6258,7 +6270,11 @@ async function epiLaunchLightningArrowSecondaryFromConfirmedHit(workflow) {
 	      consume: { spellSlot: false },
 	      scaling,
 	      spell: { slot: castLevel ? `spell${castLevel}` : undefined },
+	      targets: targetUuids,
+	      targetUuids,
+	      tokenUuids: targetUuids,
 	      midiOptions: {
+	        targetUuids,
 	        proceedChecks: { checkTargets: false },
 	        workflowOptions: {
 	          __epiSecondaryOnHitAoe: true,
