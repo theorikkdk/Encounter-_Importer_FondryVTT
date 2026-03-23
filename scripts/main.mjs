@@ -3676,6 +3676,12 @@ function epiShouldPromptActivityChoice(item) {
   const epi = item?.flags?.[MODULE_ID] ?? item?.flags?.["encounterplus-importer"] ?? {};
   if (epi?.forceActivityChooser) return true;
   if (epi?.beamCantrip?.enabled) return false;
+  if (String(epi?.slug ?? "").toLowerCase() === "fleche-de-foudre") {
+    console.log(`[EPI lightning arrow debug] chooser forced to primary only`, {
+      item: item?.name
+    });
+    return false;
+  }
 
   const hiddenIds = epiGetChooserHiddenActivityIds(item);
   const isLightningArrow = String(epi?.slug ?? "").toLowerCase() === "fleche-de-foudre";
@@ -4507,11 +4513,44 @@ Hooks.once("ready", () => {
 
         return result;
       }
-    }
+	    }
 
-    // Generic: prompt a dnd5e ActivityChoiceDialog when the spell has BOTH:
-    // - at least one activity that consumes a spell slot (cast)
-    // - at least one activity that does NOT consume a spell slot (repeat/follow-up)
+	    const lightningArrowSlug = String(
+	      item?.getFlag?.(MODULE_ID, "slug")
+	      ?? item?.getFlag?.("encounterplus-importer", "slug")
+	      ?? item?.flags?.[MODULE_ID]?.slug
+	      ?? item?.flags?.["encounterplus-importer"]?.slug
+	      ?? ""
+	    ).toLowerCase();
+	    if (!explicitActivityId && lightningArrowSlug === "fleche-de-foudre") {
+	      const primaryDoc = epiGetLightningArrowPrimaryActivity(item);
+	      if (primaryDoc) {
+	        const primaryId = String(primaryDoc?._id ?? primaryDoc?.id ?? "");
+	        console.log(`[EPI lightning arrow debug] chooser forced to primary only`, {
+	          item: item?.name,
+	          activityId: primaryId
+	        });
+	        console.log(`[EPI lightning arrow debug] activity 1 launched`, {
+	          item: item?.name,
+	          activityId: primaryId
+	        });
+	        const usage = foundry.utils.mergeObject(opts0, {
+	          __epiActivityChoiceDone: true,
+	          __epiBypassActivityChooser: true,
+	          activityId: primaryId,
+	          activity: primaryDoc ?? primaryId
+	        }, { inplace: false });
+	        try {
+	          if (primaryDoc?.use) return await __epiMaybeApplyWrapperBuff(await primaryDoc.use(usage, args[1] ?? {}, args[2] ?? {}));
+	        } catch (_e) {}
+	        const nextArgs = [usage, ...args.slice(1)];
+	        return await __epiMaybeApplyWrapperBuff(await wrapped(...nextArgs));
+	      }
+	    }
+
+	    // Generic: prompt a dnd5e ActivityChoiceDialog when the spell has BOTH:
+	    // - at least one activity that consumes a spell slot (cast)
+	    // - at least one activity that does NOT consume a spell slot (repeat/follow-up)
     if (!epiShouldPromptActivityChoice(item)) return await __epiMaybeApplyWrapperBuff(await wrapped(...args));
 
 
@@ -5060,6 +5099,17 @@ function epiResolvePrimaryHitTargetFromWorkflow(workflow) {
   if (directFallback) return { ...directFallback, sources, cacheKey: k };
 
   return { token: null, source: null, sources, cacheKey: k };
+}
+
+function epiGetLightningArrowPrimaryActivity(item) {
+  const hiddenIds = epiGetChooserHiddenActivityIds(item);
+  const list = epiListActivities(item);
+  return list.find(a => {
+    const actId = String(a?._id ?? a?.id ?? "");
+    if (!actId || hiddenIds.has(actId)) return false;
+    if (epiIsAutomationOnlyActivity(a)) return false;
+    return epiActivityConsumesSpellSlot(a) || String(a?.type ?? "").toLowerCase() === "attack";
+  }) ?? null;
 }
 
 async function epiSetUserTargets(tokenIds) {
@@ -6096,18 +6146,17 @@ async function epiLaunchLightningArrowSecondaryFromConfirmedHit(workflow) {
     const doneKey = epiDoneKey(workflow, String(primary?.id ?? ""));
     if (epiDoneRecently(doneKey)) return;
 
-    const gridDist = Number(canvas?.scene?.grid?.distance ?? 5) || 5;
-    const rScene = epiUnitsToSceneDistance(meta.radius, meta.units);
-    if (!rScene) return;
-    const steps = Math.max(1, Math.round(rScene / gridDist));
-    const tokens = (canvas?.tokens?.placeables ?? []).filter(t => t?.actor);
-    let adj = epiTokensInGridBurst(primary, tokens, steps);
-    adj = adj.filter(t => String(t?.id ?? "") !== String(primary?.id ?? ""));
-    if (!adj.length) return;
-
-    const targetUuids = adj.map(t => String(t?.document?.uuid ?? t?.uuid ?? "")).filter(Boolean);
-    if (!targetUuids.length) return;
-    console.log(`[EPI lightning arrow debug] adjacent target uuids built`, targetUuids);
+	    const gridDist = Number(canvas?.scene?.grid?.distance ?? 5) || 5;
+	    const rScene = epiUnitsToSceneDistance(meta.radius, meta.units);
+	    if (!rScene) return;
+	    const steps = Math.max(1, Math.round(rScene / gridDist));
+	    const tokens = (canvas?.tokens?.placeables ?? []).filter(t => t?.actor);
+	    let adj = epiTokensInGridBurst(primary, tokens, steps);
+	    adj = adj.filter(t => String(t?.id ?? "") !== String(primary?.id ?? ""));
+	    const targetTokens = adj.length ? adj : [primary];
+	    const targetUuids = targetTokens.map(t => String(t?.document?.uuid ?? t?.uuid ?? "")).filter(Boolean);
+	    if (!targetUuids.length) return;
+	    console.log(`[EPI lightning arrow debug] adjacent target uuids built`, targetUuids);
 
     const act = epiGetActivityById(item, String(meta.saveActivityId));
     const actUuid = String(act?.uuid ?? act?.document?.uuid ?? "") || (item?.uuid ? `${item.uuid}.Activity.${String(meta.saveActivityId)}` : "");
@@ -6136,16 +6185,16 @@ async function epiLaunchLightningArrowSecondaryFromConfirmedHit(workflow) {
       __epiBypassActivityChooser: true,
       __epiActivityChoiceDone: true
     };
-    const dialog = { configure: false, options: { display: { all: false } } };
-    const message = { create: true };
+	    const dialog = { configure: false, options: { display: { all: false } } };
+	    const message = { create: true };
 
-    epiMarkDone(doneKey);
-    const prevTargetIds = await epiSetUserTargets(adj.map(t => String(t?.id ?? t?.document?.id ?? "")).filter(Boolean)).catch(() => null);
-    try {
-      console.log(`[EPI lightning arrow debug] launching activity 2 immediately after activity 1`, {
-        activityUuid: actUuid,
-        targetUuids
-      });
+	    epiMarkDone(doneKey);
+	    const prevTargetIds = await epiSetUserTargets(targetTokens.map(t => String(t?.id ?? t?.document?.id ?? "")).filter(Boolean)).catch(() => null);
+	    try {
+	      console.log(`[EPI lightning arrow debug] activity 2 auto-launched`, {
+	        activityUuid: actUuid,
+	        targetUuids
+	      });
       const result = await epiUseActivityViaMidi(act ?? actUuid, usage, dialog, message);
       console.log(`[EPI lightning arrow debug] activity 2 completed`, {
         activityUuid: actUuid,
