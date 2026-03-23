@@ -6213,34 +6213,52 @@ async function epiLaunchLightningArrowSecondaryFromConfirmedHit(workflow) {
 	        targetId: primary?.id ?? null,
 	        targetUuid: primary?.document?.uuid ?? primary?.uuid ?? null
 	      });
+	      console.log(`[EPI lightning arrow debug] primary target for activity 2`, {
+	        target: primary?.name ?? primary?.id ?? null,
+	        targetId: primary?.id ?? null,
+	        targetUuid: primary?.document?.uuid ?? primary?.uuid ?? null
+	      });
 	    }
 
 	    const doneKey = epiDoneKey(workflow, String(primary?.id ?? "no-primary"));
 	    if (epiDoneRecently(doneKey)) return;
 
+	    if (!primary) {
+	      console.warn(`[EPI lightning arrow debug] activity 2 launch failed`, {
+	        reason: "primary target absent for secondary targeting",
+	        item: item?.name,
+	        activityId: actId
+	      });
+	      return;
+	    }
+
 	    let targetTokens = [];
-	    if (primary) {
-	      const gridDist = Number(canvas?.scene?.grid?.distance ?? 5) || 5;
-	      const rScene = epiUnitsToSceneDistance(meta?.radius, meta?.units);
-	      if (rScene) {
-	        const steps = Math.max(1, Math.round(rScene / gridDist));
-	        const tokens = (canvas?.tokens?.placeables ?? []).filter(t => t?.actor);
-	        let adj = epiTokensInGridBurst(primary, tokens, steps);
-	        adj = adj.filter(t => String(t?.id ?? "") !== String(primary?.id ?? ""));
-	        targetTokens = adj.length ? adj : [primary];
-	      }
-	    }
-	    if (!targetTokens.length) {
-	      targetTokens = epiToTokenArray(workflow?.targets);
-	    }
-	    if (!targetTokens.length) {
-	      targetTokens = epiToTokenArray(game.user?.targets);
-	    }
-	    if (!targetTokens.length && primary) {
-	      targetTokens = [primary];
+	    const gridDist = Number(canvas?.scene?.grid?.distance ?? 5) || 5;
+	    const rScene = epiUnitsToSceneDistance(meta?.radius, meta?.units);
+	    if (rScene) {
+	      const steps = Math.max(1, Math.round(rScene / gridDist));
+	      const tokens = (canvas?.tokens?.placeables ?? []).filter(t => t?.actor);
+	      let adj = epiTokensInGridBurst(primary, tokens, steps);
+	      console.log(`[EPI lightning arrow debug] adjacent targets for activity 2`, epiDescribeTokens(adj));
+	      adj = adj.filter(t => String(t?.id ?? "") !== String(primary?.id ?? ""));
+	      console.log(`[EPI lightning arrow debug] primary excluded from secondary targets`, {
+	        primaryId: String(primary?.id ?? ""),
+	        remainingTargets: epiDescribeTokens(adj)
+	      });
+	      targetTokens = adj;
 	    }
 	    const targetUuids = targetTokens.map(t => String(t?.document?.uuid ?? t?.uuid ?? "")).filter(Boolean);
-	    if (targetUuids.length) console.log(`[EPI lightning arrow debug] adjacent target uuids built`, targetUuids);
+	    if (!targetUuids.length) {
+	      console.warn(`[EPI lightning arrow debug] activity 2 launch failed`, {
+	        reason: "no secondary adjacent targets",
+	        item: item?.name,
+	        activityId: actId,
+	        primaryId: String(primary?.id ?? "")
+	      });
+	      return;
+	    }
+	    console.log(`[EPI lightning arrow debug] adjacent target uuids built`, targetUuids);
+	    console.log(`[EPI lightning arrow debug] secondary targetUuids applied`, targetUuids);
 
 	    const actUuid = String(act?.uuid ?? act?.document?.uuid ?? "") || (item?.uuid ? `${item.uuid}.Activity.${actId}` : "");
 	    if (!actUuid) {
@@ -6278,14 +6296,15 @@ async function epiLaunchLightningArrowSecondaryFromConfirmedHit(workflow) {
 		    const dialog = { configure: false, options: { display: { all: false } } };
 		    const message = { create: true };
 
-		    epiMarkDone(doneKey);
-		    const prevTargetIds = targetTokens.length
-		      ? await epiSetUserTargets(targetTokens.map(t => String(t?.id ?? t?.document?.id ?? "")).filter(Boolean)).catch(() => null)
-		      : null;
-		    try {
-		      console.log(`[EPI lightning arrow debug] auto-launching activity 2`, {
-		        activityUuid: actUuid,
-		        targetUuids
+	    epiMarkDone(doneKey);
+	    const prevTargetIds = targetTokens.length
+	      ? await epiSetUserTargets(targetTokens.map(t => String(t?.id ?? t?.document?.id ?? "")).filter(Boolean)).catch(() => null)
+	      : null;
+	    try {
+	      console.log(`[EPI lightning arrow debug] activity 2 effective targets`, epiDescribeTokens(Array.from(game.user?.targets ?? [])));
+	      console.log(`[EPI lightning arrow debug] auto-launching activity 2`, {
+	        activityUuid: actUuid,
+	        targetUuids
 		      });
 	      try {
 	        const result = await epiUseActivityViaMidi(act ?? actUuid, usage, dialog, message);
