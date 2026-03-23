@@ -5330,7 +5330,7 @@ for (const ev of [
   });
 }
 
-async function epiExecuteIceKnifeStyleOnHitAoe({ item, meta, primary, targets, actUuid, usage, dialog, message }) {
+async function epiExecuteIceKnifeStyleOnHitAoe({ item, meta, primary, targets, activityRef, actUuid, usage, dialog, message }) {
   const targetUuids = targets
     .map(t => String(t?.document?.uuid ?? t?.uuid ?? ""))
     .filter(Boolean);
@@ -5353,7 +5353,7 @@ async function epiExecuteIceKnifeStyleOnHitAoe({ item, meta, primary, targets, a
   } catch (_e) {}
 
   try {
-    const secondaryResult = await epiUseActivityViaMidi(actUuid, nextUsage, dialog, message);
+    const secondaryResult = await epiUseActivityViaMidi(activityRef ?? actUuid, nextUsage, dialog, message);
     return secondaryResult;
   } finally {
     try {
@@ -5500,6 +5500,7 @@ async function epiRunOnHitAoeSecondary(workflow) {
       meta,
       primary,
       targets,
+      activityRef: act ?? actUuid,
       actUuid,
       usage,
       dialog,
@@ -6332,6 +6333,7 @@ async function epiLaunchLightningArrowSecondaryFromConfirmedHit(workflow) {
 	        meta,
 	        primary,
 	        targets: targetTokens,
+	        activityRef: act ?? actUuid,
 	        actUuid,
 	        usage,
 	        dialog,
