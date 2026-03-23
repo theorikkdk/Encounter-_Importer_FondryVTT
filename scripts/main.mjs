@@ -5792,6 +5792,21 @@ async function epiRunBuffOnHitAoeSecondary(workflow) {
     const found = await epiFindFirstBuffSpellEffect(actor);
     if (!found) return;
     const { effect, spellItem, meta } = found;
+    const spellSlug = String(
+      spellItem?.getFlag?.(MODULE_ID, "slug")
+      ?? spellItem?.getFlag?.("encounterplus-importer", "slug")
+      ?? spellItem?.flags?.[MODULE_ID]?.slug
+      ?? spellItem?.flags?.["encounterplus-importer"]?.slug
+      ?? ""
+    ).toLowerCase();
+    if (spellSlug === "fleche-de-foudre") {
+      console.log(`[EPI lightning arrow debug] manual buff detonation bypassed`, {
+        actor: actor?.name,
+        spell: spellItem?.name,
+        workflowId: workflow?.id ?? workflow?.uuid ?? null
+      });
+      return;
+    }
 
     // Primary target is the hit target; optionally trigger on miss.
     const hit = (() => {
@@ -6343,6 +6358,27 @@ async function epiLaunchLightningArrowSecondaryFromConfirmedHit(workflow) {
 	        hasResult: result != null,
 	        resultType: typeof result
 	      });
+	      try {
+	        const actor = workflow?.actor ?? workflow?.item?.actor ?? null;
+	        const found = actor ? await epiFindFirstBuffSpellEffect(actor) : null;
+	        if (found?.spellItem) {
+	          const foundSlug = String(
+	            found.spellItem?.getFlag?.(MODULE_ID, "slug")
+	            ?? found.spellItem?.getFlag?.("encounterplus-importer", "slug")
+	            ?? found.spellItem?.flags?.[MODULE_ID]?.slug
+	            ?? found.spellItem?.flags?.["encounterplus-importer"]?.slug
+	            ?? ""
+	          ).toLowerCase();
+	          if (foundSlug === "fleche-de-foudre") {
+	            try { await found.effect?.delete?.(); } catch (_e) {}
+	            try { await epiEndConcentrationBestEffort(actor, found.spellItem?.uuid); } catch (_e) {}
+	            console.log(`[EPI lightning arrow debug] Lightning Arrow buff marker consumed after activity 2`, {
+	              actor: actor?.name ?? null,
+	              spell: found.spellItem?.name ?? null
+	            });
+	          }
+	        }
+	      } catch (_cleanupError) {}
 	    } catch (launchError) {
 	      console.warn(`[EPI lightning arrow debug] activity 2 launch failed detailed`, {
 	        reason: "appel runtime qui échoue",
